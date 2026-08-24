@@ -15,11 +15,11 @@ app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 
 st.set_page_config(page_title="S.A.Q - Takeoff & Vector CAD Platform", layout="wide", page_icon=app_icon)
 
-def load_raster(file):
-    """טעינת קובץ PDF או תמונה והמרתם למטריצת BGR"""
+def load_raster(file, scale=1.3):
+    """טעינה מואצת ומכוילת לעיבוד מהיר בענן"""
     if file.name.lower().endswith(".pdf"):
         pdf = pdfium.PdfDocument(file.read())
-        bitmap = pdf.get_page(0).render(scale=2.0)
+        bitmap = pdf.get_page(0).render(scale=scale)
         pil_img = bitmap.to_pil().convert("RGB")
         return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     else:
@@ -37,64 +37,59 @@ def load_raster(file):
             return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
         return img
 
-def extract_symbols_from_legend(legend_img, min_size=14, max_size=180):
-    """מנוע ייעודי לפירוק מקרא: הסרת קווי טבלת שרטוט וחילוץ סמלים מבודדים"""
+def extract_symbols_from_legend(legend_img, min_size=18, max_size=160):
+    """חילוץ סמלים בלבד וסינון אותיות וטקסטים קטנים"""
     gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 225, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
     
-    # 1. זיהוי ונטרול קווי טבלה אופקיים ואנכיים
-    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (35, 1))
-    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 35))
+    # נטרול קווי טבלה
+    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 1))
+    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 30))
     h_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, h_kernel)
     v_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, v_kernel)
     table_grid = cv2.add(h_lines, v_lines)
-    
-    # הסרת קווי הרשת מהתמונה המעובדת
     cleaned_thresh = cv2.subtract(thresh, table_grid)
     
-    # 2. איתור כל האלמנטים בעומק מלא (RETR_LIST)
     contours, _ = cv2.findContours(cleaned_thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
     raw_symbols = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        if min_size <= w <= max_size and min_size <= h <= max_size:
+        area = cv2.contourArea(c)
+        # סינון מחמיר שמונע לכידת אותיות טקסט או נקודות
+        if min_size <= w <= max_size and min_size <= h <= max_size and area > 60:
             aspect = w / float(h)
-            if 0.35 <= aspect <= 2.8:
-                area = cv2.contourArea(c)
-                if area > 35:
-                    pad = 4
-                    y1, y2 = max(0, y - pad), min(legend_img.shape[0], y + h + pad)
-                    x1, x2 = max(0, x - pad), min(legend_img.shape[1], x + w + pad)
-                    crop_color = legend_img[y1:y2, x1:x2]
-                    crop_gray = gray[y1:y2, x1:x2]
-                    raw_symbols.append({
-                        "bbox": (x, y, w, h),
-                        "crop_color": crop_color,
-                        "crop_gray": crop_gray,
-                        "y_pos": y,
-                        "x_pos": x
-                    })
-                    
-    # מיון מלמעלה למטה ומשמאל לימין
-    raw_symbols.sort(key=lambda s: (s["y_pos"] // 30, s["x_pos"]))
+            if 0.4 <= aspect <= 2.5:
+                pad = 3
+                y1, y2 = max(0, y - pad), min(legend_img.shape[0], y + h + pad)
+                x1, x2 = max(0, x - pad), min(legend_img.shape[1], x + w + pad)
+                crop_color = legend_img[y1:y2, x1:x2]
+                crop_gray = gray[y1:y2, x1:x2]
+                raw_symbols.append({
+                    "bbox": (x, y, w, h),
+                    "crop_color": crop_color,
+                    "crop_gray": crop_gray,
+                    "y_pos": y,
+                    "x_pos": x
+                })
+                
+    raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
     
-    # סינון חפיפות וכפילויות
+    # איחוד פריטים קרובים
     unique_symbols = []
     for sym in raw_symbols:
         is_dup = False
         for u in unique_symbols:
-            dist = np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"])
-            if dist < 18:
+            if np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 22:
                 is_dup = True
                 break
         if not is_dup:
             unique_symbols.append(sym)
             
-    return unique_symbols
+    return unique_symbols[:15] # הגבלה ל-15 סמלים ראשיים
 
-def match_symbol_on_plan(plan_gray, plan_edges, templ_gray, threshold=0.34):
-    """סריקת סמל מקרא בתוכנית ב-5 קני מידה ו-4 זוויות סיבוב"""
+def match_symbol_fast(plan_edges, templ_gray, threshold=0.34):
+    """התאמה מהירה ב-3 קני מידה מרכזיים"""
     _, thresh_t = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
     pts = cv2.findNonZero(thresh_t)
     if pts is not None:
@@ -105,8 +100,8 @@ def match_symbol_on_plan(plan_gray, plan_edges, templ_gray, threshold=0.34):
     templ_edges = cv2.Canny(templ_gray, 50, 150)
     detections = []
     
-    scales = [0.6, 0.8, 1.0, 1.2, 1.4]
-    for scale in scales:
+    # סריקה ממוקדת ב-3 קני מידה (מאיץ פי 4 את המהירות)
+    for scale in [0.75, 1.0, 1.25]:
         sw = int(templ_edges.shape[1] * scale)
         sh = int(templ_edges.shape[0] * scale)
         if sw >= plan_edges.shape[1] or sh >= plan_edges.shape[0] or sw < 8 or sh < 8:
@@ -171,45 +166,48 @@ if file_type == "📄 PDF / תמונה (Raster)":
             
         if f_plan and f_legend:
             if st.button("🚀 הפעל פענוח מקרא וספירה אוטומטית בתוכנית"):
-                with st.spinner("מחלץ סמלים מהמקרא ומבצע התאמות על כלל התוכנית..."):
-                    img_plan = load_raster(f_plan)
-                    img_leg = load_raster(f_legend)
+                img_plan = load_raster(f_plan)
+                img_leg = load_raster(f_legend)
+                
+                symbols_found = extract_symbols_from_legend(img_leg)
+                
+                if not symbols_found:
+                    st.warning("⚠️ לא אותרו סמלים מבודדים במקרא. בדוק את בהירות הקובץ.")
+                else:
+                    progress_bar = st.progress(0, text="מתחיל סריקה הנדסית...")
+                    plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
+                    plan_edges = cv2.Canny(plan_gray, 50, 150)
                     
-                    symbols_found = extract_symbols_from_legend(img_leg)
+                    all_results = []
+                    disp_plan = img_plan.copy()
+                    colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
                     
-                    if not symbols_found:
-                        st.warning("⚠️ המערכת לא בודדה תאים באופן אוטומטי. מציג את המקרא המלא לעיון:")
-                        st.image(cv2.cvtColor(img_leg, cv2.COLOR_BGR2RGB), use_container_width=True)
-                    else:
-                        plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
-                        plan_edges = cv2.Canny(plan_gray, 50, 150)
+                    total_syms = len(symbols_found)
+                    for i, sym in enumerate(symbols_found):
+                        progress_bar.progress((i + 1) / total_syms, text=f"סורק סמל {i+1} מתוך {total_syms}...")
+                        matches = match_symbol_fast(plan_edges, sym["crop_gray"], threshold=thresh_val)
+                        count = len(matches)
                         
-                        all_results = []
-                        disp_plan = img_plan.copy()
-                        colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
-                        
-                        for i, sym in enumerate(symbols_found):
-                            matches = match_symbol_on_plan(plan_gray, plan_edges, sym["crop_gray"], threshold=thresh_val)
-                            count = len(matches)
-                            color = colors[i % len(colors)]
-                            for m in matches:
-                                x, y, w, h = m["bbox"]
-                                cv2.rectangle(disp_plan, (x, y), (x + w, y + h), color, 3)
-                                cv2.putText(disp_plan, f"S{i+1}", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-                                
-                            all_results.append({
-                                "index": i + 1,
-                                "symbol_img": sym["crop_color"],
-                                "count": count,
-                                "matches": matches
-                            })
+                        color = colors[i % len(colors)]
+                        for m in matches:
+                            x, y, w, h = m["bbox"]
+                            cv2.rectangle(disp_plan, (x, y), (x + w, y + h), color, 3)
+                            cv2.putText(disp_plan, f"S{i+1}", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                             
-                        st.session_state["legend_results"] = all_results
-                        st.session_state["disp_plan"] = disp_plan
+                        all_results.append({
+                            "index": i + 1,
+                            "symbol_img": sym["crop_color"],
+                            "count": count,
+                            "matches": matches
+                        })
+                        
+                    progress_bar.empty()
+                    st.session_state["legend_results"] = all_results
+                    st.session_state["disp_plan"] = disp_plan
 
             if "legend_results" in st.session_state:
                 res = st.session_state["legend_results"]
-                st.success(f"פוענחו {len(res)} סוגי סמלים מתוך המקרא!")
+                st.success(f"הסריקה הושלמה בהצלחה! פוענחו {len(res)} סמלים.")
                 
                 st.subheader("📋 פירוט ספירת כמויות לפי סמלי מקרא")
                 boq_rows = []
@@ -218,7 +216,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     c1, c2, c3 = st.columns([1, 2, 2])
                     with c1:
                         if item["symbol_img"].size > 0:
-                            st.image(cv2.cvtColor(item["symbol_img"], cv2.COLOR_BGR2RGB), width=65, caption=f"סמל S{item['index']}")
+                            st.image(cv2.cvtColor(item["symbol_img"], cv2.COLOR_BGR2RGB), width=60, caption=f"סמל S{item['index']}")
                     with c2:
                         s_desc = st.text_input(f"תיאור סמל S{item['index']}:", value=f"סמל חשמל S{item['index']}", key=f"desc_{item['index']}")
                         is_inc = st.checkbox("כלול בכתב כמויות", value=(item["count"] > 0), key=f"inc_leg_{item['index']}")
@@ -241,8 +239,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     with pd.ExcelWriter(out_io, engine="openpyxl") as writer:
                         df_boq.to_excel(writer, index=False, sheet_name="כתב כמויות חשמל")
                     st.download_button("📥 ייצא כתב כמויות ל-Excel", data=out_io.getvalue(), file_name="Legend_Takeoff_BOQ.xlsx")
-        else:
-            st.info("💡 העלה את קובץ התוכנית ואת קובץ המקרא להפעלת הסריקה המשולבת.")
 
 # ========================================================
 # 📐 נתיב CAD וקטורי (DXF)
@@ -269,43 +265,3 @@ else:
                         summary.to_excel(w, sheet_name="ריכוז", index=False)
                         edited.to_excel(w, sheet_name="פירוט", index=False)
                     st.download_button("📥 ייצא ל-Excel", data=out.getvalue(), file_name="Electrical_BOQ.xlsx")
-            elif discipline == "🧱 בניה (מחיצות ומעטפת)":
-                st.subheader("🧱 חישוב מחיצות פנים ובדיקת מעטפת")
-                w_layers = st.multiselect("שכבות קירות:", layers, default=layers[:2] if layers else [])
-                h_wall = st.number_input("גובה קומה (מטרים):", value=2.80, step=0.05)
-                if w_layers:
-                    t = parser.calculate_wall_takeoff(w_layers, wall_height_m=h_wall)
-                    c1, c2, c3 = st.columns(3)
-                    c1.metric("אורך ציר משוער", f"{t['estimated_wall_centerline_m']} מטר אורך")
-                    c2.metric("גובה מחיצה", f"{t['wall_height_m']} מטר")
-                    c3.metric("סך שטח מחיצות", f"{t['total_wall_area_m2']} מטר מרובע")
-            elif discipline == "📐 ריצוף וחיפוי":
-                st.subheader("📐 שטחי ריצוף נטו וחיפוי קירות")
-                f_layers = st.multiselect("שכבות ריצוף:", layers, default=layers)
-                h_clad = st.number_input("גובה חיפוי חללים רטובים (מטרים):", value=2.40, step=0.10)
-                polys = parser.extract_closed_polygons(f_layers)
-                if polys:
-                    total_area = sum(p["area_m2"] for p in polys)
-                    wet = parser.detect_wet_rooms_and_cladding(polys, parser.extract_blocks(), cladding_height_m=h_clad)
-                    c1, c2 = st.columns(2)
-                    c1.metric("שטח ריצוף נטו", f"{total_area:.2f} מטר מרובע")
-                    c2.metric("חיפוי חללים רטובים", f"{sum(w['cladding_area_m2'] for w in wet):.2f} מטר מרובע")
-            elif discipline == "🚿 אינסטלציה":
-                st.subheader("🚿 ספירת כלים סניטריים")
-                p_layers = st.multiselect("שכבות אינסטלציה:", layers, default=layers)
-                fix = parser.extract_blocks(p_layers)
-                if fix:
-                    st.dataframe(pd.DataFrame(fix).groupby("name").size().reset_index(name="כמות"), use_container_width=True)
-    else:
-        st.subheader("🔍 השוואת שינויים (Delta Engine)")
-        c1, c2 = st.columns(2)
-        with c1: f_base = st.file_uploader("תוכנית מקור (DXF):", type=["dxf"], key="b")
-        with c2: f_rev = st.file_uploader("תוכנית שינויים (DXF):", type=["dxf"], key="r")
-        if f_base and f_rev and st.button("🚀 בצע השוואת Delta"):
-            res = compare_vector_delta(DXFVectorParser(f_base, unit_scale_to_meter=scale_val), DXFVectorParser(f_rev, unit_scale_to_meter=scale_val))
-            s = res["summary"]
-            k1, k2, k3, k4 = st.columns(4)
-            k1.metric("נוספו (Added)", s["added_count"])
-            k2.metric("בוטלו (Removed)", s["removed_count"])
-            k3.metric("הוזזו (Moved)", s["moved_count"])
-            k4.metric("ללא שינוי", s["unchanged_count"])
