@@ -1,13 +1,3 @@
-הנה הקוד המעודכן. בוצעו שני התיקונים:
-
-1. **הסרת החלוניות המיותרות (החלק שבתמונה):** הוסר לחלוטין פירוט הכרטיסיות הגולמיות וצילומי התיאור שפתחו עומס במסך. המערכת מציגה ישירות את **טבלת הריכוז הסופית, הנקייה והמעוצבת** עם עמודת תמונות הסמלים לצד השרטוט המסומן.
-2. **תיקון מנגנון המעבר בין דיסציפלינות:** סונכרן מנגנון ה-State של Streamlit כך שלחיצה על כפתור כלשהו (מחיצות/אינסטלציה/ריצוף/חשמל) מחליפה מיד את הדיסציפלינה ומנקה את המסך לתחילת עבודה חלקה.
-
----
-
-### עדכון הקוד ב-GitHub (העתק והדבק ב-`app.py`)
-
-```python
 import streamlit as st
 import os
 import io
@@ -395,7 +385,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 yellow_items = yellow_items[:8]
                 is_done_verifying = st.session_state.get("verification_completed", False)
                 
-                # אימות פריטים בספק (V / X)
                 if yellow_items and not is_done_verifying:
                     st.markdown("---")
                     st.info(f"🔍 **אימות נקודות בספק ולמידת AI ({len(yellow_items)} נקודות לבדיקה):**")
@@ -437,7 +426,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             st.session_state["verification_completed"] = True
                             st.rerun()
                 
-                # חישוב כמויות וציור שרטוט
                 boq_rows = []
                 for s_idx, item in enumerate(res):
                     confirmed_count = 0
@@ -517,7 +505,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
                 st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
                 
-                # מעבר מהיר ואוטומטי לדיסציפלינה הבאה
                 st.markdown("---")
                 st.success("🎉 סיום חישוב הדיסציפלינה בהצלחה!")
                 st.write("**בחר לאיזה חישוב תרצה לעבור כעת:**")
@@ -557,7 +544,3 @@ else:
                     edited = st.data_editor(df[["name", "layer", "x", "y", "rotation_deg", "cardinal_rotation", "אושר"]])
                     csv_out = summary.to_csv(index=False).encode('utf-8-sig')
                     st.download_button("📥 ייצא ל-Excel (CSV)", data=csv_out, file_name="Electrical_BOQ.csv", mime="text/csv")
-
-```
-
-3. שמור ב-GitHub באמצעות **Commit changes** ורענן את הדף. המסך יהיה נקי ומסודר, והכפתורים למעבר בין התחומים יעבירו אותך מיד.
