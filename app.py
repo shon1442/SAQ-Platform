@@ -99,7 +99,6 @@ def extract_symbols_and_text_from_legend(legend_img):
                 c_gray = work_gray[y1:y2, x1:x2]
                 c_color = work_color[y1:y2, x1:x2]
                 
-                # דגימת אזור התיאור הצמוד לסמל מתוך הטבלה
                 text_crop_x1 = max(0, x - 260) if x > 260 else min(work_gray.shape[1], x + w)
                 text_crop_x2 = x if x > 260 else min(work_gray.shape[1], x + w + 260)
                 text_crop = work_color[y1:y2, text_crop_x1:text_crop_x2]
@@ -369,7 +368,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     with c2:
                         if item["text_crop"].size > 0:
                             st.caption("חיתוך תיאור מהמקרא:")
-                            st.image(cv2.cvtColor(item["text_crop"], cv2.COLOR_BGR2RGB), height=35)
+                            st.image(cv2.cvtColor(item["text_crop"], cv2.COLOR_BGR2RGB), width=200)
                         s_desc = st.text_input(f"תיאור פריט #{item['index']}:", value=f"סמל חשמל/תאורה #{item['index']}", key=f"desc_{item['index']}")
                         is_inc = st.checkbox("כלול בכתב כמויות", value=(item["confirmed_count"] > 0), key=f"inc_leg_{item['index']}")
                     with c3:
@@ -403,7 +402,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                         for r in boq_rows
                     ])
                     
-                    # הצגת טבלה עם תמונות מוטמעות
                     st.dataframe(
                         df_preview,
                         column_config={
