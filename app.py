@@ -152,7 +152,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ריאליסטית: מגדל יוקרה נבנה ומנוף (3 שניות)
+# 🚀 אנימציית פתיחה עתידנית: מגדל מגורים נבנה בקומה אחר קומה (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -167,7 +167,7 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: radial-gradient(circle, #0f172a 0%, #020617 100%);
+        background: linear-gradient(135deg, #090d16 0%, #1e1b4b 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
@@ -176,53 +176,53 @@ if not st.session_state["app_initialized"]:
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .tower-site {
+    .futuristic-site {
         position: relative;
-        width: 260px;
-        height: 280px;
-        border-bottom: 6px solid #facc15;
-        margin-bottom: 25px;
+        width: 300px;
+        height: 260px;
+        border-bottom: 4px solid #38bdf8;
+        margin-bottom: 20px;
         display: flex;
         justify-content: center;
         align-items: flex-end;
     }
-    @keyframes craneSwing {
-        0% { transform: rotate(-12deg); }
-        50% { transform: rotate(18deg); }
-        100% { transform: rotate(-12deg); }
+    @keyframes craneMotion {
+        0% { transform: rotate(-15deg); }
+        50% { transform: rotate(20deg); }
+        100% { transform: rotate(-15deg); }
     }
-    @keyframes growTower {
-        0% { height: 25px; opacity: 0.2; }
-        100% { height: 240px; opacity: 1; }
+    @keyframes growFuturisticTower {
+        0% { height: 15px; opacity: 0.1; transform: scaleY(0.2); }
+        100% { height: 220px; opacity: 1; transform: scaleY(1); }
     }
-    .splash-crane {
+    .splash-cyber-crane {
         position: absolute;
-        top: -10px;
-        right: 15px;
-        font-size: 70px;
+        top: 0;
+        right: 20px;
+        font-size: 65px;
         transform-origin: bottom center;
-        animation: craneSwing 1s infinite ease-in-out;
+        animation: craneMotion 1s infinite ease-in-out;
+        filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8));
     }
-    .splash-tower {
-        width: 90px;
-        background: linear-gradient(to top, #1e293b, #3b82f6, #60a5fa);
-        border-radius: 6px 6px 0 0;
-        animation: growTower 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
-        box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+    .splash-cyber-tower {
+        width: 100px;
+        background: linear-gradient(to top, #1e3a8a, #2563eb, #60a5fa);
+        border-radius: 8px 8px 0 0;
+        animation: growFuturisticTower 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
+        box-shadow: 0 0 40px rgba(37, 99, 235, 0.7);
         border: 2px solid #93c5fd;
         display: flex;
         flex-direction: column;
         justify-content: space-around;
         align-items: center;
-        padding-top: 10px;
+        padding: 8px 0;
     }
-    .window-row {
-        width: 70px;
-        height: 12px;
-        background-color: #fef08a;
-        box-shadow: 0 0 8px #fde047;
+    .cyber-floor {
+        width: 80px;
+        height: 10px;
+        background-color: #fde047;
+        box-shadow: 0 0 10px #facc15;
         border-radius: 2px;
-        opacity: 0.85;
     }
     .splash-title {
         font-size: 38px;
@@ -231,26 +231,28 @@ if not st.session_state["app_initialized"]:
         letter-spacing: 1px;
     }
     .splash-subtitle {
-        font-size: 17px;
+        font-size: 20px;
+        font-weight: 600;
         color: #38bdf8;
         margin-top: 6px;
+        text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="tower-site">
-            <div class="splash-crane">🏗️</div>
-            <div class="splash-tower">
-                <div class="window-row"></div>
-                <div class="window-row"></div>
-                <div class="window-row"></div>
-                <div class="window-row"></div>
-                <div class="window-row"></div>
-                <div class="window-row"></div>
-                <div class="window-row"></div>
+        <div class="futuristic-site">
+            <div class="splash-cyber-crane">🏗️</div>
+            <div class="splash-cyber-tower">
+                <div class="cyber-floor"></div>
+                <div class="cyber-floor"></div>
+                <div class="cyber-floor"></div>
+                <div class="cyber-floor"></div>
+                <div class="cyber-floor"></div>
+                <div class="cyber-floor"></div>
+                <div class="cyber-floor"></div>
             </div>
         </div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
-        <div class="splash-subtitle">🏢 מגדל יוקרה הנדסי מוקם אוטומטית...</div>
+        <div class="splash-subtitle">✨ כמויות בראש שקט ✨</div>
     </div>
     """,
       unsafe_allow_html=True,
@@ -259,7 +261,7 @@ if not st.session_state["app_initialized"]:
   bar_box = st.empty()
   prog_bar = bar_box.progress(0)
   for t in range(100):
-    time.sleep(0.03)
+    time.sleep(0.03)  # בדיוק 3 שניות
     prog_bar.progress(t + 1)
 
   st.session_state["app_initialized"] = True
@@ -663,6 +665,7 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified):
               max(0, y - pad) : min(raw_plan.shape[0], y + h + pad),
               max(0, x - pad) : min(raw_plan.shape[1], x + w + pad),
           ].copy()
+          # עיגול אדום מודגש סביב הסמל
           cv2.circle(
               crop_zoom,
               (crop_zoom.shape[1] // 2, crop_zoom.shape[0] // 2),
@@ -889,7 +892,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות ענק שוות לחלוטין בגובהן)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות בגובה אחיד ומושלם)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -902,8 +905,8 @@ if st.session_state["app_mode"] is None:
         width: 100%;
         border-radius: 14px;
         font-weight: bold;
-        padding: 40px 20px;
-        font-size: 19px;
+        padding: 30px 20px;
+        font-size: 18px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.08);
         transition: all 0.2s ease-in-out;
         border: 3px solid #1F4E78;
@@ -911,7 +914,7 @@ if st.session_state["app_mode"] is None:
         color: #1F4E78;
         text-align: center;
         white-space: pre-wrap;
-        min-height: 380px;
+        height: 380px !important;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -1115,15 +1118,13 @@ with col_t:
 active_disc = st.session_state["current_discipline"]
 
 # ========================================================
-# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub - כולל דקל מרוכז ועלויות מע"מ)
+# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub)
 # ========================================================
 if st.session_state.get("show_master_export", False):
   st.markdown("---")
   st.header(f"🏗️ מרכז הדוחות הסופי לאתר הבנייה ({mode_lbl})")
 
-  grand_total_project = 0
   all_project_rows = []
-
   for d_name in disciplines_list:
     d_rows = st.session_state["project_boq"].get(d_name, [])
     with st.expander(
@@ -1138,10 +1139,11 @@ if st.session_state.get("show_master_export", False):
       else:
         st.write("טרם הופקו כמויות בדיסציפלינה זו (0).")
 
-  # סיכום דקל כללי לכל הפרויקט
   if all_project_rows:
     st.markdown("---")
-    st.subheader("💰 סיכום תמחור כספי כולל לפרויקט (על פי מחירון דקל)")
+    st.subheader(
+        "💰 סיכום תמחור כספי מאוחד לכל הפרויקט (על פי מחירון דקל)"
+    )
     total_proj_dekel = 0
     for r in all_project_rows:
       desc = r.get("תיאור הפריט", "")
