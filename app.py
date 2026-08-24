@@ -7,6 +7,7 @@ import time
 import cv2
 import numpy as np
 import pandas as pd
+import streamlit as st
 import pypdfium2 as pdfium
 from PIL import Image, ImageDraw, ImageFont
 
@@ -19,7 +20,11 @@ except Exception:
 
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
-app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
+try:
+  app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
+except Exception:
+  app_icon = "📐"
+
 MEMORY_FILE = "saq_ai_memory.json"
 
 st.set_page_config(
@@ -419,6 +424,9 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
 # ========================================================
 # 🧠 מנגנון אימות ושאלות משתמש אחיד (Human-in-the-Loop V/X)
 # ========================================================
+ai_memory = load_ai_memory()
+
+
 def run_ai_verification_workflow(raw_plan, results_list, session_key_verified):
   disp_plan = raw_plan.copy()
   yellow_items = []
@@ -640,7 +648,6 @@ def generate_master_export_html(
   return html
 
 
-ai_memory = load_ai_memory()
 disciplines_list = [
     "⚡ חשמל ומאור",
     "🧱 בניה (מחיצות ומעטפת)",
