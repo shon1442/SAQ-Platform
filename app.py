@@ -74,38 +74,44 @@ def load_raster(file, scale=1.4):
         return None
 
 # ========================================================
-# 🛡️ מנוע אימות תאימות בין תוכניות (Plan Compatibility Check)
+# 🛡️ מנוע סיווג ובדיקת תאימות דיסציפלינות חכם
 # ========================================================
-def check_plans_compatibility(img_a, img_b):
-    """בדיקה אוטומטית שהשרטוטים שייכים לאותו פרויקט/חלל ולא מדיסציפלינות סותרות"""
+def classify_plan_signature(img):
+    """מחלץ חתימה הנדסית של השרטוט להבחנה בין חשמל, בניה ואינסטלציה"""
+    if img is None:
+        return "Unknown"
+    gray = cv2.cvtColor(cv2.resize(img, (600, 600)), cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
+    
+    # בדיקת עובי קירות מול קווים עדינים
+    kernel_thick = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    thick_walls = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel_thick)
+    thick_ratio = np.count_nonzero(thick_walls) / float(np.count_nonzero(thresh) + 1e-5)
+    
+    # בדיקת עיגולים וסמלי חשמל/מאור
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20, param1=50, param2=30, minRadius=5, maxRadius=35)
+    circle_count = len(circles[0]) if circles is not None else 0
+    
+    if circle_count > 45 and thick_ratio < 0.20:
+        return "Electrical"
+    elif thick_ratio > 0.25:
+        return "Building"
+    else:
+        return "General"
+
+def check_plans_compatibility(img_a, img_b, expected_discipline):
+    """חוסם רק ערבוב בין דיסציפלינות שונות (למשל חשמל מול בניה)"""
     if img_a is None or img_b is None:
-        return True, 100.0
+        return True
     
-    ref_w, ref_h = 500, 500
-    gray_a = cv2.cvtColor(cv2.resize(img_a, (ref_w, ref_h)), cv2.COLOR_BGR2GRAY)
-    gray_b = cv2.cvtColor(cv2.resize(img_b, (ref_w, ref_h)), cv2.COLOR_BGR2GRAY)
+    sig_a = classify_plan_signature(img_a)
+    sig_b = classify_plan_signature(img_b)
     
-    edges_a = cv2.Canny(gray_a, 50, 150)
-    edges_b = cv2.Canny(gray_b, 50, 150)
-    
-    orb = cv2.ORB_create(nfeatures=400)
-    kp_a, des_a = orb.detectAndCompute(gray_a, None)
-    kp_b, des_b = orb.detectAndCompute(gray_b, None)
-    
-    struct_corr = cv2.matchTemplate(edges_a, edges_b, cv2.TM_CCOEFF_NORMED)[0][0]
-    
-    if des_a is None or des_b is None or len(kp_a) < 12 or len(kp_b) < 12:
-        is_compat = (struct_corr >= 0.18)
-        return is_compat, round(max(0.0, float(struct_corr)) * 100, 1)
+    # חסימה רק אם הועלה שרטוט חשמל מובהק בתוך מודול בניה או להפך
+    if (sig_a == "Electrical" and sig_b == "Building") or (sig_a == "Building" and sig_b == "Electrical"):
+        return False
         
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    matches = bf.match(des_a, des_b)
-    good_matches = [m for m in matches if m.distance < 60]
-    match_ratio = len(good_matches) / float(min(len(kp_a), len(kp_b)))
-    
-    is_compat = (match_ratio >= 0.12) or (struct_corr >= 0.20)
-    score = round(max(match_ratio, struct_corr) * 100, 1)
-    return is_compat, score
+    return True
 
 # ========================================================
 # ⚡ מנועי פענוח סמלים (חשמל / אינסטלציה / בניה)
@@ -260,8 +266,8 @@ def compare_building_delta(plan_a, plan_b, wall_height=2.70, px_per_meter=55.0):
     new_sqm = new_len_m * wall_height
     
     delta_disp = cv2.resize(plan_b, (w, h)).copy()
-    delta_disp[demolition_mask > 0] = [0, 0, 255]
-    delta_disp[new_construction_mask > 0] = [0, 200, 0]
+    delta_disp[demolition_mask > 0] = [0, 0, 255] # אדום = הריסה
+    delta_disp[new_construction_mask > 0] = [0, 200, 0] # ירוק = בניה חדשה
     
     return demo_len_m, demo_sqm, new_len_m, new_sqm, envelope_anomaly, delta_disp
 
@@ -385,7 +391,7 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
 ai_memory = load_ai_memory()
 disciplines_list = ["⚡ חשמל ומאור", "🧱 בניה (מחיצות ומעטפת)", "🚿 אינסטלציה", "📐 ריצוף וחיפוי"]
 
-# אתחול קבוע למניעת שגיאות NameError
+# אתחול קבוע למניעת שגיאות
 wall_h = 2.70
 tile_h = 2.40
 px_meter = 55.0
@@ -495,14 +501,12 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 img_plan = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(20, text="טוען תוכנית סטנדרט ומבצע בדיקת תאימות... (20%)")
+                    p_bar.progress(20, text="טוען תוכנית סטנדרט ובודק תאימות... (20%)")
                     img_std = load_raster(f_std)
                     
-                    # 🛡️ בדיקת תאימות בין התוכניות
-                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
-                    if not is_compat:
+                    if not check_plans_compatibility(img_plan, img_std, "Building"):
                         p_bar.empty()
-                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט (השרטוטים שייכים לדיסציפלינות שונות או לתוכניות שאינן של אותו החלל). נא לוודא הזנת שרטוטים תואמים.")
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן שייכות לדיסציפלינת בניה!** (זוהה שרטוט מדיסציפלינה אחרת כגון חשמל). נא לוודא הזנת שרטוטי בניה בלבד.")
                         st.stop()
                         
                     p_bar.progress(50, text="מחשב השוואת הריסה מול בניה חדשה... (50%)")
@@ -558,14 +562,12 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 img_plan = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(20, text="טוען תוכנית סטנדרט ובודק תאימות שרטוטים... (20%)")
+                    p_bar.progress(20, text="טוען תוכנית סטנדרט ובודק תאימות... (20%)")
                     img_std = load_raster(f_std)
                     
-                    # 🛡️ בדיקת תאימות
-                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
-                    if not is_compat:
+                    if not check_plans_compatibility(img_plan, img_std, "Plumbing"):
                         p_bar.empty()
-                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט (השרטוטים שייכים לדיסציפלינות שונות או לחללים שונים). נא לוודא הזנת שרטוטים תואמים.")
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן שייכות לדיסציפלינת אינסטלציה!** נא לוודא הזנת שרטוטי אינסטלציה בלבד.")
                         st.stop()
                         
                     cl_a = auto_discover_plan_symbols(img_std)
@@ -622,7 +624,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
 
     # ----------------------------------------------------
-    # 3. 📐 מודול ריצוף וחיפוי (ללא מקרא)
+    # 3. 📐 מודול ריצוף וחיפוי
     # ----------------------------------------------------
     elif active_disc == "📐 ריצוף וחיפוי":
         c_exec, c_std = st.columns(2)
@@ -639,13 +641,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     p_bar.progress(20, text="בודק תאימות שרטוטי ריצוף... (20%)")
                     img_std = load_raster(f_std)
                     
-                    # 🛡️ בדיקת תאימות
-                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
-                    if not is_compat:
-                        p_bar.empty()
-                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט. נא לוודא הזנת שרטוטים תואמים.")
-                        st.stop()
-                        
                     plumb_clusters = auto_discover_plan_symbols(img_plan)
                     plumb_pts = [it["center"] for cl in plumb_clusters for it in cl["items"]]
                     floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
@@ -713,10 +708,9 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 if f_std:
                     p_bar.progress(15, text="בודק תאימות שרטוטים... (15%)")
                     img_std = load_raster(f_std)
-                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
-                    if not is_compat:
+                    if not check_plans_compatibility(img_plan, img_std, "Electrical"):
                         p_bar.empty()
-                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט (השרטוטים שייכים לדיסציפלינות שונות או לקומות שונות). נא לוודא הזנת שרטוטים תואמים.")
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן שייכות לדיסציפלינת חשמל!** נא לוודא הזנת שרטוטי חשמל בלבד.")
                         st.stop()
                         
                 p_bar.progress(25, text="מרנדר שכבות הנדסיות ומסנן רעשים... (25%)")
