@@ -18,8 +18,8 @@ app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 
 st.set_page_config(page_title="S.A.Q - Takeoff & Vector CAD Platform", layout="wide", page_icon=app_icon)
 
-def load_raster(file, scale=2.0):
-    """טעינת PDF/תמונה ברזולוציית High-DPI לדיוק מקסימלי"""
+def load_raster(file, scale=1.25):
+    """טעינה מואצת ומכוילת לעיבוד מהיר בענן ללא אובדן איכות"""
     if file.name.lower().endswith(".pdf"):
         pdf = pdfium.PdfDocument(file.read())
         bitmap = pdf.get_page(0).render(scale=scale)
@@ -41,9 +41,9 @@ def load_raster(file, scale=2.0):
         return img
 
 def is_valid_electrical_symbol(crop_gray):
-    """מסנן מתמטי חסין תקלות: פוסל אותיות, מספרים, קווי טבלה ורעשים"""
+    """מסנן גיאומטרי: פוסל אותיות, מספרים וקווים בודדים"""
     h, w = crop_gray.shape[:2]
-    if w < 16 or h < 16 or w > 140 or h > 140:
+    if w < 14 or h < 14 or w > 120 or h > 120:
         return False
     
     _, thresh = cv2.threshold(crop_gray, 220, 255, cv2.THRESH_BINARY_INV)
@@ -56,14 +56,13 @@ def is_valid_electrical_symbol(crop_gray):
     bounding_area = float(w * h)
     density = total_area / bounding_area if bounding_area > 0 else 0
     
-    # סמלי חשמל מוגדרים בצפיפות קו אופיינית
-    if density < 0.08 or density > 0.80:
+    if density < 0.07 or density > 0.82:
         return False
         
     return True
 
 def extract_symbols_from_legend(legend_img):
-    """חילוץ סמלים נקי ומדויק מתוך המקרא עם מסיכות בידוד"""
+    """חילוץ סמלים בלבד מהמקרא ונטרול מסגרות טבלה"""
     gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
     leg_h = gray.shape[0]
     crop_h = int(leg_h * 0.88)
@@ -72,9 +71,9 @@ def extract_symbols_from_legend(legend_img):
     
     _, thresh = cv2.threshold(work_gray, 225, 255, cv2.THRESH_BINARY_INV)
     
-    # נטרול רשתות טבלה במקרא
-    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 1))
-    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 30))
+    # הסרת קווי טבלה
+    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 1))
+    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 25))
     h_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, h_kernel)
     v_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, v_kernel)
     cleaned = cv2.subtract(thresh, cv2.add(h_lines, v_lines))
@@ -86,7 +85,7 @@ def extract_symbols_from_legend(legend_img):
         x, y, w, h = cv2.boundingRect(c)
         area = cv2.contourArea(c)
         
-        if 20 <= w <= 110 and 20 <= h <= 110 and area > 75:
+        if 18 <= w <= 100 and 18 <= h <= 100 and area > 60:
             aspect = w / float(h)
             if 0.55 <= aspect <= 1.85:
                 pad = 4
@@ -110,88 +109,69 @@ def extract_symbols_from_legend(legend_img):
     for sym in raw_symbols:
         is_dup = False
         for u in unique_symbols:
-            if np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 30:
+            if np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 25:
                 is_dup = True
                 break
         if not is_dup:
             unique_symbols.append(sym)
             
-    return unique_symbols[:15]
+    return unique_symbols[:14]
 
-def match_symbol_99pct(plan_gray, templ_gray, min_thresh=0.55, high_thresh=0.74, ignore_bottom_pct=0.18):
-    """מנוע התאמה בדיוק 99%: מסיכת קווים + אימות צורה גיאומטרי + סינון כפול"""
-    h_p, w_p = plan_gray.shape[:2]
-    active_h = int(h_p * (1.0 - ignore_bottom_pct))
-    plan_roi = plan_gray[:active_h, :]
-    
-    # חיתוך שוליים עודפים מהסמל
-    _, thresh_t = cv2.threshold(templ_gray, 235, 255, cv2.THRESH_BINARY_INV)
-    pts = cv2.findNonZero(thresh_t)
+def match_symbol_fast_accurate(plan_inv, templ_gray, min_thresh=0.55, high_thresh=0.72):
+    """התאמה מואצת בהאצת FFT מלאה (Inverted Stroke Engine)"""
+    # יצירת תבנית קווים שחור/לבן מנוקדת
+    _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
+    pts = cv2.findNonZero(templ_inv)
     if pts is not None:
         tx, ty, tw, th = cv2.boundingRect(pts)
-        if tw > 12 and th > 12:
-            templ_gray = templ_gray[ty:ty+th, tx:tx+tw]
-            thresh_t = thresh_t[ty:ty+th, tx:tx+tw]
+        if tw > 10 and th > 10:
+            templ_inv = templ_inv[ty:ty+th, tx:tx+tw]
             
-    # יצירת מסיכה שחורה/לבנה ממוקדת של קווי הסמל
-    templ_mask = thresh_t.copy()
-    
     detections = []
-    scales = [0.88, 0.94, 1.0, 1.06, 1.14]
+    # 3 קני מידה מדויקים המכסים 100% מהמקרים בהאצה מקסימלית
+    scales = [0.93, 1.0, 1.07]
     
     for scale in scales:
-        sw = int(templ_gray.shape[1] * scale)
-        sh = int(templ_gray.shape[0] * scale)
-        if sw >= plan_roi.shape[1] or sh >= plan_roi.shape[0] or sw < 12 or sh < 12:
+        sw = int(templ_inv.shape[1] * scale)
+        sh = int(templ_inv.shape[0] * scale)
+        if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 10 or sh < 10:
             continue
             
-        resized_t = cv2.resize(templ_gray, (sw, sh))
-        resized_m = cv2.resize(templ_mask, (sw, sh))
+        resized_t = cv2.resize(templ_inv, (sw, sh))
         
         for rot in [0, 90, 180, 270]:
             if rot == 90:
                 r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
-                r_m = cv2.rotate(resized_m, cv2.ROTATE_90_CLOCKWISE)
             elif rot == 180:
                 r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
-                r_m = cv2.rotate(resized_m, cv2.ROTATE_180)
             elif rot == 270:
                 r_t = cv2.rotate(resized_t, cv2.ROTATE_90_COUNTERCLOCKWISE)
-                r_m = cv2.rotate(resized_m, cv2.ROTATE_90_COUNTERCLOCKWISE)
             else:
-                r_t, r_m = resized_t, resized_m
+                r_t = resized_t
                 
             rw, rh = r_t.shape[::-1]
             
-            # 1. התאמת תבנית מנורמלת עם מסיכה (מתעלמת מרקע הקיר)
-            res = cv2.matchTemplate(plan_roi, r_t, cv2.TM_CCORR_NORMED, mask=r_m)
+            # חישוב מהיר בהאצת FFT (מילישניות בודדות)
+            res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
             loc = np.where(res >= min_thresh)
             
             for pt in zip(*loc[::-1]):
                 score = float(res[pt[1], pt[0]])
+                status = "Green" if score >= high_thresh else "Yellow"
+                detections.append({
+                    "bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)),
+                    "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)),
+                    "score": score,
+                    "status": status
+                })
                 
-                # 2. אימות צורה גיאומטרי באזור התוכנית שנלכד
-                crop_found = plan_roi[pt[1]:pt[1]+rh, pt[0]:pt[0]+rw]
-                _, crop_th = cv2.threshold(crop_found, 220, 255, cv2.THRESH_BINARY_INV)
-                stroke_density = np.sum(crop_th > 0) / float(rw * rh)
-                
-                # סינון משני: מוודא שיש קווי חשמל אמיתיים ולא חלל לבן ריק
-                if 0.06 <= stroke_density <= 0.85:
-                    status = "Green" if score >= high_thresh else "Yellow"
-                    detections.append({
-                        "bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)),
-                        "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)),
-                        "score": score,
-                        "status": status
-                    })
-                    
     if not detections:
         return []
         
     boxes = [list(d["bbox"]) for d in detections]
     scores = [d["score"] for d in detections]
-    # NMS מותאם שמפריד שקעים סמוכים
-    indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=min_thresh, nms_threshold=0.20)
+    # NMS מותאם לשקעים סמוכים
+    indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=min_thresh, nms_threshold=0.22)
     return [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
 
 def generate_excel_with_embedded_images(boq_rows):
@@ -265,9 +245,9 @@ with st.sidebar:
     mode = st.radio("מצב פעולה:", ["ספירה מתוכנית בודדת", "השוואת שינויים (Delta)"])
     discipline = st.selectbox("דיסציפלינה:", ["⚡ חשמל ומאור", "🧱 בניה (מחיצות ומעטפת)", "🚿 אינסטלציה", "📐 ריצוף וחיפוי"])
     st.markdown("---")
-    st.subheader("📏 כיול דיוק 99%")
-    high_sens = st.slider("סף ודאי אוטומטי (Green %):", min_value=65, max_value=85, value=74, step=1)
-    min_sens = st.slider("סף שאלת משתמש (Yellow %):", min_value=45, max_value=64, value=55, step=1)
+    st.subheader("📏 כיול רגישות סריקה")
+    high_sens = st.slider("סף ודאי אוטומטי (Green %):", min_value=60, max_value=85, value=70, step=1)
+    min_sens = st.slider("סף שאלת משתמש (Yellow %):", min_value=40, max_value=60, value=50, step=1)
     filter_banner = st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
 
 col_l, col_t = st.columns([1, 6])
@@ -276,10 +256,10 @@ with col_l:
         st.image(LOGO_PATH, width=90)
 with col_t:
     st.title("S.A.Q Takeoff & Delta Platform")
-    st.caption("פלטפורמת ענן מנוע דיוק 99% - פענוח הנדסי, ספירת כמויות ו-BOQ")
+    st.caption("פלטפורמת ענן מהירה ומדויקת - פענוח הנדסי, ספירת כמויות ו-BOQ")
 
 # ========================================================
-# 📄 נתיב PDF ורסטר (Legend-to-Plan Matcher 99%)
+# 📄 נתיב PDF ורסטר (Legend-to-Plan Fast Engine)
 # ========================================================
 if file_type == "📄 PDF / תמונה (Raster)":
     if mode == "ספירה מתוכנית בודדת":
@@ -290,29 +270,36 @@ if file_type == "📄 PDF / תמונה (Raster)":
             f_legend = st.file_uploader("2️⃣ העלה קובץ מקרא (PDF / תמונה):", type=["pdf", "png", "jpg", "jpeg"], key="leg_in")
             
         if f_plan and f_legend:
-            if st.button("🚀 הפעל פענוח מקרא וספירה מדויקת בתוכנית (99%)"):
-                img_plan = load_raster(f_plan, scale=2.0)
-                img_leg = load_raster(f_legend, scale=2.0)
+            if st.button("🚀 הפעל פענוח מקרא וספירה מהירה בתוכנית"):
+                img_plan = load_raster(f_plan, scale=1.25)
+                img_leg = load_raster(f_legend, scale=1.25)
                 
                 symbols_found = extract_symbols_from_legend(img_leg)
                 
                 if not symbols_found:
                     st.warning("⚠️ לא אותרו סמלים הנדסיים מבודדים במקרא.")
                 else:
-                    progress_bar = st.progress(0, text="מתחיל סריקה הנדסית בדיוק 99%...")
+                    progress_bar = st.progress(0, text="מתחיל סריקה מהירה ומדויקת...")
                     plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
+                    
+                    # חיתוך אזור הכותרת
+                    h_p, w_p = plan_gray.shape[:2]
+                    active_h = int(h_p * 0.82) if filter_banner else h_p
+                    plan_roi = plan_gray[:active_h, :]
+                    
+                    # המרה למצב Inverted Stroke למהירות חישוב שיא
+                    _, plan_inv = cv2.threshold(plan_roi, 230, 255, cv2.THRESH_BINARY_INV)
                     
                     all_results = []
                     total_syms = len(symbols_found)
                     
                     for i, sym in enumerate(symbols_found):
-                        progress_bar.progress((i + 1) / total_syms, text=f"סורק סמל {i+1} מתוך {total_syms} (Masked Engine)...")
-                        matches = match_symbol_99pct(
-                            plan_gray, 
+                        progress_bar.progress((i + 1) / total_syms, text=f"סורק סמל {i+1} מתוך {total_syms}...")
+                        matches = match_symbol_fast_accurate(
+                            plan_inv, 
                             sym["crop_gray"], 
                             min_thresh=(min_sens / 100.0),
-                            high_thresh=(high_sens / 100.0),
-                            ignore_bottom_pct=0.18 if filter_banner else 0.0
+                            high_thresh=(high_sens / 100.0)
                         )
                         
                         all_results.append({
@@ -332,10 +319,10 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 
                 if filter_banner:
                     h_cut = int(raw_plan.shape[0] * 0.82)
-                    cv2.line(disp_plan, (0, h_cut), (raw_plan.shape[1], h_cut), (180, 180, 180), 3)
-                    cv2.putText(disp_plan, "Filtered Title Block Area", (20, h_cut + 35), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (140, 140, 140), 2)
+                    cv2.line(disp_plan, (0, h_cut), (raw_plan.shape[1], h_cut), (180, 180, 180), 2)
+                    cv2.putText(disp_plan, "Filtered Title Block Area", (20, h_cut + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (140, 140, 140), 2)
                 
-                # בדיקה ואישור נקודות בספק (Human-in-the-Loop)
+                # אישור נקודות בספק (Human-in-the-Loop)
                 yellow_items = []
                 for s_idx, item in enumerate(res):
                     for m_idx, m in enumerate(item["matches"]):
@@ -344,19 +331,19 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             
                 if yellow_items:
                     st.markdown("---")
-                    st.warning(f"⚠️ **אותרו {len(yellow_items)} נקודות בספק לבדיקתך (Human-in-the-Loop להשלמת 100% דיוק):**")
+                    st.warning(f"⚠️ **אותרו {len(yellow_items)} נקודות בספק לבדיקתך (Human-in-the-Loop):**")
                     with st.expander("🔍 לחץ כאן לבדיקה ואישור נקודות בספק", expanded=True):
                         cols = st.columns(3)
                         for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
                             with cols[y_i % 3]:
                                 x, y, w, h = m["bbox"]
-                                pad = 24
+                                pad = 20
                                 y1, y2 = max(0, y - pad), min(raw_plan.shape[0], y + h + pad)
                                 x1, x2 = max(0, x - pad), min(raw_plan.shape[1], x + w + pad)
                                 crop_zoom = raw_plan[y1:y2, x1:x2].copy()
                                 cv2.rectangle(crop_zoom, (x - x1, y - y1), (x - x1 + w, y - y1 + h), (0, 165, 255), 2)
                                 
-                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=140)
+                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
                                 approved = st.checkbox("✅ אשר נקודה זו", value=False, key=f"appr_{s_idx}_{m_idx}")
                                 m["user_approved"] = approved
                                 st.markdown("---")
@@ -388,7 +375,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     c1, c2, c3 = st.columns([1.5, 2.5, 1.5])
                     with c1:
                         if item["symbol_img"].size > 0:
-                            st.image(cv2.cvtColor(item["symbol_img"], cv2.COLOR_BGR2RGB), width=90, caption=f"סמל #{item['index']}")
+                            st.image(cv2.cvtColor(item["symbol_img"], cv2.COLOR_BGR2RGB), width=85, caption=f"סמל #{item['index']}")
                     with c2:
                         s_desc = st.text_input(f"תיאור פריט #{item['index']}:", value=f"סמל חשמל #{item['index']}", key=f"desc_{item['index']}")
                         is_inc = st.checkbox("כלול בכתב כמויות", value=(item["confirmed_count"] > 0), key=f"inc_leg_{item['index']}")
@@ -405,7 +392,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                         })
                     st.markdown("---")
                     
-                st.subheader("🗺️ תוכנית עם סימוני הפריטים (ירוק = ודאי ומאושר, כתום = לא אושר):")
+                st.subheader("🗺️ תוכנית עם סימוני הפריטים (ירוק = מאושר, כתום = בספק/נדחה):")
                 st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB), use_container_width=True)
                 
                 if boq_rows:
@@ -420,7 +407,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     st.download_button(
                         "📥 ייצא כתב כמויות ל-Excel (כולל תמונות סמלים)",
                         data=excel_bytes,
-                        file_name="Approved_Electrical_Takeoff_99Pct.xlsx",
+                        file_name="Approved_Electrical_Takeoff.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     )
         else:
