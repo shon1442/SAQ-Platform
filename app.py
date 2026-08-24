@@ -152,7 +152,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ריאליסטית: מגדל רב-קומות נבנה ומנוף מסתובב (3 שניות)
+# 🚀 אנימציית פתיחה ריאליסטית: מגדל יוקרה נבנה ומנוף (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -259,7 +259,7 @@ if not st.session_state["app_initialized"]:
   bar_box = st.empty()
   prog_bar = bar_box.progress(0)
   for t in range(100):
-    time.sleep(0.03)  # בדיוק 3 שניות
+    time.sleep(0.03)
     prog_bar.progress(t + 1)
 
   st.session_state["app_initialized"] = True
@@ -267,8 +267,21 @@ if not st.session_state["app_initialized"]:
 
 
 # ========================================================
-# 💰 רכיב תמחור אופציונלי לפי מחירון דקל
+# 💰 רכיב תמחור לפי מחירון דקל (כולל סיכום פרויקט מאוחד)
 # ========================================================
+def get_dekel_item_price(desc, unit):
+  unit_price = 150
+  if "מ\"א" in unit or "מטר" in desc:
+    unit_price = 220
+  elif "מ\"ר" in unit or "שטח" in desc:
+    unit_price = 340
+  elif "הריסה" in desc:
+    unit_price = 110
+  elif "נקודת" in desc or "יח'" in unit or "כלי" in desc:
+    unit_price = 450
+  return unit_price
+
+
 def render_dekel_pricing_widget(boq_rows, discipline_name):
   with st.expander(
       f"💰 הצג הערכת מחיר ותמחור משוער לפי מחירון דקל ({discipline_name})",
@@ -286,16 +299,7 @@ def render_dekel_pricing_widget(boq_rows, discipline_name):
       qty = float(row.get("כמות מאושרת", 0))
       unit = row.get("יחידת מידה", "יח'")
 
-      unit_price = 150
-      if "מ\"א" in unit or "מטר" in desc:
-        unit_price = 220
-      elif "מ\"ר" in unit or "שטח" in desc:
-        unit_price = 340
-      elif "הריסה" in desc:
-        unit_price = 110
-      elif "נקודת" in desc or "יח'" in unit or "כלי" in desc:
-        unit_price = 450
-
+      unit_price = get_dekel_item_price(desc, unit)
       item_total = qty * unit_price
       total_est_price += item_total
 
@@ -595,7 +599,6 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
             "status": status,
         })
 
-  # Fallback מובטח להצגת פריטי V/X בדגש על חשמל ואינסטלציה
   h_p, w_p = plan_inv.shape
   if not detections or len([d for d in detections if d["status"] == "Yellow"]) < 2:
     detections.append({
@@ -660,7 +663,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified):
               max(0, y - pad) : min(raw_plan.shape[0], y + h + pad),
               max(0, x - pad) : min(raw_plan.shape[1], x + w + pad),
           ].copy()
-          # עיגול אדום מודגש סביב הסמל
           cv2.circle(
               crop_zoom,
               (crop_zoom.shape[1] // 2, crop_zoom.shape[0] // 2),
@@ -771,7 +773,7 @@ def calc_flooring_and_wall_tiling(
 
 
 # ========================================================
-# 📑 ייצוא דוחות מרהיב עם לוגו מובנה
+# 📑 ייצוא דוחות מרהיב עם לוגו וחישוב דקל מאוחד (כולל מע"מ)
 # ========================================================
 def generate_master_export_html(
     project_boq,
@@ -785,6 +787,17 @@ def generate_master_export_html(
       else '<div class="logo-txt">S.A.Q Takeoff AI</div>'
   )
 
+  grand_total_dekel = 0
+  for disc_name, rows in project_boq.items():
+    for r in rows:
+      desc = r.get("תיאור הפריט", "")
+      qty = float(r.get("כמות מאושרת", 0))
+      unit = r.get("יחידת מידה", "יח'")
+      grand_total_dekel += qty * get_dekel_item_price(desc, unit)
+
+  vat_amount = grand_total_dekel * 0.18
+  total_with_vat = grand_total_dekel + vat_amount
+
   html = f"""
     <html dir="rtl">
     <head>
@@ -796,10 +809,12 @@ def generate_master_export_html(
         .header-box {{ border-bottom: 4px solid #1F4E78; padding-bottom: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
         .logo-txt {{ font-size: 22px; font-weight: bold; color: #1F4E78; }}
         .disc-title {{ color: #1F4E78; border-right: 5px solid #FF9900; padding-right: 12px; margin-top: 30px; margin-bottom: 12px; }}
-        table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 30px; border-radius: 6px; overflow: hidden; }}
+        table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; border-radius: 6px; overflow: hidden; }}
         th {{ background-color: #1F4E78; color: white; padding: 12px; font-size: 15px; border: 1px solid #ddd; }}
         td {{ padding: 10px; text-align: center; border: 1px solid #ddd; font-size: 14px; vertical-align: middle; }}
         tr:nth-child(even) {{ background-color: #f8f9fa; }}
+        .total-box {{ background: #1F4E78; color: white; padding: 20px; border-radius: 8px; margin-top: 30px; font-size: 16px; text-align: left; }}
+        .total-box h3 {{ margin: 0 0 10px 0; color: #facc15; }}
     </style>
     </head>
     <body>
@@ -844,6 +859,16 @@ def generate_master_export_html(
                 </tr>
                 """
     html += "</table>"
+
+  html += f"""
+    <div class="total-box">
+        <h3>💰 סיכום תמחור כללי לפי מחירון דקל (לכל הדיסציפלינות):</h3>
+        <p><b>סך הכל לפני מע"מ:</b> {grand_total_dekel:,.2f} ₪</p>
+        <p><b>מע"מ (18%):</b> {vat_amount:,.2f} ₪</p>
+        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.3); margin: 10px 0;">
+        <p style="font-size: 18px;"><b>סה"כ לתשלום כולל מע"מ:</b> <span style="color: #facc15;">{total_with_vat:,.2f} ₪</span></p>
+    </div>
+    """
   html += "</body></html>"
   return html
 
@@ -864,7 +889,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות ענק שוות בגובהן ובלחיצות מלאות)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות ענק שוות לחלוטין בגובהן)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -886,7 +911,7 @@ if st.session_state["app_mode"] is None:
         color: #1F4E78;
         text-align: center;
         white-space: pre-wrap;
-        min-height: 340px;
+        min-height: 380px;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -1090,11 +1115,14 @@ with col_t:
 active_disc = st.session_state["current_discipline"]
 
 # ========================================================
-# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub)
+# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub - כולל דקל מרוכז ועלויות מע"מ)
 # ========================================================
 if st.session_state.get("show_master_export", False):
   st.markdown("---")
   st.header(f"🏗️ מרכז הדוחות הסופי לאתר הבנייה ({mode_lbl})")
+
+  grand_total_project = 0
+  all_project_rows = []
 
   for d_name in disciplines_list:
     d_rows = st.session_state["project_boq"].get(d_name, [])
@@ -1105,8 +1133,33 @@ if st.session_state.get("show_master_export", False):
       if d_rows:
         safe_render_table(d_rows)
         render_dekel_pricing_widget(d_rows, d_name)
+        for r in d_rows:
+          all_project_rows.append(r)
       else:
         st.write("טרם הופקו כמויות בדיסציפלינה זו (0).")
+
+  # סיכום דקל כללי לכל הפרויקט
+  if all_project_rows:
+    st.markdown("---")
+    st.subheader("💰 סיכום תמחור כספי כולל לפרויקט (על פי מחירון דקל)")
+    total_proj_dekel = 0
+    for r in all_project_rows:
+      desc = r.get("תיאור הפריט", "")
+      qty = float(r.get("כמות מאושרת", 0))
+      unit = r.get("יחידת מידה", "יח'")
+      total_proj_dekel += qty * get_dekel_item_price(desc, unit)
+
+    proj_vat = total_proj_dekel * 0.18
+    proj_total_with_vat = total_proj_dekel + proj_vat
+
+    col_pr1, col_pr2, col_pr3 = st.columns(3)
+    col_pr1.metric(
+        "סה\"כ עלות לפרויקט (ללא מע\"מ)", f"{total_proj_dekel:,.2f} ₪"
+    )
+    col_pr2.metric("מע\"מ (18%)", f"{proj_vat:,.2f} ₪")
+    col_pr3.metric(
+        "סה\"כ לתשלום כולל מע\"מ", f"{proj_total_with_vat:,.2f} ₪"
+    )
 
   st.markdown("---")
   st.subheader("📦 ייצוא דוח פרויקט מרוכז ממותג S.A.Q")
