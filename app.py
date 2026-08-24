@@ -12,7 +12,10 @@ from saq_vector_engine import DXFVectorParser, compare_vector_delta
 
 LOGO_PATH = "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
-app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
+try:
+  app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
+except Exception:
+  app_icon = "📐"
 
 st.set_page_config(
     page_title="S.A.Q - Takeoff & Vector CAD Platform",
@@ -72,7 +75,10 @@ def detect_symbols(image, template, threshold=0.60):
 
 with st.sidebar:
   if has_logo:
-    st.image(LOGO_PATH, use_container_width=True)
+    try:
+      st.image(LOGO_PATH, use_container_width=True)
+    except Exception:
+      pass
   st.header("⚙️ הגדרות עבודה")
   file_type = st.radio(
       "פורמט שרטוט:", ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"]
@@ -110,7 +116,10 @@ with st.sidebar:
 col_l, col_t = st.columns([1, 6])
 with col_l:
   if has_logo:
-    st.image(LOGO_PATH, width=90)
+    try:
+      st.image(LOGO_PATH, width=90)
+    except Exception:
+      pass
 with col_t:
   st.title("S.A.Q Takeoff & Delta Platform")
   st.caption(
@@ -348,10 +357,13 @@ else:
       elif discipline == "🚿 אינסטלציה":
         st.subheader("🚿 ספירת כלים סניטריים")
         p_layers = st.multiselect("שכבות אינסטלציה:", layers, default=layers)
-        fix = parser.extract_blocks(p_layers)
-        if fix:
+        fix_items = parser.extract_blocks(p_layers)
+        if fix_items:
           st.dataframe(
-              pd.DataFrame(fix).groupby("name").size().reset_index(name="כמות"),
+              pd.DataFrame(fix_items)
+              .groupby("name")
+              .size()
+              .reset_index(name="כמות"),
               use_container_width=True,
           )
   else:
@@ -389,4 +401,3 @@ else:
             ]],
             use_container_width=True,
         )
-          
