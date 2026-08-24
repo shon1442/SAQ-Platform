@@ -183,7 +183,7 @@ def check_structural_envelope_safety(plan_img):
 
 
 # ========================================================
-# 🧱 מודול בניה מתקדם
+# 🧱 מודל בניה מתקדם
 # ========================================================
 def extract_interior_walls_clean(plan_img, px_per_meter=125.0):
   gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -687,13 +687,12 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (לחיצה מלאה על כל הריבוע)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות לחיצות מלאות)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
 
 if st.session_state["app_mode"] is None:
-  # הוספת עיצוב מתקדם לכרטיסיות בחירה עם אפקט מעבר עכבר ולחיצה מלאה
   st.markdown(
       """
     <style>
@@ -703,23 +702,23 @@ if st.session_state["app_mode"] is None:
         font-weight: bold;
         padding: 10px;
     }
-    .model-card-1 {
+    .card-container-1 {
         background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-        padding: 25px;
+        padding: 30px;
         border-radius: 14px;
         border: 3px solid #1F4E78;
         text-align: center;
-        min-height: 270px;
+        min-height: 290px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         margin-bottom: 15px;
     }
-    .model-card-2 {
+    .card-container-2 {
         background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%);
-        padding: 25px;
+        padding: 30px;
         border-radius: 14px;
         border: 3px solid #137333;
         text-align: center;
-        min-height: 270px;
+        min-height: 290px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         margin-bottom: 15px;
     }
@@ -745,7 +744,7 @@ if st.session_state["app_mode"] is None:
   )
   st.markdown(
       "<p style='text-align: center; color: #555; font-size: 16px;'>בחר את מודל"
-      " הפעילות המבוקש לפרויקט:</p>",
+      " הפעילות המבוקש לפרויקט (לחץ על הכרטיסייה או על הכפתור):</p>",
       unsafe_allow_html=True,
   )
   st.markdown("<br>", unsafe_allow_html=True)
@@ -755,23 +754,23 @@ if st.session_state["app_mode"] is None:
   with col_m1:
     st.markdown(
         """
-        <div class="model-card-1">
-            <div style="font-size: 40px;">👷‍♂️🏗️</div>
+        <div class="card-container-1">
+            <div style="font-size: 45px;">👷‍♂️🏗️</div>
             <h2 style="color: #1F4E78; margin-top: 10px;">מודל שינויי דיירים</h2>
             <p style="font-size: 14px; color: #243b53;"><b>ליזמים וקבלנים ראשיים:</b><br>השוואת שרטוט שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא מדויק, מעקב מרחקי הזזה, ובקרת מעטפת הנדסית (הגנת ממ"ד ועמודי בטון).</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
-    if st.button("🚀 כניסה לאתר: מודל שינויי דיירים", use_container_width=True):
+    if st.button("🚀 כניסה למודל שינויי דיירים", use_container_width=True):
       st.session_state["app_mode"] = "שינויי דיירים"
       st.rerun()
 
   with col_m2:
     st.markdown(
         """
-        <div class="model-card-2">
-            <div style="font-size: 40px;">🔨🚜</div>
+        <div class="card-container-2">
+            <div style="font-size: 45px;">🔨🚜</div>
             <h2 style="color: #137333; margin-top: 10px;">מודל קבלני שיפוצים</h2>
             <p style="font-size: 14px; color: #0d3b1e;"><b>לדירות קיימות ושיפוצי פנים:</b><br>השוואת שרטוט מוצע מול מצב קיים (As-Is). חישוב היקפי הריסה ובנייה חדשה של מחיצות, אורך חציבות נדרש, שטחי ריצוף נטו וחיפוי קירות רטובים.</p>
         </div>
@@ -779,7 +778,7 @@ if st.session_state["app_mode"] is None:
         unsafe_allow_html=True,
     )
     if st.button(
-        "🚀 כניסה לאתר: מודל קבלני שיפוצים", use_container_width=True
+        "🚀 כניסה למודל קבלני שיפוצים", use_container_width=True
     ):
       st.session_state["app_mode"] = "קבלני שיפוצים"
       st.rerun()
@@ -819,7 +818,7 @@ with st.sidebar:
   if has_logo:
     st.image(LOGO_PATH, use_container_width=True)
 
-  # כפתור חזרה למסך הבית (חזרה לבחירת מודל)
+  # כפתור חזרה למסך הבית ברור בראש הסיידבר
   if st.button("🏠 חזרה למסך הבית (בחירת מודל)", use_container_width=True):
     st.session_state["app_mode"] = None
     st.rerun()
@@ -966,7 +965,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
     )
   else:
     st.markdown(
-        "### 🔨 מודל קבלני שיפוצים: השוואת שרטוט מוצע מול מצב קיים (As-Is)"
+        "### 🔨 מודול קבלני שיפוצים: השוואת שרטוט מוצע מול מצב קיים (As-Is)"
     )
 
   # ----------------------------------------------------
@@ -1428,4 +1427,3 @@ elif file_type == "📄 PDF / תמונה (Raster)":
     for i, d_target in enumerate(rem):
       if cols[i].button(d_target, key=f"btn_nav_{i}"):
         set_discipline_programmatically(d_target)
-          
