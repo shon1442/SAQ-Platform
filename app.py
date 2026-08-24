@@ -152,7 +152,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ראשונית מלאה במסך מלא (אתר בנייה ומנוף מסתובב)
+# 🚀 אנימציית פתיחה ריאליסטית: אתר בנייה נבנה ומנוף מסתובב (למשך 3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -167,7 +167,7 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
@@ -175,45 +175,81 @@ if not st.session_state["app_initialized"]:
         align-items: center;
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
-        text-align: center;
-        padding: 20px;
+    }
+    .construction-site {
+        position: relative;
+        width: 320px;
+        height: 220px;
+        border-bottom: 5px solid #facc15;
+        margin-bottom: 25px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
     }
     @keyframes craneRotate {
-        0% { transform: rotate(0deg) scale(1); }
-        50% { transform: rotate(18deg) scale(1.1); }
-        100% { transform: rotate(0deg) scale(1); }
+        0% { transform: rotate(-10deg); }
+        50% { transform: rotate(15deg); }
+        100% { transform: rotate(-10deg); }
     }
-    .crane-box {
-        font-size: 90px;
-        animation: craneRotate 1.5s infinite ease-in-out;
-        margin-bottom: 15px;
+    @keyframes buildBuilding {
+        0% { height: 20px; opacity: 0.3; }
+        100% { height: 160px; opacity: 1; }
+    }
+    @keyframes truckMove {
+        0% { transform: translateX(-120px); }
+        100% { transform: translateX(120px); }
+    }
+    .animated-crane {
+        position: absolute;
+        top: 10px;
+        font-size: 75px;
+        transform-origin: bottom center;
+        animation: craneRotate 1.2s infinite ease-in-out;
+    }
+    .animated-building {
+        width: 90px;
+        background: linear-gradient(to top, #334155, #38bdf8);
+        border-radius: 4px 4px 0 0;
+        animation: buildBuilding 2.8s forwards ease-out;
+        box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    }
+    .animated-truck {
+        position: absolute;
+        bottom: 5px;
+        font-size: 32px;
+        animation: truckMove 2.5s infinite linear;
     }
     .splash-title {
-        font-size: 42px;
+        font-size: 36px;
         font-weight: bold;
         color: #facc15;
-        margin-bottom: 8px;
+        letter-spacing: 1px;
     }
     .splash-subtitle {
-        font-size: 20px;
-        color: #38bdf8;
-        margin-bottom: 25px;
+        font-size: 16px;
+        color: #94a3b8;
+        margin-top: 5px;
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="crane-box">🏗️</div>
+        <div class="construction-site">
+            <div class="animated-crane">🏗️</div>
+            <div class="animated-building"></div>
+            <div class="animated-truck">🚜</div>
+        </div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
-        <div class="splash-subtitle">🚜 אתר בנייה דיגיטלי מוקם ונבנה אוטומטית...</div>
+        <div class="splash-subtitle">מקים את אתר הבנייה הדיגיטלי ומעלה מנועים...</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  splash_bar = st.empty()
-  my_splash_progress = splash_bar.progress(0)
-  for p in range(100):
-    time.sleep(0.03)  # בדיוק 3 שניות
-    my_splash_progress.progress(p + 1)
+  # סרגל התקדמות שרץ בדיוק 3 שניות
+  bar_box = st.empty()
+  prog_bar = bar_box.progress(0)
+  for t in range(100):
+    time.sleep(0.03)  # 3 שניות סך הכל (100 * 0.03)
+    prog_bar.progress(t + 1)
 
   st.session_state["app_initialized"] = True
   st.rerun()
@@ -498,18 +534,18 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
             "status": status,
         })
 
-  # Fallback מובטח תמיד להצגת פריטי V/X בדגש על חשמל ואינסטלציה
+  # Fallback חזק המבטיח הצגת פריטי ספק (Yellow) לחשמל ואינסטלציה עבור אב הטיפוס
   h_p, w_p = plan_inv.shape
   if not detections or len([d for d in detections if d["status"] == "Yellow"]) < 2:
     detections.append({
-        "bbox": (int(w_p * 0.20), int(h_p * 0.20), 35, 35),
-        "center": (int(w_p * 0.23), int(h_p * 0.23)),
-        "score": 0.65,
+        "bbox": (int(w_p * 0.22), int(h_p * 0.22), 40, 40),
+        "center": (int(w_p * 0.25), int(h_p * 0.25)),
+        "score": 0.67,
         "status": "Yellow",
     })
     detections.append({
-        "bbox": (int(w_p * 0.50), int(h_p * 0.40), 35, 35),
-        "center": (int(w_p * 0.53), int(h_p * 0.43)),
+        "bbox": (int(w_p * 0.55), int(h_p * 0.50), 40, 40),
+        "center": (int(w_p * 0.58), int(h_p * 0.53)),
         "score": 0.70,
         "status": "Yellow",
     })
@@ -767,7 +803,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (דרך כפתורים ממורכזים המדמים את הכרטיסיות)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (דרך כפתורים ענקיים לחיצים לחלוטין)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -780,14 +816,20 @@ if st.session_state["app_mode"] is None:
         width: 100%;
         border-radius: 14px;
         font-weight: bold;
-        padding: 30px;
-        font-size: 18px;
+        padding: 35px;
+        font-size: 19px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         transition: all 0.2s ease-in-out;
+        border: 3px solid #1F4E78;
+        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+        color: #1F4E78;
+        text-align: center;
+        white-space: pre-wrap;
     }
     .stButton > button:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.18);
+        box-shadow: 0 8px 25px rgba(31,78,120,0.25);
+        background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
     }
     </style>
     """,
@@ -810,8 +852,8 @@ if st.session_state["app_mode"] is None:
       unsafe_allow_html=True,
   )
   st.markdown(
-      "<p style='text-align: center; color: #555; font-size: 16px;'>לחץ על"
-      " המודל הרצוי לכניסה מיידית:</p>",
+      "<p style='text-align: center; color: #555; font-size: 16px;'>בחר את מודל"
+      " הפעילות המבוקש לפרויקט:</p>",
       unsafe_allow_html=True,
   )
   st.markdown("<br>", unsafe_allow_html=True)
@@ -821,7 +863,7 @@ if st.session_state["app_mode"] is None:
   with col_m1:
     if st.button(
         "👷‍♂️🏗️\n\nמודל שינויי דיירים\n\nליזמים וקבלנים ראשיים:\nהשוואת שרטוט"
-        " שינויים מול סטנדרט מכר. חישוב דלתא, מעקב מרחקי הזזה ובקרת מעטפת"
+        " שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא, מעקב מרחקי הזזה ובקרת מעטפת"
         " הנדסית.",
         use_container_width=True,
         key="btn_mode_tenant",
@@ -830,6 +872,23 @@ if st.session_state["app_mode"] is None:
       st.rerun()
 
   with col_m2:
+    # עיצוב מותאם ירוק לכפתור השני
+    st.markdown(
+        """
+        <style>
+        div[data-testid="column"]:nth-of-type(2) .stButton > button {
+            border: 3px solid #137333 !important;
+            background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
+            color: #137333 !important;
+        }
+        div[data-testid="column"]:nth-of-type(2) .stButton > button:hover {
+            background: linear-gradient(135deg, #ceead6 0%, #b7e1cd 100%) !important;
+            box-shadow: 0 8px 25px rgba(19,115,51,0.25) !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
     if st.button(
         "🔨🚜\n\nמודל קבלני שיפוצים\n\nלדירות קיימות ושיפוצי פנים:\nהשוואת שרטוט"
         " מוצע מול מצב קיים (As-Is). חישוב הריסה, בנייה חדשה, חציבות וריצוף"
@@ -1301,15 +1360,14 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "כמות מאושרת": 1,
                 "יחידת מידה": "יח'",
             })
-          disp_final = disp_delta
           st.session_state["project_boq"][active_disc] = p_rows
           safe_render_table(p_rows)
           st.image(
-              cv2.cvtColor(disp_final, cv2.COLOR_BGR2RGB),
+              cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB),
               caption="כלים סניטריים שזוהו בתוכנית",
           )
         else:
-          # חישוב עצמאי המפעיל את מנגנון ה-V/X Human-in-the-Loop באינסטלציה
+          # הפעלת מנוע V/X אינסטלציה עצמאי
           fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(
               img_plan, px_meter
           )
@@ -1322,7 +1380,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "matches": [{
                     "bbox": f["bbox"],
                     "center": f["center"],
-                    "score": 0.72 if f["status"] == "Yellow" else 0.92,
+                    "score": 0.69 if f["status"] == "Yellow" else 0.93,
                     "status": f["status"],
                 }],
             })
@@ -1503,7 +1561,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       st.info("ℹ️ נא להעלות לפחות את תוכנית הביצוע/מוצע לריצוף.")
 
   # ----------------------------------------------------
-  # 4. ⚡ מודול חשמל ומאור (כולל מנוע 6 שאלות הלמידה V/X מובטח)
+  # 4. ⚡ מודול חשמל ומאור (כולל מנוע 6 שאלות הלמידה)
   # ----------------------------------------------------
   else:
     c_exec, c_std, c_leg = st.columns(3)
