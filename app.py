@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import io
+import math
 import cv2
 import numpy as np
 import pandas as pd
@@ -16,6 +17,7 @@ app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 st.set_page_config(page_title="S.A.Q - Takeoff & Vector CAD Platform", layout="wide", page_icon=app_icon)
 
 def load_raster(file):
+    """טעינת קובץ PDF או תמונה והמרתם למטריצת BGR של OpenCV"""
     if file.name.lower().endswith(".pdf"):
         pdf = pdfium.PdfDocument(file.read())
         bitmap = pdf.get_page(0).render(scale=2.0)
@@ -24,10 +26,61 @@ def load_raster(file):
         file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
         return cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
 
-def auto_discover_and_count_symbols(image, min_dim=15, max_dim=85, match_thresh=0.65):
-    """מנוע אוטונומי: גילוי וקיבוץ כל הסמלים החוזרים ללא מקרא"""
+def detect_single_template(image, template, threshold=0.50):
+    """מנוע רב-ממדי: סריקה ב-11 קני מידה וב-4 כיווני סיבוב"""
+    img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    templ_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+    detections = []
+    
+    # בדיקת 11 קני מידה שונים בין 50% ל-150%
+    for scale in np.linspace(0.5, 1.5, 11):
+        resized_w = int(templ_gray.shape[1] * scale)
+        resized_h = int(templ_gray.shape[0] * scale)
+        if resized_w >= img_gray.shape[1] or resized_h >= img_gray.shape[0] or resized_w < 10 or resized_h < 10:
+            continue
+        resized_templ = cv2.resize(templ_gray, (resized_w, resized_h))
+        
+        for rot in [0, 90, 180, 270]:
+            if rot == 90:
+                r_t = cv2.rotate(resized_templ, cv2.ROTATE_90_CLOCKWISE)
+            elif rot == 180:
+                r_t = cv2.rotate(resized_templ, cv2.ROTATE_180)
+            elif rot == 270:
+                r_t = cv2.rotate(resized_templ, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            else:
+                r_t = resized_templ
+                
+            tw, th = r_t.shape[::-1]
+            res = cv2.matchTemplate(img_gray, r_t, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(res >= threshold)
+            
+            for pt in zip(*loc[::-1]):
+                score = float(res[pt[1], pt[0]])
+                detections.append({
+                    "bbox": (int(pt[0]), int(pt[1]), int(tw), int(th)),
+                    "center": (int(pt[0] + tw // 2), int(pt[1] + th // 2)),
+                    "confidence": score,
+                    "status": "Green (ודאי)" if score >= 0.75 else "Yellow (לבדיקה)",
+                    "approved": score >= 0.75
+                })
+                
+    if not detections:
+        return []
+        
+    boxes = [list(d["bbox"]) for d in detections]
+    scores = [d["confidence"] for d in detections]
+    indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=threshold, nms_threshold=0.25)
+    
+    final_res = []
+    if len(indices) > 0:
+        for i in indices.flatten():
+            final_res.append(detections[i])
+    return final_res
+
+def auto_discover_and_count_symbols(image, min_dim=15, max_dim=90, match_thresh=0.60):
+    """מנוע אוטונומי: גילוי וקיבוץ סמלים עצמאי ללא צורך במקרא"""
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 210, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     candidates = []
@@ -39,12 +92,10 @@ def auto_discover_and_count_symbols(image, min_dim=15, max_dim=85, match_thresh=
                 pad = 4
                 x1, y1 = max(0, x - pad), max(0, y - pad)
                 x2, y2 = min(gray.shape[1], x + w + pad), min(gray.shape[0], y + h + pad)
-                crop_gray = gray[y1:y2, x1:x2]
-                crop_color = image[y1:y2, x1:x2]
                 candidates.append({
                     "bbox": (x, y, w, h),
-                    "crop_gray": crop_gray,
-                    "crop_color": crop_color,
+                    "crop_gray": gray[y1:y2, x1:x2],
+                    "crop_color": image[y1:y2, x1:x2],
                     "center": (x + w // 2, y + h // 2)
                 })
                 
@@ -74,52 +125,6 @@ def auto_discover_and_count_symbols(image, min_dim=15, max_dim=85, match_thresh=
     valid_clusters.sort(key=lambda x: len(x["items"]), reverse=True)
     return valid_clusters
 
-def detect_single_template(image, template, threshold=0.55):
-    """מנוע ממוקד לסריקת סמל ספציפי מתוך מקרא ב-4 כיוונים"""
-    img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    templ_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
-    detections = []
-    
-    for angle in [0, 90, 180, 270]:
-        if angle == 90:
-            rot_t = cv2.rotate(templ_gray, cv2.ROTATE_90_CLOCKWISE)
-        elif angle == 180:
-            rot_t = cv2.rotate(templ_gray, cv2.ROTATE_180)
-        elif angle == 270:
-            rot_t = cv2.rotate(templ_gray, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        else:
-            rot_t = templ_gray
-            
-        tw, th = rot_t.shape[::-1]
-        if tw > img_gray.shape[1] or th > img_gray.shape[0]:
-            continue
-            
-        res = cv2.matchTemplate(img_gray, rot_t, cv2.TM_CCOEFF_NORMED)
-        loc = np.where(res >= threshold)
-        
-        for pt in zip(*loc[::-1]):
-            score = float(res[pt[1], pt[0]])
-            detections.append({
-                "bbox": (int(pt[0]), int(pt[1]), int(tw), int(th)),
-                "center": (int(pt[0] + tw // 2), int(pt[1] + th // 2)),
-                "confidence": score,
-                "status": "Green (ודאי)" if score >= 0.80 else "Yellow (לבדיקה)",
-                "approved": score >= 0.80
-            })
-            
-    if not detections:
-        return []
-        
-    boxes = [list(d["bbox"]) for d in detections]
-    scores = [d["confidence"] for d in detections]
-    indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=threshold, nms_threshold=0.3)
-    
-    final_detections = []
-    if len(indices) > 0:
-        for i in indices.flatten():
-            final_detections.append(detections[i])
-    return final_detections
-
 with st.sidebar:
     if has_logo:
         st.image(LOGO_PATH, use_container_width=True)
@@ -130,7 +135,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("📏 רגישות סריקה")
-    scan_sens = st.slider("רגישות התאמת סמלים (%):", min_value=30, max_value=90, value=60, step=5)
+    scan_sens = st.slider("רגישות התאמת סמלים (%):", min_value=25, max_value=90, value=50, step=5)
     thresh_val = scan_sens / 100.0
 
 col_l, col_t = st.columns([1, 6])
@@ -153,80 +158,33 @@ if file_type == "📄 PDF / תמונה (Raster)":
             st.subheader("תצוגת שרטוט")
             
             if discipline == "⚡ חשמל ומאור":
-                tab_auto, tab_manual = st.tabs(["🤖 ספירה אוטומטית מלאה (ללא מקרא)", "🎯 ספירה ממוקדת (עם מקרא / דגימת סמל)"])
+                tab_manual, tab_auto = st.tabs(["🎯 ספירה ממוקדת (לפי דגימת סמל / מקרא)", "🤖 ספירה אוטומטית מלאה (ללא מקרא)"])
                 
-                # --- טאב 1: ספירה אוטומטית ללא מקרא ---
-                with tab_auto:
-                    st.info("💡 **גילוי אוטונומי:** המערכת תסרוק את השרטוט, תבודד את כל הסמלים החוזרים ותציג גלריה עם תמונת כל סמל והכמות שלו.")
-                    if st.button("🚀 הפעל גילוי וספירה אוטומטית"):
-                        with st.spinner("סורק ומחלץ סמלים לפי גיאומטריה..."):
-                            clusters = auto_discover_and_count_symbols(img, match_thresh=thresh_val)
-                            st.session_state["auto_clusters"] = clusters
-                            st.session_state["base_img_pdf"] = img
-                            st.session_state["mode_run"] = "auto"
-
-                # --- טאב 2: ספירה ממוקדת עם מקרא/דגימה ---
                 with tab_manual:
-                    st.info("📌 **ספירה לפי דגימה:** העלה סמל מהמקרא או חיתוך סמל מהתוכנית (תומך ב-PDF, PNG, JPG).")
-                    t_file = st.file_uploader("העלה קובץ סמל / מקרא:", type=["pdf", "png", "jpg", "jpeg"], key="templ_custom")
+                    st.info("📌 העלה קובץ תמונה (PNG/JPG) או PDF של הסמל לסריקה רב-ממדית.")
+                    t_file = st.file_uploader("העלה דגימת סמל:", type=["pdf", "png", "jpg", "jpeg"], key="templ_file")
                     if t_file and st.button("🚀 הפעל סריקה לסמל זה"):
                         templ = load_raster(t_file)
-                        with st.spinner("סורק את השרטוט ב-4 כיווני סיבוב..."):
+                        with st.spinner("סורק ב-11 קני מידה וב-4 כיווני סיבוב..."):
                             results = detect_single_template(img, templ, threshold=thresh_val)
                             st.session_state["results_pdf"] = results
                             st.session_state["base_img_pdf"] = img
                             st.session_state["mode_run"] = "single"
 
-                # --- הצגת תוצאות סריקה אוטומטית ---
-                if st.session_state.get("mode_run") == "auto" and "auto_clusters" in st.session_state:
-                    clusters = st.session_state["auto_clusters"]
-                    disp = st.session_state["base_img_pdf"].copy()
-                    
-                    if not clusters:
-                        st.warning("לא אותרו סמלים חוזרים. נסה להוריד את רגישות הסריקה בסרגל הצד.")
-                    else:
-                        st.success(f"אותרו {len(clusters)} סוגי סמלים בשרטוט!")
-                        summary_data = []
-                        st.subheader("🔍 גלריית סמלים שאותרו וכמויות:")
-                        
-                        for idx, cl in enumerate(clusters):
-                            c_img = cl["rep_color"]
-                            count = len(cl["items"])
-                            
-                            c1, c2, c3 = st.columns([1, 2, 2])
-                            with c1:
-                                if c_img.size > 0:
-                                    st.image(cv2.cvtColor(c_img, cv2.COLOR_BGR2RGB), width=70, caption=f"סמל {idx+1}")
-                            with c2:
-                                s_name = st.text_input(f"שם סמל {idx+1}:", value=f"סמל חשמל {idx+1}", key=f"name_{idx}")
-                                is_inc = st.checkbox("כלול בכתב כמויות", value=True, key=f"inc_{idx}")
-                            with c3:
-                                st.metric("כמות שנספרה:", f"{count} יח'")
-                            
-                            if is_inc:
-                                summary_data.append({"מס'": idx+1, "תיאור הפריט": s_name, "כמות": count, "יחידת מידה": "יח'"})
-                            
-                            for item in cl["items"]:
-                                x, y, w, h = item["bbox"]
-                                cv2.rectangle(disp, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                            st.markdown("---")
-                            
-                        st.image(cv2.cvtColor(disp, cv2.COLOR_BGR2RGB), use_container_width=True, caption="תוכנית מסומנת")
-                        
-                        if summary_data:
-                            df_boq = pd.DataFrame(summary_data)
-                            st.subheader("📋 ריכוז כתב כמויות")
-                            st.dataframe(df_boq, use_container_width=True)
-                            out_io = io.BytesIO()
-                            with pd.ExcelWriter(out_io, engine="openpyxl") as writer:
-                                df_boq.to_excel(writer, index=False, sheet_name="כתב כמויות")
-                            st.download_button("📥 ייצא כתב כמויות ל-Excel", data=out_io.getvalue(), file_name="Auto_Electrical_BOQ.xlsx")
+                with tab_auto:
+                    st.info("💡 המערכת תזהה ותקבץ את כל הסמלים החוזרים בשרטוט באופן עצמאי.")
+                    if st.button("🚀 הפעל גילוי וספירה אוטומטית"):
+                        with st.spinner("סורק גיאומטריות ומקבץ סמלים..."):
+                            clusters = auto_discover_and_count_symbols(img, match_thresh=thresh_val)
+                            st.session_state["auto_clusters"] = clusters
+                            st.session_state["base_img_pdf"] = img
+                            st.session_state["mode_run"] = "auto"
 
-                # --- הצגת תוצאות סריקה ממוקדת ---
-                elif st.session_state.get("mode_run") == "single" and "results_pdf" in st.session_state:
+                # הצגת תוצאות סריקה ממוקדת
+                if st.session_state.get("mode_run") == "single" and "results_pdf" in st.session_state:
                     res_list = st.session_state["results_pdf"]
                     if not res_list:
-                        st.warning("לא אותרו מופעים של הסמל. נסה להוריד את רגישות הסריקה בסרגל הצד.")
+                        st.warning("לא אותרו מופעים. נסה להוריד את רגישות הסריקה בסרגל הצד (למשל ל-35%-40%).")
                     else:
                         disp = st.session_state["base_img_pdf"].copy()
                         for r in res_list:
@@ -240,15 +198,61 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             {"מס'": i+1, "מיקום (X,Y)": f"{r['center'][0]}, {r['center'][1]}", "ודאות": f"{r['confidence']*100:.1f}%", "סיווג": r["status"], "אושר לכתב כמויות": r["approved"]}
                             for i, r in enumerate(res_list)
                         ])
-                        st.subheader("📋 בקרת אישור פריטים")
+                        st.subheader("📋 בקרת אישור פריטים (Human-in-the-Loop)")
                         edited_df = st.data_editor(df_res, use_container_width=True)
-                        approved = int(edited_df["אושר לכתב כמויות"].sum())
-                        st.metric("סך נקודות מאושרות לתמחור:", approved)
-                        
+                        if "אושר לכתב כמויות" in edited_df.columns:
+                            approved = int(edited_df["אושר לכתב כמויות"].sum())
+                            st.metric("סך נקודות מאושרות לתמחור:", approved)
+                            
                         out_io = io.BytesIO()
                         with pd.ExcelWriter(out_io, engine="openpyxl") as writer:
                             edited_df.to_excel(writer, index=False, sheet_name="כתב כמויות חשמל")
                         st.download_button("📥 ייצא כתב כמויות ל-Excel", data=out_io.getvalue(), file_name="Electrical_BOQ.xlsx")
+
+                # הצגת תוצאות גילוי אוטונומי
+                elif st.session_state.get("mode_run") == "auto" and "auto_clusters" in st.session_state:
+                    clusters = st.session_state["auto_clusters"]
+                    disp = st.session_state["base_img_pdf"].copy()
+                    
+                    if not clusters:
+                        st.warning("לא אותרו סמלים חוזרים. נסה להוריד את רגישות הסריקה בסרגל הצד.")
+                    else:
+                        st.success(f"אותרו {len(clusters)} סוגי סמלים שונים בשרטוט!")
+                        summary_data = []
+                        st.subheader("🔍 גלריית סמלים שאותרו:")
+                        
+                        for idx, cl in enumerate(clusters):
+                            c_img = cl["rep_color"]
+                            count = len(cl["items"])
+                            
+                            c1, c2, c3 = st.columns([1, 2, 2])
+                            with c1:
+                                if c_img.size > 0:
+                                    st.image(cv2.cvtColor(c_img, cv2.COLOR_BGR2RGB), width=70, caption=f"סמל {idx+1}")
+                            with c2:
+                                s_name = st.text_input(f"שם סמל {idx+1}:", value=f"סמל חשמל {idx+1}", key=f"n_{idx}")
+                                is_inc = st.checkbox("כלול בכתב כמויות", value=True, key=f"chk_{idx}")
+                            with c3:
+                                st.metric("כמות:", f"{count} יח'")
+                            
+                            if is_inc:
+                                summary_data.append({"מס'": idx+1, "תיאור הפריט": s_name, "כמות": count, "יחידת מידה": "יח'"})
+                            
+                            for item in cl["items"]:
+                                x, y, w, h = item["bbox"]
+                                cv2.rectangle(disp, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                            st.markdown("---")
+                            
+                        st.image(cv2.cvtColor(disp, cv2.COLOR_BGR2RGB), use_container_width=True, caption="תוכנית מסומנת")
+                        
+                        if summary_data:
+                            df_boq = pd.DataFrame(summary_data)
+                            st.subheader("📋 ריכוז כתב כמויות אוטומטי")
+                            st.dataframe(df_boq, use_container_width=True)
+                            out_io = io.BytesIO()
+                            with pd.ExcelWriter(out_io, engine="openpyxl") as writer:
+                                df_boq.to_excel(writer, index=False, sheet_name="כתב כמויות")
+                            st.download_button("📥 ייצא כתב כמויות ל-Excel", data=out_io.getvalue(), file_name="Auto_Electrical_BOQ.xlsx")
 
             elif discipline == "🧱 בניה (מחיצות ומעטפת)":
                 st.subheader("🧱 חישוב מחיצות ובדיקת מעטפת מתמונת PDF")
