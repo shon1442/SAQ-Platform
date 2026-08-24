@@ -19,7 +19,6 @@ app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 st.set_page_config(page_title="S.A.Q - Takeoff & Vector CAD Platform", layout="wide", page_icon=app_icon)
 
 def load_raster(file, scale=1.3):
-    """טעינה מהירה ומדויקת בפורמט BGR"""
     if file.name.lower().endswith(".pdf"):
         pdf = pdfium.PdfDocument(file.read())
         bitmap = pdf.get_page(0).render(scale=scale)
@@ -41,27 +40,19 @@ def load_raster(file, scale=1.3):
         return img
 
 def is_valid_complex_symbol(crop_gray):
-    """בודק שהסמל אינו קו פשוט, אות או פינת טבלה"""
     h, w = crop_gray.shape[:2]
     if w < 16 or h < 16 or w > 90 or h > 90:
         return False
-        
     edges = cv2.Canny(crop_gray, 50, 150)
     edge_count = np.count_nonzero(edges)
-    
-    # סמל חשמל אמיתי מכיל כמות קווים ומורכבות גיאומטרית מוגדרת
     if edge_count < 35 or edge_count > (w * h * 0.45):
         return False
-        
-    # בדיקת יחס תמונה (ריבוע/מלבן הנדסי סביר)
     aspect = w / float(h)
     if aspect < 0.6 or aspect > 1.65:
         return False
-        
     return True
 
 def extract_symbols_from_legend(legend_img):
-    """חילוץ סמלים מובהקים בלבד מתוך המקרא ופסילת רעשי מסגרת"""
     gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
     leg_h = gray.shape[0]
     crop_h = int(leg_h * 0.85)
@@ -69,7 +60,6 @@ def extract_symbols_from_legend(legend_img):
     work_color = legend_img[:crop_h, :]
     
     _, thresh = cv2.threshold(work_gray, 225, 255, cv2.THRESH_BINARY_INV)
-    
     h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (30, 1))
     v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 30))
     h_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, h_kernel)
@@ -77,19 +67,16 @@ def extract_symbols_from_legend(legend_img):
     cleaned = cv2.subtract(thresh, cv2.add(h_lines, v_lines))
     
     contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
     raw_symbols = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         area = cv2.contourArea(c)
-        
         if 20 <= w <= 85 and 20 <= h <= 85 and area > 65:
             pad = 3
             y1, y2 = max(0, y - pad), min(work_gray.shape[0], y + h + pad)
             x1, x2 = max(0, x - pad), min(work_gray.shape[1], x + w + pad)
             c_gray = work_gray[y1:y2, x1:x2]
             c_color = work_color[y1:y2, x1:x2]
-            
             if is_valid_complex_symbol(c_gray):
                 raw_symbols.append({
                     "bbox": (x, y, w, h),
@@ -100,7 +87,6 @@ def extract_symbols_from_legend(legend_img):
                 })
                 
     raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
-    
     unique_symbols = []
     for sym in raw_symbols:
         is_dup = False
@@ -110,11 +96,9 @@ def extract_symbols_from_legend(legend_img):
                 break
         if not is_dup:
             unique_symbols.append(sym)
-            
     return unique_symbols[:10]
 
 def match_symbol_clean(plan_inv, templ_gray, min_thresh=0.68, high_thresh=0.76):
-    """סריקה נקייה עם חסימת התאמות רעש"""
     _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
     pts = cv2.findNonZero(templ_inv)
     if pts is not None:
@@ -124,15 +108,12 @@ def match_symbol_clean(plan_inv, templ_gray, min_thresh=0.68, high_thresh=0.76):
             
     detections = []
     scales = [0.94, 1.0, 1.06]
-    
     for scale in scales:
         sw = int(templ_inv.shape[1] * scale)
         sh = int(templ_inv.shape[0] * scale)
         if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 10 or sh < 10:
             continue
-            
         resized_t = cv2.resize(templ_inv, (sw, sh))
-        
         for rot in [0, 90, 180, 270]:
             if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
             elif rot == 180: r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
@@ -142,7 +123,6 @@ def match_symbol_clean(plan_inv, templ_gray, min_thresh=0.68, high_thresh=0.76):
             rw, rh = r_t.shape[::-1]
             res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
             loc = np.where(res >= min_thresh)
-            
             for pt in zip(*loc[::-1]):
                 score = float(res[pt[1], pt[0]])
                 status = "Green" if score >= high_thresh else "Yellow"
@@ -155,20 +135,15 @@ def match_symbol_clean(plan_inv, templ_gray, min_thresh=0.68, high_thresh=0.76):
                 
     if not detections:
         return []
-        
     boxes = [list(d["bbox"]) for d in detections]
     scores = [d["score"] for d in detections]
     indices = cv2.dnn.NMSBoxes(boxes, scores, score_threshold=min_thresh, nms_threshold=0.22)
     final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
-    
-    # אם סמל מסוים מתאים ליותר מ-60 מקומות, מדובר ברעש של קיר/מסגרת
     if len(final_res) > 60:
         return [r for r in final_res if r["status"] == "Green"]
-        
     return final_res
 
 def generate_excel_with_embedded_images(boq_rows):
-    """ייצוא לאקסל עם שיבוץ תמונות הסמלים בתוך התאים"""
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "כתב כמויות חשמל - SAQ"
@@ -202,7 +177,6 @@ def generate_excel_with_embedded_images(boq_rows):
     for idx, item in enumerate(boq_rows):
         row_idx = idx + 2
         ws.row_dimensions[row_idx].height = 52
-        
         c_num = ws.cell(row=row_idx, column=1, value=item["מס'"])
         c_desc = ws.cell(row=row_idx, column=3, value=item["תיאור הפריט"])
         c_qty = ws.cell(row=row_idx, column=4, value=item["כמות"])
@@ -218,11 +192,9 @@ def generate_excel_with_embedded_images(boq_rows):
             rgb = cv2.cvtColor(sym_img, cv2.COLOR_BGR2RGB)
             pil_img = Image.fromarray(rgb)
             pil_img.thumbnail((60, 46))
-            
             img_io = io.BytesIO()
             pil_img.save(img_io, format="PNG")
             img_io.seek(0)
-            
             xl_img = OpenpyxlImage(img_io)
             ws.add_image(xl_img, f"B{row_idx}")
             
@@ -263,7 +235,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
             if st.button("🚀 הפעל פענוח מקרא וספירה מדויקת בתוכנית"):
                 img_plan = load_raster(f_plan, scale=1.3)
                 img_leg = load_raster(f_legend, scale=1.3)
-                
                 symbols_found = extract_symbols_from_legend(img_leg)
                 
                 if not symbols_found:
@@ -271,16 +242,13 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 else:
                     progress_bar = st.progress(0, text="מתחיל סריקה נקייה ומהירה...")
                     plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
-                    
                     h_p, w_p = plan_gray.shape[:2]
                     active_h = int(h_p * 0.82) if filter_banner else h_p
                     plan_roi = plan_gray[:active_h, :]
-                    
                     _, plan_inv = cv2.threshold(plan_roi, 230, 255, cv2.THRESH_BINARY_INV)
                     
                     all_results = []
                     total_syms = len(symbols_found)
-                    
                     for i, sym in enumerate(symbols_found):
                         progress_bar.progress((i + 1) / total_syms, text=f"סורק סמל {i+1} מתוך {total_syms}...")
                         matches = match_symbol_clean(
@@ -289,7 +257,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             min_thresh=(min_sens / 100.0),
                             high_thresh=(high_sens / 100.0)
                         )
-                        
                         all_results.append({
                             "index": i + 1,
                             "symbol_img": sym["crop_color"],
@@ -310,7 +277,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     cv2.line(disp_plan, (0, h_cut), (raw_plan.shape[1], h_cut), (180, 180, 180), 2)
                     cv2.putText(disp_plan, "Filtered Title Block Area", (20, h_cut + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (140, 140, 140), 2)
                 
-                # איסוף נקודות בספק (מקסימום 6 פריטים סך הכל)
                 yellow_items = []
                 for s_idx, item in enumerate(res):
                     for m_idx, m in enumerate(item["matches"]):
@@ -318,7 +284,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             yellow_items.append((s_idx, m_idx, item, m))
                 
                 yellow_items = yellow_items[:6]
-                            
                 if yellow_items:
                     st.markdown("---")
                     st.info(f"🔍 **אותרו {len(yellow_items)} נקודות לבדיקה מהירה (Human-in-the-Loop):**")
@@ -332,7 +297,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                                 x1, x2 = max(0, x - pad), min(raw_plan.shape[1], x + w + pad)
                                 crop_zoom = raw_plan[y1:y2, x1:x2].copy()
                                 cv2.rectangle(crop_zoom, (x - x1, y - y1), (x - x1 + w, y - y1 + h), (0, 165, 255), 2)
-                                
                                 st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
                                 approved = st.checkbox("✅ אשר נקודה זו", value=False, key=f"appr_{s_idx}_{m_idx}")
                                 m["user_approved"] = approved
@@ -344,7 +308,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     for m_idx, m in enumerate(item["matches"]):
                         is_green = (m["status"] == "Green")
                         is_user_appr = m.get("user_approved", False)
-                        
                         x, y, w, h = m["bbox"]
                         if is_green:
                             confirmed_count += 1
@@ -400,9 +363,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
         else:
             st.info("💡 אנא העלה את קובץ התוכנית ואת קובץ המקרא להפעלת הסריקה.")
 
-# ========================================================
-# 📐 נתיב CAD וקטורי (DXF)
-# ========================================================
 else:
     scale_val = 1.0
     if mode == "ספירה מתוכנית בודדת":
