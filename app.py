@@ -94,7 +94,7 @@ def safe_render_table(rows):
     st.dataframe(df, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
 
 # ========================================================
-# 🧱 מודול בניה – מדידה נקייה והצגה עוקבת (סטנדרט ואז ביצוע)
+# 🧱 מודול בניה – מדידה נקייה, סינון מעטפת וצביעה בצהוב
 # ========================================================
 def extract_interior_walls_clean(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -144,13 +144,13 @@ def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
     
     disp_img = plan_img.copy()
     overlay = disp_img.copy()
-    overlay[interior_mask > 0] = [0, 235, 255] # צהוב זוהר
+    overlay[interior_mask > 0] = [0, 235, 255]
     cv2.addWeighted(overlay, 0.65, disp_img, 0.35, 0, disp_img)
     
     return linear_meters, disp_img, interior_mask
 
 # ========================================================
-# 🚿 מודול אינסטלציה – זיהוי סניטרי מדויק (אסלות, אמבטיות, כיורים)
+# 🚿 מודול אינסטלציה – זיהוי כלים סניטריים ממוקד
 # ========================================================
 def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -168,15 +168,36 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         max_dim = max(w_m, h_m)
         min_dim = min(w_m, h_m)
         
-        # אמבטיה / מקלחון
         if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 1000:
-            fixtures.append({"type": "אמבטיה / מקלחון", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "color": (255, 0, 0)})
-        # אסלה
+            fixtures.append({
+                "type": "אמבטיה / מקלחון",
+                "center": (x + w // 2, y + h // 2),
+                "bbox": (x, y, w, h),
+                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
+                "color": (255, 0, 0),
+                "status": "Green",
+                "score": 0.90
+            })
         elif (0.40 <= max_dim <= 0.90) and (0.30 <= min_dim <= 0.60) and 300 < area < 4000:
-            fixtures.append({"type": "אסלה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "color": (0, 165, 255)})
-        # כיור / ארון רחצה
+            fixtures.append({
+                "type": "אסלה",
+                "center": (x + w // 2, y + h // 2),
+                "bbox": (x, y, w, h),
+                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
+                "color": (0, 165, 255),
+                "status": "Green",
+                "score": 0.85
+            })
         elif (0.35 <= max_dim <= 1.30) and (0.25 <= min_dim <= 0.70) and 350 < area < 5500:
-            fixtures.append({"type": "כיור / ארון רחצה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "color": (0, 200, 0)})
+            fixtures.append({
+                "type": "כיור / ארון רחצה",
+                "center": (x + w // 2, y + h // 2),
+                "bbox": (x, y, w, h),
+                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
+                "color": (0, 200, 0),
+                "status": "Green",
+                "score": 0.80
+            })
             
     unique = []
     for f in fixtures:
@@ -187,8 +208,42 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
             
     return unique, disp_img
 
+def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
+    fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
+    fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
+    
+    relocations = []
+    added = []
+    b_matched = set()
+    
+    for f_a in fix_std:
+        ca = f_a["center"]
+        best_dist = 999999
+        best_idx_b = -1
+        for idx_b, f_b in enumerate(fix_exec):
+            if idx_b in b_matched: continue
+            cb = f_b["center"]
+            dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
+            dist_m = dist_px / float(px_per_meter)
+            if 0.25 <= dist_m <= 4.0 and dist_px < best_dist and f_a["type"] == f_b["type"]:
+                best_dist = dist_px
+                best_idx_b = idx_b
+                
+        if best_idx_b != -1:
+            b_matched.add(best_idx_b)
+            f_b = fix_exec[best_idx_b]
+            dist_m = round(best_dist / float(px_per_meter), 2)
+            relocations.append({"type": f_b["type"], "distance_m": dist_m, "from": ca, "to": f_b["center"]})
+            cv2.arrowedLine(disp_exec, ca, f_b["center"], (0, 140, 255), 3, tipLength=0.20)
+            
+    for idx_b, f_b in enumerate(fix_exec):
+        if idx_b not in b_matched:
+            added.append(f_b)
+            
+    return relocations, added, disp_exec
+
 # ========================================================
-# ⚡ פענוח סמלים (חשמל ומקרא)
+# ⚡ פענוח סמלי חשמל ומאור
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -218,7 +273,7 @@ def extract_symbols_from_legend(legend_img):
             unique.append(sym)
     return unique[:16]
 
-def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.74):
+def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.58, high_thresh=0.72):
     _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
     pts = cv2.findNonZero(templ_inv)
     if pts is not None:
@@ -226,19 +281,59 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.74):
         if tw > 8 and th > 8:
             templ_inv = templ_inv[ty:ty+th, tx:tx+tw]
     detections = []
-    for scale in [0.90, 1.0, 1.10]:
+    for scale in [0.85, 0.95, 1.0, 1.05, 1.15]:
         sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
         if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 8 or sh < 8: continue
         resized_t = cv2.resize(templ_inv, (sw, sh))
-        res = cv2.matchTemplate(plan_inv, resized_t, cv2.TM_CCOEFF_NORMED)
-        loc = np.where(res >= min_thresh)
-        for pt in zip(*loc[::-1]):
-            score = float(res[pt[1], pt[0]])
-            detections.append({"bbox": (int(pt[0]), int(pt[1]), int(sw), int(sh)), "center": (int(pt[0] + sw // 2), int(pt[1] + sh // 2)), "score": score, "status": "Green" if score >= high_thresh else "Yellow"})
+        for rot in [0, 90, 180, 270]:
+            if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
+            elif rot == 180: r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
+            elif rot == 270: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            else: r_t = resized_t
+            rw, rh = r_t.shape[::-1]
+            res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(res >= min_thresh)
+            for pt in zip(*loc[::-1]):
+                score = float(res[pt[1], pt[0]])
+                status = "Green" if score >= high_thresh else "Yellow"
+                detections.append({"bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)), "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)), "score": score, "status": status})
     if not detections: return []
     indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.20)
     final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
-    return [r for r in final_res if r["status"] == "Green"] if len(final_res) > 70 else final_res
+    return final_res
+
+# ========================================================
+# 📐 מודול ריצוף וחיפוי
+# ========================================================
+def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=[]):
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 225, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    total_flooring_sqm = 0.0
+    wet_rooms_perimeter_m = 0.0
+    disp_img = plan_img.copy()
+    
+    for c in contours:
+        area_px = cv2.contourArea(c)
+        min_room_px = (1.2 * px_per_meter) * (1.2 * px_per_meter)
+        max_room_px = (15.0 * px_per_meter) * (15.0 * px_per_meter)
+        
+        if min_room_px <= area_px <= max_room_px:
+            sqm = area_px / (px_per_meter ** 2)
+            total_flooring_sqm += sqm
+            
+            is_wet_room = any(cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0 for pc in plumbing_centers)
+            peri_m = cv2.arcLength(c, True) / px_per_meter
+            
+            if is_wet_room:
+                wet_rooms_perimeter_m += peri_m
+                cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3)
+            else:
+                cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2)
+                
+    wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
+    return round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img
 
 # ========================================================
 # 📑 מנוע ייצוא HTML / EXCEL / PDF
@@ -473,7 +568,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="הקירות שנמדדו וחושבו צבועים בצהוב זוהר")
 
     # ----------------------------------------------------
-    # 2. 🚿 מודול אינסטלציה (כלים סניטריים + Human-in-the-Loop AI)
+    # 2. 🚿 מודול אינסטלציה (כלים סניטריים מוגבל ל-6 פריטים באימות)
     # ----------------------------------------------------
     elif active_disc == "🚿 אינסטלציה":
         c_exec, c_std, c_leg = st.columns(3)
@@ -523,18 +618,22 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 raw_fix = st.session_state["plumb_raw_fixtures"]
                 disp_fix = st.session_state["plumb_disp_img"]
                 
-                if raw_fix and not st.session_state.get("plumb_verified", False):
+                # הגבלה למקסימום 6 פריטים לשאלת משתמש לפי דרישה
+                verify_subset = raw_fix[:6]
+                is_done_verifying = st.session_state.get("plumb_verified", False)
+                
+                if verify_subset and not is_done_verifying:
                     st.markdown("---")
-                    st.info(f"🔍 **אישור כלים סניטריים שזוהו ולמידת AI ({len(raw_fix)} כלים לבדיקה):**")
+                    st.info(f"🔍 **אישור כלים סניטריים שזוהו ולמידת AI (מוצגים {len(verify_subset)} פריטים ראשונים לבדיקה):**")
                     with st.expander("לחץ כאן לאישור/דחיית כלים סניטריים (V / X)", expanded=True):
-                        cols = st.columns(min(len(raw_fix), 3))
+                        cols = st.columns(min(len(verify_subset), 3))
                         updated_mem = False
-                        for idx, f in enumerate(raw_fix):
+                        for idx, f in enumerate(verify_subset):
                             with cols[idx % len(cols)]:
                                 x, y, w, h = f["bbox"]
                                 pad = 20
                                 crop_zoom = disp_fix[max(0, y-pad):min(disp_fix.shape[0], y+h+pad), max(0, x-pad):min(disp_fix.shape[1], x+w+pad)].copy()
-                                cv2.circle(crop_zoom, (w//2, h//2), max(w,h)//2 + 5, (0, 0, 255), 2) # עיגול אדום מודגש סביב הסמל
+                                cv2.circle(crop_zoom, (w//2, h//2), max(w,h)//2 + 5, (0, 0, 255), 2)
                                 st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), width=120, caption=f"{f['type']}")
                                 choice = st.radio("סטטוס:", ["✅ אשר (V)", "❌ דחה (X)"], key=f"plumb_choice_{idx}", horizontal=True)
                                 is_appr = ("אשר" in choice)
@@ -567,7 +666,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     p_rows.append({"מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f_type, "כמות מאושרת": c_val, "יחידת מידה": "יח'"})
                 st.session_state["project_boq"][active_disc] = p_rows
                 safe_render_table(p_rows)
-                st.image(cv2.cvtColor(disp_fix, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית עם סימון מוקף")
+                st.image(cv2.cvtColor(disp_fix, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית")
 
     # ----------------------------------------------------
     # 3. 📐 מודול ריצוף וחיפוי
@@ -630,7 +729,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="כתום = חלל רטוב לחיפוי קירות, ירוק = ריצוף יבש")
 
     # ----------------------------------------------------
-    # 4. ⚡ מודול חשמל ומאור (כולל עיגול מוקף בשאלת משתמש)
+    # 4. ⚡ מודול חשמל ומאור (מוגבל למקסימום 6 שאלות אימות)
     # ----------------------------------------------------
     else:
         c_exec, c_std, c_leg = st.columns(3)
@@ -690,12 +789,13 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         if m["status"] == "Yellow":
                             yellow_items.append((s_idx, m_idx, item, m))
                             
-                yellow_items = yellow_items[:8]
+                # הגבלה למקסימום 6 פריטים בדיקה בלבד
+                yellow_items = yellow_items[:6]
                 is_done_verifying = st.session_state.get("elec_verified", False)
                 
                 if yellow_items and not is_done_verifying:
                     st.markdown("---")
-                    st.info(f"🔍 **אימות סמלי חשמל בספק ולמידת AI ({len(yellow_items)} נקודות לבדיקה):**")
+                    st.info(f"🔍 **אימות סמלי חשמל בספק ולמידת AI (מוצגים {len(yellow_items)} פריטים ראשונים לבדיקה):**")
                     with st.expander("לחץ כאן לאישור/דחיית סמלים (ה-AI לומד לפעמים הבאות)", expanded=True):
                         cols = st.columns(min(len(yellow_items), 3))
                         updated_mem = False
@@ -704,7 +804,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                                 x, y, w, h = m["bbox"]
                                 pad = 24
                                 crop_zoom = raw_plan[max(0, y-pad):min(raw_plan.shape[0], y+h+pad), max(0, x-pad):min(raw_plan.shape[1], x+w+pad)].copy()
-                                # עיגול אדום בולט המקיף את הסמל שעליו שואלים
                                 cv2.circle(crop_zoom, (crop_zoom.shape[1]//2, crop_zoom.shape[0]//2), max(w,h)//2 + 6, (0, 0, 255), 3)
                                 
                                 st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
