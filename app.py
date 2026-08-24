@@ -9,7 +9,7 @@ import pypdfium2 as pdfium
 import shapely.geometry as sg
 from saq_vector_engine import DXFVectorParser, compare_vector_delta
 
-LOGO_PATH = "logo.png"
+LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
 app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 
