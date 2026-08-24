@@ -1,3 +1,13 @@
+הנה הקוד המעודכן. בוצעו שני התיקונים:
+
+1. **הסרת החלוניות המיותרות (החלק שבתמונה):** הוסר לחלוטין פירוט הכרטיסיות הגולמיות וצילומי התיאור שפתחו עומס במסך. המערכת מציגה ישירות את **טבלת הריכוז הסופית, הנקייה והמעוצבת** עם עמודת תמונות הסמלים לצד השרטוט המסומן.
+2. **תיקון מנגנון המעבר בין דיסציפלינות:** סונכרן מנגנון ה-State של Streamlit כך שלחיצה על כפתור כלשהו (מחיצות/אינסטלציה/ריצוף/חשמל) מחליפה מיד את הדיסציפלינה ומנקה את המסך לתחילת עבודה חלקה.
+
+---
+
+### עדכון הקוד ב-GitHub (העתק והדבק ב-`app.py`)
+
+```python
 import streamlit as st
 import os
 import io
@@ -98,15 +108,10 @@ def extract_symbols_and_text_from_legend(legend_img):
                 c_gray = work_gray[y1:y2, x1:x2]
                 c_color = work_color[y1:y2, x1:x2]
                 
-                text_crop_x1 = max(0, x - 260) if x > 260 else min(work_gray.shape[1], x + w)
-                text_crop_x2 = x if x > 260 else min(work_gray.shape[1], x + w + 260)
-                text_crop = work_color[y1:y2, text_crop_x1:text_crop_x2]
-                
                 raw_symbols.append({
                     "bbox": (x, y, w, h),
                     "crop_color": c_color,
                     "crop_gray": c_gray,
-                    "text_crop": text_crop,
                     "y_pos": y,
                     "x_pos": x
                 })
@@ -124,7 +129,6 @@ def extract_symbols_and_text_from_legend(legend_img):
     return unique_symbols[:16]
 
 def auto_discover_plan_symbols(plan_roi, min_dim=15, max_dim=90, match_thresh=0.68):
-    """גילוי וספירה אוטונומיים כאשר לא הוזן מקרא"""
     gray = cv2.cvtColor(plan_roi, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -223,10 +227,7 @@ def generate_export_html(boq_rows, title="דוח כתב כמויות"):
     <meta charset="utf-8">
     <title>{title}</title>
     <style>
-        @media print {{
-            body {{ -webkit-print-color-adjust: exact; }}
-            .no-print {{ display: none; }}
-        }}
+        @media print {{ body {{ -webkit-print-color-adjust: exact; }} }}
         body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; background-color: #fafafa; }}
         .header-box {{ border-bottom: 3px solid #1F4E78; padding-bottom: 10px; margin-bottom: 20px; }}
         table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }}
@@ -265,11 +266,19 @@ def generate_export_html(boq_rows, title="דוח כתב כמויות"):
     return html
 
 ai_memory = load_ai_memory()
-
-if "target_discipline" not in st.session_state:
-    st.session_state["target_discipline"] = "⚡ חשמל ומאור"
-
 disciplines_list = ["⚡ חשמל ומאור", "🧱 בניה (מחיצות ומעטפת)", "🚿 אינסטלציה", "📐 ריצוף וחיפוי"]
+
+if "disc_select" not in st.session_state:
+    st.session_state["disc_select"] = "⚡ חשמל ומאור"
+
+def switch_discipline(new_disc):
+    st.session_state["disc_select"] = new_disc
+    if "legend_results" in st.session_state:
+        del st.session_state["legend_results"]
+    if "raw_plan_img" in st.session_state:
+        del st.session_state["raw_plan_img"]
+    st.session_state["verification_completed"] = False
+    st.rerun()
 
 with st.sidebar:
     if has_logo:
@@ -277,10 +286,7 @@ with st.sidebar:
     st.header("⚙️ הגדרות עבודה")
     file_type = st.radio("פורמט שרטוט:", ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"])
     mode = st.radio("מצב פעולה:", ["ספירה מתוכנית בודדת", "השוואת שינויים (Delta)"])
-    
-    current_idx = disciplines_list.index(st.session_state["target_discipline"]) if st.session_state["target_discipline"] in disciplines_list else 0
-    discipline = st.selectbox("דיסציפלינה:", disciplines_list, index=current_idx, key="disc_select")
-    st.session_state["target_discipline"] = discipline
+    discipline = st.selectbox("דיסציפלינה:", disciplines_list, key="disc_select")
     
     st.markdown("---")
     st.subheader("🧠 מנוע למידה AI וכיול")
@@ -322,7 +328,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     
                     all_results = []
                     
-                    # מסלול 1: סריקה מבוססת מקרא
                     if f_legend:
                         img_leg = load_raster(f_legend, scale=1.4)
                         symbols_found = extract_symbols_and_text_from_legend(img_leg)
@@ -343,13 +348,11 @@ if file_type == "📄 PDF / תמונה (Raster)":
                                 all_results.append({
                                     "index": i + 1,
                                     "symbol_img": sym["crop_color"],
-                                    "text_crop": sym["text_crop"],
                                     "image_uri": img_to_data_uri(sym["crop_color"]),
                                     "matches": matches
                                 })
                             progress_bar.empty()
                     
-                    # מסלול 2: סריקה אוטונומית ללא מקרא
                     if not f_legend:
                         progress_bar = st.progress(0, text="מאתר ומקבץ סמלים עצמאית...")
                         clusters = auto_discover_plan_symbols(img_plan[:active_h, :], match_thresh=(high_sens / 100.0))
@@ -365,7 +368,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             all_results.append({
                                 "index": i + 1,
                                 "symbol_img": cl["rep_color"],
-                                "text_crop": np.array([]),
                                 "image_uri": img_to_data_uri(cl["rep_color"]),
                                 "matches": matches
                             })
@@ -393,10 +395,10 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 yellow_items = yellow_items[:8]
                 is_done_verifying = st.session_state.get("verification_completed", False)
                 
-                # בדיקת Human-in-the-Loop
+                # אימות פריטים בספק (V / X)
                 if yellow_items and not is_done_verifying:
                     st.markdown("---")
-                    st.info(f"🔍 **אותרו {len(yellow_items)} נקודות לבדיקה מהירה (V / X):**")
+                    st.info(f"🔍 **אימות נקודות בספק ולמידת AI ({len(yellow_items)} נקודות לבדיקה):**")
                     with st.expander("לחץ כאן לבדיקה ואישור/דחיית נקודות", expanded=True):
                         cols = st.columns(min(len(yellow_items), 3))
                         updated_memory = False
@@ -435,7 +437,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             st.session_state["verification_completed"] = True
                             st.rerun()
                 
-                # חישוב כמויות סופי
+                # חישוב כמויות וציור שרטוט
                 boq_rows = []
                 for s_idx, item in enumerate(res):
                     confirmed_count = 0
@@ -457,41 +459,22 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             cv2.putText(disp_plan, "?", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
                             
                     item["confirmed_count"] = confirmed_count
-
-                st.markdown("---")
-                st.subheader(f"📋 פירוט סמלים וכמויות ({discipline})")
-                for item in res:
-                    c1, c2, c3 = st.columns([1.5, 2.5, 1.5])
-                    with c1:
-                        if item["symbol_img"].size > 0:
-                            st.image(cv2.cvtColor(item["symbol_img"], cv2.COLOR_BGR2RGB), width=85, caption=f"סמל #{item['index']}")
-                    with c2:
-                        if item.get("text_crop") is not None and item["text_crop"].size > 0:
-                            st.caption("חיתוך תיאור מהמקרא:")
-                            st.image(cv2.cvtColor(item["text_crop"], cv2.COLOR_BGR2RGB), width=180)
-                        default_name = f"סמל {discipline} #{item['index']}"
-                        s_desc = st.text_input(f"תיאור פריט #{item['index']}:", value=default_name, key=f"desc_{item['index']}")
-                        is_inc = st.checkbox("כלול בכתב כמויות", value=(item["confirmed_count"] > 0), key=f"inc_leg_{item['index']}")
-                    with c3:
-                        st.metric("כמות מאושרת:", f"{item['confirmed_count']} יח'")
                     
-                    if is_inc:
+                    if confirmed_count > 0:
                         boq_rows.append({
                             "מס'": item["index"],
                             "תמונת סמל": item["image_uri"],
                             "symbol_img": item["symbol_img"],
                             "image_uri": item["image_uri"],
-                            "תיאור הפריט": s_desc,
-                            "כמות מאושרת": item["confirmed_count"],
+                            "תיאור הפריט": f"סמל {discipline} #{item['index']}",
+                            "כמות מאושרת": confirmed_count,
                             "יחידת מידה": "יח'"
                         })
-                    st.markdown("---")
-                    
-                st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
-                st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
+
+                st.markdown("---")
+                st.subheader(f"📊 ריכוז סופי לכתב כמויות ({discipline})")
                 
                 if boq_rows:
-                    st.subheader("📊 ריכוז סופי לכתב כמויות")
                     df_preview = pd.DataFrame([
                         {
                             "מס'": r["מס'"],
@@ -502,6 +485,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                         }
                         for r in boq_rows
                     ])
+                    
                     st.dataframe(
                         df_preview,
                         column_config={
@@ -511,7 +495,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     
                     st.subheader("📥 ייצוא כתב כמויות")
                     exp_c1, exp_c2 = st.columns(2)
-                    
                     html_report = generate_export_html(boq_rows, title=f"כתב כמויות - {discipline}")
                     
                     with exp_c1:
@@ -528,28 +511,29 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             file_name=f"Report_{discipline}.html",
                             mime="text/html"
                         )
-                    
-                    # ניווט מעבר בין דיסציפלינות
-                    st.markdown("---")
-                    st.success("🎉 סיום חישוב הדיסציפלינה בהצלחה!")
-                    st.write("**בחר לאיזה חישוב תרצה לעבור כעת:**")
-                    n1, n2, n3, n4 = st.columns(4)
-                    with n1:
-                        if st.button("⚡ חשמל ומאור"):
-                            st.session_state["target_discipline"] = "⚡ חשמל ומאור"
-                            st.rerun()
-                    with n2:
-                        if st.button("🧱 מחיצות ובניה"):
-                            st.session_state["target_discipline"] = "🧱 בניה (מחיצות ומעטפת)"
-                            st.rerun()
-                    with n3:
-                        if st.button("🚿 אינסטלציה"):
-                            st.session_state["target_discipline"] = "🚿 אינסטלציה"
-                            st.rerun()
-                    with n4:
-                        if st.button("📐 ריצוף וחיפוי"):
-                            st.session_state["target_discipline"] = "📐 ריצוף וחיפוי"
-                            st.rerun()
+                else:
+                    st.warning("לא אותרו כמויות מאושרות לדיסציפלינה זו.")
+
+                st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
+                st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
+                
+                # מעבר מהיר ואוטומטי לדיסציפלינה הבאה
+                st.markdown("---")
+                st.success("🎉 סיום חישוב הדיסציפלינה בהצלחה!")
+                st.write("**בחר לאיזה חישוב תרצה לעבור כעת:**")
+                n1, n2, n3, n4 = st.columns(4)
+                with n1:
+                    if st.button("⚡ חשמל ומאור", key="btn_go_elec"):
+                        switch_discipline("⚡ חשמל ומאור")
+                with n2:
+                    if st.button("🧱 מחיצות ובניה", key="btn_go_build"):
+                        switch_discipline("🧱 בניה (מחיצות ומעטפת)")
+                with n3:
+                    if st.button("🚿 אינסטלציה", key="btn_go_plumb"):
+                        switch_discipline("🚿 אינסטלציה")
+                with n4:
+                    if st.button("📐 ריצוף וחיפוי", key="btn_go_floor"):
+                        switch_discipline("📐 ריצוף וחיפוי")
 
         else:
             st.info("💡 אנא העלה שרטוט תוכנית (וקובץ מקרא אם קיים) להפעלת הסריקה.")
@@ -573,3 +557,7 @@ else:
                     edited = st.data_editor(df[["name", "layer", "x", "y", "rotation_deg", "cardinal_rotation", "אושר"]])
                     csv_out = summary.to_csv(index=False).encode('utf-8-sig')
                     st.download_button("📥 ייצא ל-Excel (CSV)", data=csv_out, file_name="Electrical_BOQ.csv", mime="text/csv")
+
+```
+
+3. שמור ב-GitHub באמצעות **Commit changes** ורענן את הדף. המסך יהיה נקי ומסודר, והכפתורים למעבר בין התחומים יעבירו אותך מיד.
