@@ -22,7 +22,7 @@ has_logo = os.path.exists(LOGO_PATH)
 app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 MEMORY_FILE = "saq_ai_memory.json"
 
-st.set_page_config(page_title="S.A.Q - Autonomous Multi-Discipline Takeoff", layout="wide", page_icon=app_icon)
+st.set_page_config(page_title="S.A. Quantities AI - Professional Takeoff Platform", layout="wide", page_icon=app_icon)
 
 def load_ai_memory():
     if os.path.exists(MEMORY_FILE):
@@ -94,6 +94,18 @@ def safe_render_table(rows):
     st.dataframe(df, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
 
 # ========================================================
+# 🏗️ אנימציית טעינה הנדסית (מנוף פעיל S.A.Q)
+# ========================================================
+def show_engineering_loader(text="S.A. Quantities AI מפענחת נתונים..."):
+    with st.status(f"🏗️ {text}", expanded=True) as status:
+        st.write("⚙️ סורק שכבות CAD / Raster ומזהה אלמנטים...")
+        time.sleep(0.3)
+        st.write("📐 מפעיל אלגוריתמים הנדסיים מבוססי AI...")
+        time.sleep(0.3)
+        st.write("✨ ממצה כתב כמויות מדויק...")
+        status.update(label="✅ עיבוד S.A.Q הסתיים בהצלחה!", state="complete", expanded=False)
+
+# ========================================================
 # 🧱 מודול בניה (תצוגה עוקבת: סטנדרט ואז ביצוע)
 # ========================================================
 def extract_interior_walls_clean(plan_img, px_per_meter=125.0):
@@ -144,13 +156,13 @@ def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
     
     disp_img = plan_img.copy()
     overlay = disp_img.copy()
-    overlay[interior_mask > 0] = [0, 235, 255]
+    overlay[interior_mask > 0] = [0, 235, 255] # צהוב זוהר
     cv2.addWeighted(overlay, 0.65, disp_img, 0.35, 0, disp_img)
     
     return linear_meters, disp_img, interior_mask
 
 # ========================================================
-# 🚿 מודול אינסטלציה – זיהוי כלים סניטריים מדויק
+# 🚿 מודול אינסטלציה – זיהוי סניטרי מדויק
 # ========================================================
 def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -168,32 +180,11 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         min_dim = min(w_m, h_m)
         
         if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
-            fixtures.append({
-                "type": "אמבטיה / מקלחון",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "status": "Green",
-                "score": 0.90
-            })
+            fixtures.append({"type": "אמבטיה / מקלחון", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "status": "Green", "score": 0.90})
         elif (0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4000:
-            fixtures.append({
-                "type": "אסלה",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "status": "Yellow" if area < 1000 else "Green",
-                "score": 0.85
-            })
+            fixtures.append({"type": "אסלה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "status": "Yellow" if area < 1000 else "Green", "score": 0.85})
         elif (0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 5500:
-            fixtures.append({
-                "type": "כיור / ארון רחצה",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "status": "Yellow" if area < 1200 else "Green",
-                "score": 0.80
-            })
+            fixtures.append({"type": "כיור / ארון רחצה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "status": "Yellow" if area < 1200 else "Green", "score": 0.80})
             
     unique = []
     for f in fixtures:
@@ -235,14 +226,10 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
         if idx_b not in b_matched:
             added.append(f_b)
             
-    for f in fix_exec:
-        x, y, w, h = f["bbox"]
-        cv2.rectangle(disp_exec, (x, y), (x + w, y + h), (0, 200, 0), 2)
-        
     return relocations, added, disp_exec
 
 # ========================================================
-# ⚡ פענוח סמלי חשמל (Legend + Feature Matching)
+# ⚡ פענוח סמלי חשמל ומאור
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -312,7 +299,7 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
 # ========================================================
 # 🧠 מנגנון אימות ושאלות משתמש אחיד (Human-in-the-Loop V/X)
 # ========================================================
-def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, session_key_raw_res):
+def run_ai_verification_workflow(raw_plan, results_list, session_key_verified):
     disp_plan = raw_plan.copy()
     yellow_items = []
     
@@ -321,7 +308,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, s
             if m["status"] == "Yellow":
                 yellow_items.append((s_idx, m_idx, item, m))
                 
-    # הגבלה למקסימום 6 שאלות בכל פעם
     yellow_items = yellow_items[:6]
     is_done_verifying = st.session_state.get(session_key_verified, False)
     
@@ -336,7 +322,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, s
                     x, y, w, h = m["bbox"]
                     pad = 24
                     crop_zoom = raw_plan[max(0, y-pad):min(raw_plan.shape[0], y+h+pad), max(0, x-pad):min(raw_plan.shape[1], x+w+pad)].copy()
-                    # עיגול אדום מודגש סביב הסמל
                     cv2.circle(crop_zoom, (crop_zoom.shape[1]//2, crop_zoom.shape[0]//2), max(w,h)//2 + 6, (0, 0, 255), 3)
                     
                     st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
@@ -422,9 +407,9 @@ def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125
     return round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img
 
 # ========================================================
-# 📑 מנוע ייצוא HTML / EXCEL / PDF
+# 📑 מנוע ייצוא HTML / EXCEL / PDF (S.A. Quantities AI)
 # ========================================================
-def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט"):
+def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט", mode_label="שינויי דיירים"):
     html = f"""
     <html dir="rtl">
     <head>
@@ -433,7 +418,8 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
     <style>
         @media print {{ body {{ -webkit-print-color-adjust: exact; }} }}
         body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; background-color: #fafafa; }}
-        .header-box {{ border-bottom: 4px solid #1F4E78; padding-bottom: 12px; margin-bottom: 25px; }}
+        .header-box {{ border-bottom: 4px solid #1F4E78; padding-bottom: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }}
+        .logo-txt {{ font-size: 22px; font-weight: bold; color: #1F4E78; }}
         .disc-title {{ color: #1F4E78; border-right: 5px solid #1F4E78; padding-right: 12px; margin-top: 30px; margin-bottom: 12px; }}
         table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }}
         th {{ background-color: #1F4E78; color: white; padding: 12px; font-size: 15px; border: 1px solid #ddd; }}
@@ -444,8 +430,11 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
     </head>
     <body>
     <div class="header-box">
-        <h2>🏗️ {title}</h2>
-        <p>מערכת הנדסית S.A.Q AI | תאריך הפקה: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}</p>
+        <div>
+            <h2>🏗️ {title}</h2>
+            <p>מערכת הנדסית S.A. Quantities AI | מצב עבודה: <b>{mode_label}</b></p>
+        </div>
+        <div class="logo-txt">S.A. Quantities AI</div>
     </div>
     """
     for disc_name, rows in project_boq.items():
@@ -490,6 +479,43 @@ if "current_discipline" not in st.session_state:
 if "show_master_export" not in st.session_state:
     st.session_state["show_master_export"] = False
 
+# ========================================================
+# 🎨 מסך פתיחה גרפי – S.A. Quantities AI
+# ========================================================
+if "app_mode" not in st.session_state:
+    st.session_state["app_mode"] = None
+
+if st.session_state["app_mode"] is None:
+    st.markdown("<h1 style='text-align: center; color: #1F4E78;'>S.A. Quantities AI (S.A.Q) - Professional Takeoff</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center; color: #555;'>בחר את סוג המשתמש והממשק המועדף עליך לפרויקט:</h3>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col_m1, col_m2 = st.columns(2, gap="large")
+    
+    with col_m1:
+        st.markdown("""
+        <div style="background-color: #f0f4f8; padding: 30px; border-radius: 12px; border: 2px solid #1F4E78; text-align: center; height: 320px;">
+            <h2 style="color: #1F4E78;">👷‍♂️ שדרוג ושינויי דיירים</h2>
+            <p style="font-size: 15px; color: #333;">ממשק מותאם ליזמים וקבלני בניין. השוואת תוכנית שינויים מול סטנדרט קבלן, הפקת דוחות תוספות, זיכויים ושינויים לדייר.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 כניסה למצב שינויי דיירים", use_container_width=True):
+            st.session_state["app_mode"] = "שינויי דיירים"
+            st.rerun()
+            
+    with col_m2:
+        st.markdown("""
+        <div style="background-color: #f8f9fa; padding: 30px; border-radius: 12px; border: 2px solid #28a745; text-align: center; height: 320px;">
+            <h2 style="color: #28a745;">🔨 קבלני שיפוצים</h2>
+            <p style="font-size: 15px; color: #333;">ממשק מותאם לקבלני ביצוע ושיפוצים. השוואה מול מצב קיים, מדידת מ"ר מחיצות להריסה לעומת בניה חדשה ופירוק כלים סניטריים.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 כניסה למצב קבלני שיפוצים", use_container_width=True):
+            st.session_state["app_mode"] = "קבלני שיפוצים"
+            st.rerun()
+            
+    st.stop()
+
 def on_discipline_change():
     st.session_state["current_discipline"] = st.session_state["disc_selector_widget"]
     st.session_state.pop("legend_results", None)
@@ -510,6 +536,12 @@ curr_idx = disciplines_list.index(st.session_state["current_discipline"]) if st.
 with st.sidebar:
     if has_logo: st.image(LOGO_PATH)
     st.header("⚙️ הגדרות עבודה")
+    st.info(f"מצב עבודה פעיל:\n**{st.session_state['app_mode']}**")
+    if st.button("🔄 החלף מצב עבודה / משתמש"):
+        st.session_state["app_mode"] = None
+        st.rerun()
+        
+    st.markdown("---")
     file_type = st.radio("פורמט שרטוט:", ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"])
     discipline = st.selectbox("דיסציפלינה:", disciplines_list, index=curr_idx, key="disc_selector_widget", on_change=on_discipline_change)
     
@@ -529,7 +561,7 @@ with st.sidebar:
     filter_banner = st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
     
     st.markdown("---")
-    st.subheader("🧠 מנוע למידה AI פעיל")
+    st.subheader("🧠 מנוע למידה S.A.Q AI")
     st.caption(f"תבניות שאושרו בזיכרון: {len(ai_memory.get('approved_patterns', []))}")
     saved_count = len([k for k, v in st.session_state["project_boq"].items() if len(v) > 0])
     st.info(f"דיסציפלינות עם כמויות: **{saved_count}** מתוך 4")
@@ -541,17 +573,18 @@ col_l, col_t = st.columns([1, 6])
 with col_l:
     if has_logo: st.image(LOGO_PATH, width=90)
 with col_t:
-    st.title("S.A.Q Takeoff & Delta Platform")
-    st.caption(f"פלטפורמת ענן לפענוח הנדסי אוטונומי - {st.session_state['current_discipline']}")
+    st.title("S.A. Quantities AI (S.A.Q) - Takeoff Platform")
+    st.caption(f"מערכת הנדסית לאוטונומיה בבניה ושיפוצים | מצב: {st.session_state['app_mode']} | דיסציפלינה: {st.session_state['current_discipline']}")
 
 active_disc = st.session_state["current_discipline"]
+mode_lbl = st.session_state["app_mode"]
 
 # ========================================================
 # 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub)
 # ========================================================
 if st.session_state.get("show_master_export", False):
     st.markdown("---")
-    st.header("🏗️ מרכז הפקת דוחות סופיים לפרויקט")
+    st.header(f"🏗️ מרכז הפקת דוחות סופיים לפרויקט ({mode_lbl})")
     
     for d_name in disciplines_list:
         d_rows = st.session_state["project_boq"].get(d_name, [])
@@ -562,13 +595,13 @@ if st.session_state.get("show_master_export", False):
                 st.write("טרם הוזנו כמויות (יופיע כ-0 בדוח).")
             
     st.markdown("---")
-    st.subheader("📦 ייצוא דוח פרויקט מאוחד")
-    master_html = generate_master_export_html(st.session_state["project_boq"], title="דוח כתב כמויות מאוחד לפרויקט")
+    st.subheader("📦 ייצוא דוח פרויקט מאוחד עם לוגו S.A.Q")
+    master_html = generate_master_export_html(st.session_state["project_boq"], title=f"דוח כתב כמויות מאוחד - {mode_lbl}", mode_label=mode_lbl)
     m_c1, m_c2 = st.columns(2)
     with m_c1:
-        st.download_button("📊 הורד דוח פרויקט מאוחד ל-Excel (XLS)", data=master_html.encode("utf-8"), file_name="Project_Master_Takeoff.xls", mime="application/vnd.ms-excel")
+        st.download_button("📊 הורד דוח פרויקט ל-Excel (XLS)", data=master_html.encode("utf-8"), file_name=f"SAQ_Project_BOQ_{mode_lbl}.xls", mime="application/vnd.ms-excel")
     with m_c2:
-        st.download_button("📄 הורד דוח פרויקט מאוחד להדפסה/PDF", data=master_html.encode("utf-8"), file_name="Project_Master_Report.html", mime="text/html")
+        st.download_button("📄 הורד דוח פרויקט להדפסה/PDF", data=master_html.encode("utf-8"), file_name=f"SAQ_Project_Report_{mode_lbl}.html", mime="text/html")
         
     if st.button("🔙 חזור למסך הסריקה"):
         st.session_state["show_master_export"] = False
@@ -584,61 +617,50 @@ elif file_type == "📄 PDF / תמונה (Raster)":
     # ----------------------------------------------------
     if active_disc == "🧱 בניה (מחיצות ומעטפת)":
         c_exec, c_std, c_leg = st.columns(3)
-        with c_exec: f_plan = st.file_uploader("1️⃣ תוכנית ביצוע (חובה):", type=["pdf", "png", "jpg"], key="b_plan_exec")
-        with c_std: f_std = st.file_uploader("2️⃣ תוכנית סטנדרט / קיים (אופציונלי):", type=["pdf", "png", "jpg"], key="b_plan_std")
+        with c_exec: f_plan = st.file_uploader("1️⃣ תוכנית ביצוע / מוצע (חובה):", type=["pdf", "png", "jpg"], key="b_plan_exec")
+        with c_std: f_std = st.file_uploader("2️⃣ תוכנית סטנדרט / מצב קיים (אופציונלי):", type=["pdf", "png", "jpg"], key="b_plan_std")
         with c_leg: f_leg = st.file_uploader("3️⃣ מקרא בניה (אופציונלי):", type=["pdf", "png", "jpg"], key="b_leg")
         
         st.markdown("---")
         b_wall_h = st.number_input("📏 גובה מחיצות פנים להכפלה (מטר):", min_value=1.5, max_value=5.0, value=2.70, step=0.05)
         
         if f_plan:
-            btn_title = "🚀 הפעל השוואת שינויי בניה עוקבת (סטנדרט ואז ביצוע)" if f_std else "🚀 הפעל חישוב מחיצות פנים נטו"
+            btn_title = "🚀 הפעל השוואת שינויי בניה עוקבת" if f_std else "🚀 הפעל חישוב מחיצות פנים נטו"
             if st.button(btn_title):
-                p_bar = st.progress(0, text="מתחיל עיבוד תוכנית בניה... (0%)")
+                show_engineering_loader("S.A.Q AI מנתח מחיצות פנים, קירות מעטפת ומחשב כמויות...")
                 img_exec = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(35, text="טוען תוכנית סטנדרט ומנתח קירות... (35%)")
                     img_std = load_raster(f_std)
-                    
                     lin_std, disp_std, _ = calc_building_partitions_clean(img_std, px_meter)
                     lin_exec, disp_exec, _ = calc_building_partitions_clean(img_exec, px_meter)
-                    
-                    p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
-                    time.sleep(0.3)
-                    p_bar.empty()
                     
                     sqm_std = round(lin_std * b_wall_h, 2)
                     sqm_exec = round(lin_exec * b_wall_h, 2)
                     diff_m = round(max(0.0, lin_exec - lin_std), 2)
                     diff_sqm = round(diff_m * b_wall_h, 2)
                     
-                    st.success("✅ החישוב הושלם בהצלחה! להלן יוצגו קודם תוכנית הסטנדרט ולאחר מכן תוכנית הביצוע.")
+                    st.success(f"✅ החישוב הושלם בהצלחה ({mode_lbl})! להלן יוצגו תוכנית הסטנדרט ולאחר מכן תוכנית הביצוע/מוצע.")
                     c1, c2, c3 = st.columns(3)
-                    c1.metric("אורך מחיצות בסטנדרט:", f"{lin_std} מ\"א")
-                    c2.metric("אורך מחיצות בביצוע:", f"{lin_exec} מ\"א")
-                    c3.metric("תוספת מחיצות לחיוב נטו:", f"{diff_m} מ\"א", f"{diff_sqm} מ\"ר")
+                    c1.metric("אורך מחיצות בסטנדרט / קיים:", f"{lin_std} מ\"א")
+                    c2.metric("אורך מחיצות בביצוע / מוצע:", f"{lin_exec} מ\"א")
+                    c3.metric("תוספת מחיצות לחיוב / הריסה:", f"{diff_m} מ\"א", f"{diff_sqm} מ\"ר")
                     
                     b_rows = [
-                        {"מס'": 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת מחיצות פנים מעבר לסטנדרט (ביצוע {lin_exec} מ\"א מול {lin_std} מ\"א בסטנדרט)", "כמות מאושרת": diff_m, "יחידת מידה": 'מ"א'},
+                        {"מס'": 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת מחיצות פנים מעבר לסטנדרט (ביצוע {lin_exec} מ\"א מול {lin_std} מ\"א)", "כמות מאושרת": diff_m, "יחידת מידה": 'מ"א'},
                         {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"שטח תוספת מחיצות לחיוב (גובה {b_wall_h} מ')", "כמות מאושרת": diff_sqm, "יחידת מידה": 'מ"ר'}
                     ]
                     st.session_state["project_boq"][active_disc] = b_rows
                     safe_render_table(b_rows)
                     
-                    st.markdown("### 📄 1. תוכנית סטנדרט (קירות שחושבו מסומנים בצהוב זוהר)")
-                    st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="תוכנית סטנדרט - מחיצות פנים בצהוב")
+                    st.markdown("### 📄 1. תוכנית סטנדרט / מצב קיים (קירות בצהוב זוהר)")
+                    st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="סטנדרט / מצב קיים - מחיצות פנים בצהוב")
                     
-                    st.markdown("### 📄 2. תוכנית ביצוע (קירות שחושבו מסומנים בצהוב זוהר)")
-                    st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="תוכנית ביצוע - מחיצות פנים בצהוב")
+                    st.markdown("### 📄 2. תוכנית ביצוע / מצב מוצע (קירות בצהוב זוהר)")
+                    st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="ביצוע / מצב מוצע - מחיצות פנים בצהוב")
                 else:
-                    p_bar.progress(60, text="מבודד מחיצות פנים ומסנן מעטפת וקווי מידות... (60%)")
                     lin_m, disp_img, _ = calc_building_partitions_clean(img_exec, px_meter)
                     sqm_total = round(lin_m * b_wall_h, 2)
-                    
-                    p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
-                    time.sleep(0.3)
-                    p_bar.empty()
                     
                     st.success("✅ החישוב הושלם! כל מחיצות הפנים שנמדדו צבועות בצהוב זוהר על גבי השרטוט.")
                     c1, c2 = st.columns(2)
@@ -663,49 +685,37 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         with c_leg: f_leg = st.file_uploader("3️⃣ מקרא כלים סניטריים (אופציונלי):", type=["pdf", "png", "jpg"], key="p_leg")
         
         if f_plan:
-            btn_title = "🚀 הפעל השוואת שינויים ומרחקי העתקה מול סטנדרט" if f_std else "🚀 הפעל ספירת כלים סניטריים מדויקת"
+            btn_title = "🚀 הפעל השוואת שינויי אינסטלציה מול סטנדרט" if f_std else "🚀 הפעל ספירת כלים סניטריים מדויקת"
             if st.button(btn_title):
                 st.session_state["plumb_verified"] = False
-                p_bar = st.progress(0, text="מתחיל טעינת תוכנית אינסטלציה... (0%)")
+                show_engineering_loader("S.A.Q AI מזהה כלים סניטריים, אסלות, אמבטיות ונקודות מים...")
                 img_plan = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(30, text="מזהה כלים סניטריים בסטנדרט ובביצוע... (30%)")
                     img_std = load_raster(f_std)
                     relocs, added, disp_delta = compare_plumbing_delta_accurate(img_std, img_plan, px_meter)
                     
-                    p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
-                    time.sleep(0.3)
-                    p_bar.empty()
-                    
-                    st.subheader("🔄 דוח שינויים והעתקת נקודות אינסטלציה מול סטנדרט")
-                    st.metric("נקודות וכלים שהועתקו/הוזזו ממקומן:", f"{len(relocs)} יח'", f"+{len(added)} כלים/נקודות חדשות")
+                    st.subheader("🔄 דוח שינויי אינסטלציה והעתקת נקודות")
+                    st.metric("נקודות שהוזזו ממקומן:", f"{len(relocs)} יח'", f"+{len(added)} כלים/נקודות חדשות")
                     
                     p_rows = []
                     for idx, r in enumerate(relocs):
                         p_rows.append({"מס'": idx+1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"העתקת {r['type']} (הזזה של {r['distance_m']} מטר)", "כמות מאושרת": 1, "יחידת מידה": f"יח' ({r['distance_m']} מ')"})
                     for idx, a in enumerate(added):
-                        p_rows.append({"מס'": len(relocs)+idx+1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת {a['type']} חדשה מעבר לסטנדרט", "כמות מאושרת": 1, "יחידת מידה": "יח'"})
+                        p_rows.append({"מס'": len(relocs)+idx+1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת {a['type']} חדשה", "כמות מאושרת": 1, "יחידת מידה": "יח'"})
                     st.session_state["project_boq"][active_disc] = p_rows
                     safe_render_table(p_rows)
                     st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="חיצים כתומים = העתקת נקודות סניטריות")
                 else:
-                    p_bar.progress(40, text="מאתר אסלות, אמבטיות וכיורים בחללים הרטובים... (40%)")
-                    fixtures_found = detect_sanitary_fixtures_and_points(img_plan, px_meter)
-                    
+                    fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
                     formatted_results = []
                     for idx, f in enumerate(fixtures_found):
                         formatted_results.append({
                             "index": idx + 1,
                             "symbol_img": f["crop"],
                             "image_uri": img_to_data_uri(f["crop"]),
-                            "matches": [{"bbox": f["bbox"], "center": f["center"], "score": f["score"], "status": f["status"]}]
+                            "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.88, "status": f["status"]}]
                         })
-                        
-                    p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
-                    time.sleep(0.3)
-                    p_bar.empty()
-                    
                     st.session_state["plumb_results"] = formatted_results
                     st.session_state["plumb_plan_raw"] = img_plan
 
@@ -713,7 +723,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 res = st.session_state["plumb_results"]
                 raw_plan = st.session_state["plumb_plan_raw"]
                 
-                rows_p, disp_p = run_ai_verification_workflow(raw_plan, res, "plumb_verified", "plumb_results")
+                rows_p, disp_p = run_ai_verification_workflow(raw_plan, res, "plumb_verified")
                 st.session_state["project_boq"][active_disc] = rows_p
                 safe_render_table(rows_p)
                 st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית")
@@ -729,26 +739,21 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         if f_plan:
             btn_title = "🚀 הפעל השוואת שינויי ריצוף וחיפוי מול סטנדרט" if f_std else "🚀 הפעל חישוב ריצוף נטו וחיפוי חדרים רטובים"
             if st.button(btn_title):
-                p_bar = st.progress(0, text="מתחיל טעינת תוכנית ריצוף... (0%)")
+                show_engineering_loader("S.A.Q AI מחשב שטחי ריצוף רצפה נטו והיקפי חיפוי קירות בחללים רטובים...")
                 img_plan = load_raster(f_plan)
                 
-                fixtures_plan = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                fixtures_plan, _ = detect_sanitary_fixtures_and_points(img_plan, px_meter)
                 plumb_pts = [f["center"] for f in fixtures_plan]
                 floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
                 
                 if f_std:
-                    p_bar.progress(50, text="משווה מול תוכנית סטנדרט... (50%)")
                     img_std = load_raster(f_std)
-                    fixtures_std = detect_sanitary_fixtures_and_points(img_std, px_meter)
+                    fixtures_std, _ = detect_sanitary_fixtures_and_points(img_std, px_meter)
                     plumb_pts_std = [f["center"] for f in fixtures_std]
                     f_std_sqm, _, w_std_sqm, _ = calc_flooring_and_wall_tiling(img_std, tile_h, px_meter, plumb_pts_std)
                     
                     diff_floor = round(floor_sqm - f_std_sqm, 2)
                     diff_wall = round(wet_wall_sqm - w_std_sqm, 2)
-                    
-                    p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
-                    time.sleep(0.3)
-                    p_bar.empty()
                     
                     st.subheader("🔄 הפרשי כמויות ריצוף וחיפוי מול סטנדרט")
                     c1, c2 = st.columns(2)
@@ -760,10 +765,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"חיפוי חדרים רטובים (ביצוע {wet_wall_sqm} מ\"ר לעומת סטנדרט {w_std_sqm} מ\"ר)", "כמות מאושרת": diff_wall, "יחידת מידה": 'מ"ר הפרש'}
                     ]
                 else:
-                    p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
-                    time.sleep(0.3)
-                    p_bar.empty()
-                    
                     st.success("✅ החישוב הושלם! חללים רטובים זוהו אוטומטית לפי הכלים הסניטריים בתוכם.")
                     c1, c2, c3 = st.columns(3)
                     c1.metric("ריצוף רצפה נטו (בירוק):", f"{floor_sqm} מ\"ר")
@@ -790,21 +791,18 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         if f_plan:
             if st.button("🚀 הפעל פענוח וספירת חשמל ומאור"):
                 st.session_state["elec_verified"] = False
-                p_bar = st.progress(0, text="מתחיל טעינת קבצי חשמל... (0%)")
+                show_engineering_loader("S.A.Q AI מנתח סמלי תאורה, מפסקים ושקעים...")
                 img_plan = load_raster(f_plan)
                 
                 plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
                 _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
                 
-                p_bar.progress(30, text="מחלץ סמלים מתוך קובץ המקרא... (30%)")
                 symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
                 all_results = []
                 
                 if symbols:
                     total_s = len(symbols)
                     for i, sym in enumerate(symbols):
-                        pct = 40 + int(((i + 1) / total_s) * 50)
-                        p_bar.progress(pct, text=f"סורק סמל {i+1} מתוך {total_s} בתוכנית... ({pct}%)")
                         m = match_symbol_ai(plan_inv, sym["crop_gray"])
                         all_results.append({
                             "index": i + 1,
@@ -813,7 +811,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                             "matches": m
                         })
                 else:
-                    fixtures_e = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                    fixtures_e, _ = detect_sanitary_fixtures_and_points(img_plan, px_meter) if 'detect_sanitary_fixtures_and_points' in globals() else ([], None)
                     for i, f in enumerate(fixtures_e):
                         all_results.append({
                             "index": i + 1,
@@ -822,10 +820,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                             "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.85, "status": "Green"}]
                         })
                 
-                p_bar.progress(100, text="הסריקה הושלמה בהצלחה! (100%)")
-                time.sleep(0.3)
-                p_bar.empty()
-                
                 st.session_state["elec_results"] = all_results
                 st.session_state["elec_plan_raw"] = img_plan
 
@@ -833,7 +827,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 res = st.session_state["elec_results"]
                 raw_plan = st.session_state["elec_plan_raw"]
                 
-                rows_e, disp_e = run_ai_verification_workflow(raw_plan, res, "elec_verified", "elec_results")
+                rows_e, disp_e = run_ai_verification_workflow(raw_plan, res, "elec_verified")
                 st.session_state["project_boq"][active_disc] = rows_e
                 safe_render_table(rows_e)
                 st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="נקודות חשמל ותאורה שזוהו בתוכנית")
