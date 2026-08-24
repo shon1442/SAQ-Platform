@@ -168,39 +168,12 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         max_dim = max(w_m, h_m)
         min_dim = min(w_m, h_m)
         
-        # אמבטיה / מקלחון
         if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
-            fixtures.append({
-                "type": "אמבטיה / מקלחון",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "color": (255, 0, 0),
-                "status": "Green",
-                "score": 0.90
-            })
-        # אסלה
-        elif (0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4500:
-            fixtures.append({
-                "type": "אסלה",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "color": (0, 165, 255),
-                "status": "Green",
-                "score": 0.85
-            })
-        # כיור / ארון רחצה
-        elif (0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 6000:
-            fixtures.append({
-                "type": "כיור / ארון רחצה",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "color": (0, 200, 0),
-                "status": "Green",
-                "score": 0.80
-            })
+            fixtures.append({"type": "אמבטיה / מקלחון", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "color": (255, 0, 0)})
+        elif (0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4000:
+            fixtures.append({"type": "אסלה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "color": (0, 165, 255)})
+        elif (0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 5500:
+            fixtures.append({"type": "כיור / ארון רחצה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "color": (0, 200, 0)})
             
     unique = []
     for f in fixtures:
@@ -246,7 +219,7 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
     return relocations, added, disp_exec
 
 # ========================================================
-# ⚡ פענוח סמלי חשמל ומאור (המנוע המקורי המדויק)
+# ⚡ פענוח סמלי חשמל ומאור (מנוע מקרא מדויק ללא ספירת אלפים)
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -261,7 +234,7 @@ def extract_symbols_from_legend(legend_img):
     raw_symbols = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        if 12 <= w <= 100 and 12 <= h <= 100 and cv2.contourArea(c) > 30:
+        if 14 <= w <= 90 and 14 <= h <= 90 and cv2.contourArea(c) > 35:
             pad = 4
             raw_symbols.append({
                 "bbox": (x, y, w, h),
@@ -274,19 +247,19 @@ def extract_symbols_from_legend(legend_img):
     for sym in raw_symbols:
         if not any(np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 24 for u in unique):
             unique.append(sym)
-    return unique[:20]
+    return unique[:16]
 
-def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.55, high_thresh=0.70):
+def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.68, high_thresh=0.80):
     _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
     pts = cv2.findNonZero(templ_inv)
     if pts is not None:
         tx, ty, tw, th = cv2.boundingRect(pts)
-        if tw > 6 and th > 6:
+        if tw > 8 and th > 8:
             templ_inv = templ_inv[ty:ty+th, tx:tx+tw]
     detections = []
-    for scale in [0.85, 0.95, 1.0, 1.05, 1.15]:
+    for scale in [0.95, 1.0, 1.05]:
         sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
-        if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 6 or sh < 6: continue
+        if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 8 or sh < 8: continue
         resized_t = cv2.resize(templ_inv, (sw, sh))
         for rot in [0, 90, 180, 270]:
             if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
@@ -301,7 +274,7 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.55, high_thresh=0.70):
                 status = "Green" if score >= high_thresh else "Yellow"
                 detections.append({"bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)), "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)), "score": score, "status": status})
     if not detections: return []
-    indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.22)
+    indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.35)
     final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
     return final_res
 
@@ -571,7 +544,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="הקירות שנמדדו וחושבו צבועים בצהוב זוהר")
 
     # ----------------------------------------------------
-    # 2. 🚿 מודול אינסטלציה (כלים סניטריים מוגבל ל-6 פריטים באימות)
+    # 2. 🚿 מודול אינסטלציה
     # ----------------------------------------------------
     elif active_disc == "🚿 אינסטלציה":
         c_exec, c_std, c_leg = st.columns(3)
@@ -731,7 +704,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="כתום = חלל רטוב לחיפוי קירות, ירוק = ריצוף יבש")
 
     # ----------------------------------------------------
-    # 4. ⚡ מודול חשמל ומאור (מוגבל למקסימום 6 שאלות אימות)
+    # 4. ⚡ מודול חשמל ומאור (מנוע המקרא המקורי והמדויק)
     # ----------------------------------------------------
     else:
         c_exec, c_std, c_leg = st.columns(3)
@@ -748,6 +721,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
                 _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
                 
+                p_bar.progress(30, text="מחלץ סמלים מתוך קובץ המקרא... (30%)")
                 symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
                 all_results = []
                 
