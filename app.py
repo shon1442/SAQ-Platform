@@ -848,3 +848,4 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         for i, d_target in enumerate(rem):
             if cols[i].button(d_target, key=f"btn_nav_{i}"):
                 set_discipline_programmatically(d_target)
+                
