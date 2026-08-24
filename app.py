@@ -38,6 +38,12 @@ def save_ai_memory(memory):
     except Exception:
         pass
 
+def img_to_data_uri(cv2_img):
+    if cv2_img is None or cv2_img.size == 0:
+        return ""
+    _, buf = cv2.imencode('.png', cv2_img)
+    return f"data:image/png;base64,{base64.b64encode(buf).decode()}"
+
 def load_raster(file, scale=1.4):
     try:
         if file.name.lower().endswith(".pdf"):
@@ -63,14 +69,14 @@ def load_raster(file, scale=1.4):
         st.error(f"שגיאה בטעינת הקובץ: {e}")
         return None
 
-def extract_symbols_from_legend(legend_img):
+def extract_symbols_and_text_from_legend(legend_img):
     gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
-    leg_h = gray.shape[0]
+    leg_h, leg_w = gray.shape[:2]
     crop_h = int(leg_h * 0.88)
     work_gray = gray[:crop_h, :]
     work_color = legend_img[:crop_h, :]
     
-    _, thresh = cv2.threshold(work_gray, 230, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(work_gray, 225, 255, cv2.THRESH_BINARY_INV)
     
     h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 1))
     v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 25))
@@ -84,33 +90,42 @@ def extract_symbols_from_legend(legend_img):
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
         area = cv2.contourArea(c)
-        if 14 <= w <= 110 and 14 <= h <= 110 and area > 35:
-            pad = 4
-            y1, y2 = max(0, y - pad), min(work_gray.shape[0], y + h + pad)
-            x1, x2 = max(0, x - pad), min(work_gray.shape[1], x + w + pad)
-            c_gray = work_gray[y1:y2, x1:x2]
-            c_color = work_color[y1:y2, x1:x2]
-            raw_symbols.append({
-                "bbox": (x, y, w, h),
-                "crop_color": c_color,
-                "crop_gray": c_gray,
-                "y_pos": y,
-                "x_pos": x
-            })
+        if 16 <= w <= 110 and 16 <= h <= 110 and area > 45:
+            aspect = w / float(h)
+            if 0.45 <= aspect <= 2.2:
+                pad = 4
+                y1, y2 = max(0, y - pad), min(work_gray.shape[0], y + h + pad)
+                x1, x2 = max(0, x - pad), min(work_gray.shape[1], x + w + pad)
+                c_gray = work_gray[y1:y2, x1:x2]
+                c_color = work_color[y1:y2, x1:x2]
                 
-    raw_symbols.sort(key=lambda s: (s["y_pos"] // 30, s["x_pos"]))
+                # דגימת אזור התיאור הצמוד לסמל מתוך הטבלה
+                text_crop_x1 = max(0, x - 260) if x > 260 else min(work_gray.shape[1], x + w)
+                text_crop_x2 = x if x > 260 else min(work_gray.shape[1], x + w + 260)
+                text_crop = work_color[y1:y2, text_crop_x1:text_crop_x2]
+                
+                raw_symbols.append({
+                    "bbox": (x, y, w, h),
+                    "crop_color": c_color,
+                    "crop_gray": c_gray,
+                    "text_crop": text_crop,
+                    "y_pos": y,
+                    "x_pos": x
+                })
+                
+    raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
     unique_symbols = []
     for sym in raw_symbols:
         is_dup = False
         for u in unique_symbols:
-            if np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 24:
+            if np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 26:
                 is_dup = True
                 break
         if not is_dup:
             unique_symbols.append(sym)
     return unique_symbols[:16]
 
-def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.74):
+def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.64, high_thresh=0.76):
     _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
     pts = cv2.findNonZero(templ_inv)
     if pts is not None:
@@ -170,24 +185,18 @@ def generate_html_boq(boq_rows):
     </style>
     </head>
     <body>
-    <h2>📋 כתב כמויות חשמל אוטונומי - S.A.Q AI</h2>
+    <h2>📋 כתב כמויות חשמל - S.A.Q Takeoff</h2>
     <table>
         <tr>
             <th>מס'</th>
-            <th>סמל / סימון גרפי</th>
+            <th>תמונת סמל</th>
             <th>תיאור הפריט</th>
             <th>כמות מאושרת</th>
             <th>יחידת מידה</th>
         </tr>
     """
     for r in boq_rows:
-        sym_img = r.get("symbol_img")
-        img_tag = "—"
-        if sym_img is not None and sym_img.size > 0:
-            _, buffer = cv2.imencode('.png', sym_img)
-            b64_str = base64.b64encode(buffer).decode()
-            img_tag = f'<img src="data:image/png;base64,{b64_str}" width="55" height="40"/>'
-            
+        img_tag = f'<img src="{r["image_uri"]}" width="55" height="40"/>' if r.get("image_uri") else "—"
         html += f"""
         <tr>
             <td>{r["מס'"]}</td>
@@ -212,8 +221,8 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("🧠 מנוע למידה AI וכיול")
     st.caption(f"זיכרון דפוסים פעיל: {len(ai_memory.get('approved_patterns', []))} אישורים שמורים.")
-    high_sens = st.slider("סף ודאי אוטומטי (Green %):", min_value=65, max_value=85, value=74, step=1)
-    min_sens = st.slider("סף שאלת משתמש (Yellow %):", min_value=50, max_value=68, value=60, step=1)
+    high_sens = st.slider("סף ודאי אוטומטי (Green %):", min_value=65, max_value=85, value=75, step=1)
+    min_sens = st.slider("סף שאלת משתמש (Yellow %):", min_value=50, max_value=68, value=62, step=1)
     filter_banner = st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
 
 col_l, col_t = st.columns([1, 6])
@@ -222,7 +231,7 @@ with col_l:
         st.image(LOGO_PATH, width=90)
 with col_t:
     st.title("S.A.Q Takeoff & Delta Platform")
-    st.caption("פלטפורמת ענן עם זיכרון למידה AI, זיהוי סמלי תאורה וכמויות")
+    st.caption("פלטפורמת ענן עם זיהוי שמות מקרא, תמונות סמלים וספירה אוטומטית")
 
 if file_type == "📄 PDF / תמונה (Raster)":
     if mode == "ספירה מתוכנית בודדת":
@@ -240,7 +249,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 if img_plan is None or img_leg is None:
                     st.error("שגיאה בטעינת הקבצים. ודא שהקובץ תקין.")
                 else:
-                    symbols_found = extract_symbols_from_legend(img_leg)
+                    symbols_found = extract_symbols_and_text_from_legend(img_leg)
                     if not symbols_found:
                         st.warning("⚠️ לא אותרו סמלים הנדסיים מבודדים במקרא.")
                     else:
@@ -264,6 +273,8 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             all_results.append({
                                 "index": i + 1,
                                 "symbol_img": sym["crop_color"],
+                                "text_crop": sym["text_crop"],
+                                "image_uri": img_to_data_uri(sym["crop_color"]),
                                 "matches": matches
                             })
                             
@@ -289,11 +300,10 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 
                 yellow_items = yellow_items[:8]
                 
-                # מנגנון שאלת משתמש ולמידה AI
                 if yellow_items:
                     st.markdown("---")
                     st.info(f"🔍 **אימות נקודות בספק ולמידת AI ({len(yellow_items)} נקודות לבדיקה):**")
-                    with st.expander("לחץ כאן לבדיקה ואישור/דחיית נקודות (ה-AI ילמד לפעמים הבאות)", expanded=True):
+                    with st.expander("לחץ כאן לבדיקה ואישור/דחיית נקודות (V / X)", expanded=True):
                         cols = st.columns(min(len(yellow_items), 3))
                         updated_memory = False
                         for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
@@ -305,7 +315,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                                 crop_zoom = raw_plan[y1:y2, x1:x2].copy()
                                 cv2.rectangle(crop_zoom, (x - x1, y - y1), (x - x1 + w, y - y1 + h), (0, 165, 255), 2)
                                 
-                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"מופע לסמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=140)
+                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=140)
                                 choice = st.radio(
                                     "סטטוס:",
                                     ["✅ אשר נקודה (V)", "❌ דחה נקודה (X)"],
@@ -315,7 +325,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                                 is_appr = ("אשר" in choice)
                                 m["user_decision"] = "Approved" if is_appr else "Rejected"
                                 
-                                # שמירה לזיכרון AI
                                 pattern_key = f"s_{item['index']}_{m['bbox'][2]}x{m['bbox'][3]}"
                                 if is_appr and pattern_key not in ai_memory["approved_patterns"]:
                                     ai_memory["approved_patterns"].append(pattern_key)
@@ -351,14 +360,17 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     item["confirmed_count"] = confirmed_count
 
                 st.markdown("---")
-                st.subheader("📋 פירוט ספירת כמויות סופית (כולל תמונת הסמל המדויקת)")
+                st.subheader("📋 פירוט סמלים שנלמדו מהמקרא")
                 for item in res:
                     c1, c2, c3 = st.columns([1.5, 2.5, 1.5])
                     with c1:
                         if item["symbol_img"].size > 0:
                             st.image(cv2.cvtColor(item["symbol_img"], cv2.COLOR_BGR2RGB), width=85, caption=f"סמל #{item['index']}")
                     with c2:
-                        s_desc = st.text_input(f"תיאור פריט #{item['index']}:", value=f"סמל/גוף תאורה #{item['index']}", key=f"desc_{item['index']}")
+                        if item["text_crop"].size > 0:
+                            st.caption("חיתוך תיאור מהמקרא:")
+                            st.image(cv2.cvtColor(item["text_crop"], cv2.COLOR_BGR2RGB), height=35)
+                        s_desc = st.text_input(f"תיאור פריט #{item['index']}:", value=f"סמל חשמל/תאורה #{item['index']}", key=f"desc_{item['index']}")
                         is_inc = st.checkbox("כלול בכתב כמויות", value=(item["confirmed_count"] > 0), key=f"inc_leg_{item['index']}")
                     with c3:
                         st.metric("כמות מאושרת:", f"{item['confirmed_count']} יח'")
@@ -366,25 +378,39 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     if is_inc:
                         boq_rows.append({
                             "מס'": item["index"],
+                            "תמונת סמל": item["image_uri"],
                             "symbol_img": item["symbol_img"],
+                            "image_uri": item["image_uri"],
                             "תיאור הפריט": s_desc,
                             "כמות מאושרת": item["confirmed_count"],
                             "יחידת מידה": "יח'"
                         })
                     st.markdown("---")
                     
-                st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים (ירוק V = מאושר, אדום X = נדחה):")
+                st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
                 st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
                 
                 if boq_rows:
-                    st.subheader("📊 ריכוז סופי לכתב כמויות")
+                    st.subheader("📊 ריכוז סופי לכתב כמויות (עם תמונות סמלים)")
                     df_preview = pd.DataFrame([
-                        {"מס'": r["מס'"], "תיאור הפריט": r["תיאור הפריט"], "כמות מאושרת": r["כמות מאושרת"], "יחידת מידה": r["יחידת מידה"]}
+                        {
+                            "מס'": r["מס'"],
+                            "תמונת סמל": r["תמונת סמל"],
+                            "תיאור הפריט": r["תיאור הפריט"],
+                            "כמות מאושרת": r["כמות מאושרת"],
+                            "יחידת מידה": r["יחידת מידה"]
+                        }
                         for r in boq_rows
                     ])
-                    st.dataframe(df_preview)
                     
-                    # הפקת קובץ HTML מלא עם תמונות סמלים לפתיחה ב-Excel
+                    # הצגת טבלה עם תמונות מוטמעות
+                    st.dataframe(
+                        df_preview,
+                        column_config={
+                            "תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")
+                        }
+                    )
+                    
                     html_report = generate_html_boq(boq_rows)
                     st.download_button(
                         "📥 ייצא דוח כתב כמויות כולל תמונות סמלים (Excel / Web)",
