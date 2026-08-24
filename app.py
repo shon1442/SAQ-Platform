@@ -220,7 +220,7 @@ def generate_export_html(boq_rows, title="דוח כתב כמויות"):
         @media print {{ body {{ -webkit-print-color-adjust: exact; }} }}
         body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; background-color: #fafafa; }}
         .header-box {{ border-bottom: 3px solid #1F4E78; padding-bottom: 10px; margin-bottom: 20px; }}
-        table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }}
+        table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 25px; }}
         th {{ background-color: #1F4E78; color: white; padding: 12px; font-size: 15px; border: 1px solid #ddd; }}
         td {{ padding: 10px; text-align: center; border: 1px solid #ddd; font-size: 14px; vertical-align: middle; }}
         tr:nth-child(even) {{ background-color: #f8f9fa; }}
@@ -255,20 +255,87 @@ def generate_export_html(boq_rows, title="דוח כתב כמויות"):
     html += "</table></body></html>"
     return html
 
+def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט"):
+    html = f"""
+    <html dir="rtl">
+    <head>
+    <meta charset="utf-8">
+    <title>{title}</title>
+    <style>
+        @media print {{ body {{ -webkit-print-color-adjust: exact; }} }}
+        body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; background-color: #fafafa; }}
+        .header-box {{ border-bottom: 4px solid #1F4E78; padding-bottom: 12px; margin-bottom: 25px; }}
+        .disc-title {{ color: #1F4E78; border-right: 5px solid #1F4E78; padding-right: 12px; margin-top: 30px; margin-bottom: 12px; }}
+        table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 30px; }}
+        th {{ background-color: #1F4E78; color: white; padding: 12px; font-size: 15px; border: 1px solid #ddd; }}
+        td {{ padding: 10px; text-align: center; border: 1px solid #ddd; font-size: 14px; vertical-align: middle; }}
+        tr:nth-child(even) {{ background-color: #f8f9fa; }}
+        img {{ border: 1px solid #ccc; background: white; padding: 2px; border-radius: 4px; }}
+    </style>
+    </head>
+    <body>
+    <div class="header-box">
+        <h2>🏗️ {title}</h2>
+        <p>מערכת הנדסית S.A.Q AI | תאריך הפקה: {pd.Timestamp.now().strftime('%d/%m/%Y %H:%M')}</p>
+    </div>
+    """
+    for disc_name, rows in project_boq.items():
+        if not rows:
+            continue
+        total_items = sum(r["כמות מאושרת"] for r in rows)
+        html += f"""
+        <h3 class="disc-title">{disc_name} (סה"כ: {total_items} יח')</h3>
+        <table>
+            <tr>
+                <th>מס'</th>
+                <th>סמל גרפי</th>
+                <th>תיאור הפריט</th>
+                <th>כמות מאושרת</th>
+                <th>יחידת מידה</th>
+            </tr>
+        """
+        for r in rows:
+            img_tag = f'<img src="{r["image_uri"]}" width="55" height="40"/>' if r.get("image_uri") else "—"
+            html += f"""
+            <tr>
+                <td>{r["מס'"]}</td>
+                <td>{img_tag}</td>
+                <td><b>{r["תיאור הפריט"]}</b></td>
+                <td style="color: #1F4E78; font-size: 17px; font-weight: bold;">{r["כמות מאושרת"]}</td>
+                <td>{r["יחידת מידה"]}</td>
+            </tr>
+            """
+        html += "</table>"
+    html += "</body></html>"
+    return html
+
 ai_memory = load_ai_memory()
 disciplines_list = ["⚡ חשמל ומאור", "🧱 בניה (מחיצות ומעטפת)", "🚿 אינסטלציה", "📐 ריצוף וחיפוי"]
 
-if "disc_select" not in st.session_state:
-    st.session_state["disc_select"] = "⚡ חשמל ומאור"
+# אתחול זיכרון פרויקטלי
+if "project_boq" not in st.session_state:
+    st.session_state["project_boq"] = {}
+if "current_discipline" not in st.session_state:
+    st.session_state["current_discipline"] = "⚡ חשמל ומאור"
+if "show_master_export" not in st.session_state:
+    st.session_state["show_master_export"] = False
 
-def switch_discipline(new_disc):
-    st.session_state["disc_select"] = new_disc
-    if "legend_results" in st.session_state:
-        del st.session_state["legend_results"]
-    if "raw_plan_img" in st.session_state:
-        del st.session_state["raw_plan_img"]
+def on_discipline_change():
+    st.session_state["current_discipline"] = st.session_state["disc_selector_widget"]
+    st.session_state.pop("legend_results", None)
+    st.session_state.pop("raw_plan_img", None)
     st.session_state["verification_completed"] = False
+    st.session_state["show_master_export"] = False
+
+def set_discipline_programmatically(new_disc):
+    st.session_state["current_discipline"] = new_disc
+    st.session_state.pop("legend_results", None)
+    st.session_state.pop("raw_plan_img", None)
+    st.session_state["verification_completed"] = False
+    st.session_state["show_master_export"] = False
     st.rerun()
+
+curr_idx = disciplines_list.index(st.session_state["current_discipline"]) if st.session_state["current_discipline"] in disciplines_list else 0
 
 with st.sidebar:
     if has_logo:
@@ -276,8 +343,24 @@ with st.sidebar:
     st.header("⚙️ הגדרות עבודה")
     file_type = st.radio("פורמט שרטוט:", ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"])
     mode = st.radio("מצב פעולה:", ["ספירה מתוכנית בודדת", "השוואת שינויים (Delta)"])
-    discipline = st.selectbox("דיסציפלינה:", disciplines_list, key="disc_select")
     
+    discipline = st.selectbox(
+        "דיסציפלינה:",
+        disciplines_list,
+        index=curr_idx,
+        key="disc_selector_widget",
+        on_change=on_discipline_change
+    )
+    
+    st.markdown("---")
+    st.subheader("📁 סטטוס פרויקט מצטבר")
+    saved_count = len([k for k, v in st.session_state["project_boq"].items() if len(v) > 0])
+    st.info(f"דיסציפלינות שנשמרו בפרויקט: **{saved_count}**")
+    if saved_count > 0:
+        if st.button("📑 פתח מרכז דוחות פרויקט מלא"):
+            st.session_state["show_master_export"] = True
+            st.rerun()
+            
     st.markdown("---")
     st.subheader("🧠 מנוע למידה AI וכיול")
     st.caption(f"זיכרון דפוסים פעיל: {len(ai_memory.get('approved_patterns', []))} אישורים שמורים.")
@@ -291,15 +374,58 @@ with col_l:
         st.image(LOGO_PATH, width=90)
 with col_t:
     st.title("S.A.Q Takeoff & Delta Platform")
-    st.caption(f"פלטפורמת ענן לפענוח הנדסי אוטונומי - {discipline}")
+    st.caption(f"פלטפורמת ענן לפענוח הנדסי אוטונומי - {st.session_state['current_discipline']}")
 
-if file_type == "📄 PDF / תמונה (Raster)":
+active_disc = st.session_state["current_discipline"]
+
+# ========================================================
+# 📑 תצוגת מרכז דוחות פרויקט מלא (Master BOQ Hub)
+# ========================================================
+if st.session_state.get("show_master_export", False):
+    st.markdown("---")
+    st.header("🏗️ מרכז הפקת דוחות סופיים לפרויקט")
+    st.caption("כל החישובים שנשמרו בפרויקט מרוכזים להלן. באפשרותך לייצא דוח מאוחד או דוחות נפרדים ב-Excel וב-PDF.")
+    
+    saved_discs = {k: v for k, v in st.session_state["project_boq"].items() if len(v) > 0}
+    
+    if not saved_discs:
+        st.warning("טרם נשמרו חישובים בפרויקט. בצע סריקה ואישור ראשוני.")
+    else:
+        for d_name, d_rows in saved_discs.items():
+            with st.expander(f"📋 {d_name} ({len(d_rows)} פריטים)", expanded=True):
+                df_d = pd.DataFrame([{"מס'": r["מס'"], "תמונת סמל": r["תמונת סמל"], "תיאור הפריט": r["תיאור הפריט"], "כמות מאושרת": r["כמות מאושרת"], "יחידת מידה": r["יחידת מידה"]} for r in d_rows])
+                st.dataframe(df_d, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
+                
+                c_d1, c_d2 = st.columns(2)
+                h_d = generate_export_html(d_rows, title=f"כתב כמויות - {d_name}")
+                with c_d1:
+                    st.download_button(f"📊 הורד {d_name} (Excel)", data=h_d.encode("utf-8"), file_name=f"Takeoff_{d_name}.xls", mime="application/vnd.ms-excel", key=f"dl_xls_{d_name}")
+                with c_d2:
+                    st.download_button(f"📄 הורד {d_name} (PDF)", data=h_d.encode("utf-8"), file_name=f"Report_{d_name}.html", mime="text/html", key=f"dl_pdf_{d_name}")
+
+        st.markdown("---")
+        st.subheader("📦 ייצוא דוח פרויקט מאוחד (כל הדיסציפלינות בקובץ אחד)")
+        master_html = generate_master_export_html(saved_discs, title="דוח כתב כמויות מאוחד לפרויקט")
+        m_c1, m_c2 = st.columns(2)
+        with m_c1:
+            st.download_button("📊 הורד דוח פרויקט מאוחד מלא ל-Excel (XLS)", data=master_html.encode("utf-8"), file_name="Project_Master_Takeoff.xls", mime="application/vnd.ms-excel")
+        with m_c2:
+            st.download_button("📄 הורד דוח פרויקט מאוחד מלא להדפסה/PDF", data=master_html.encode("utf-8"), file_name="Project_Master_Report.html", mime="text/html")
+            
+    if st.button("🔙 חזור למסך הסריקה והחישוב"):
+        st.session_state["show_master_export"] = False
+        st.rerun()
+
+# ========================================================
+# 📄 תצוגת סריקה וחישוב דיסציפלינה
+# ========================================================
+elif file_type == "📄 PDF / תמונה (Raster)":
     if mode == "ספירה מתוכנית בודדת":
         c_p, c_l = st.columns(2)
         with c_p:
-            f_plan = st.file_uploader("1️⃣ העלה שרטוט תוכנית (חובה):", type=["pdf", "png", "jpg", "jpeg"], key="plan_in")
+            f_plan = st.file_uploader("1️⃣ העלה שרטוט תוכנית (חובה):", type=["pdf", "png", "jpg", "jpeg"], key=f"plan_in_{active_disc}")
         with c_l:
-            f_legend = st.file_uploader("2️⃣ העלה קובץ מקרא (אופציונלי):", type=["pdf", "png", "jpg", "jpeg"], key="leg_in")
+            f_legend = st.file_uploader("2️⃣ העלה קובץ מקרא (אופציונלי):", type=["pdf", "png", "jpg", "jpeg"], key=f"leg_in_{active_disc}")
             
         if f_plan:
             btn_text = "🚀 הפעל פענוח מקרא וספירה מדויקת" if f_legend else "🚀 הפעל סריקה וספירה אוטונומית (ללא מקרא)"
@@ -404,7 +530,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                                 choice = st.radio(
                                     "סטטוס:",
                                     ["✅ אשר נקודה (V)", "❌ דחה נקודה (X)"],
-                                    key=f"status_choice_{s_idx}_{m_idx}",
+                                    key=f"status_choice_{active_disc}_{s_idx}_{m_idx}",
                                     horizontal=True
                                 )
                                 is_appr = ("אשר" in choice)
@@ -426,6 +552,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             st.session_state["verification_completed"] = True
                             st.rerun()
                 
+                # חישוב כמויות וציור שרטוט
                 boq_rows = []
                 for s_idx, item in enumerate(res):
                     confirmed_count = 0
@@ -454,13 +581,16 @@ if file_type == "📄 PDF / תמונה (Raster)":
                             "תמונת סמל": item["image_uri"],
                             "symbol_img": item["symbol_img"],
                             "image_uri": item["image_uri"],
-                            "תיאור הפריט": f"סמל {discipline} #{item['index']}",
+                            "תיאור הפריט": f"סמל {active_disc} #{item['index']}",
                             "כמות מאושרת": confirmed_count,
                             "יחידת מידה": "יח'"
                         })
 
+                # שמירה לזיכרון הפרויקט המצטבר
+                st.session_state["project_boq"][active_disc] = boq_rows
+
                 st.markdown("---")
-                st.subheader(f"📊 ריכוז סופי לכתב כמויות ({discipline})")
+                st.subheader(f"📊 ריכוז סופי לכתב כמויות ({active_disc})")
                 
                 if boq_rows:
                     df_preview = pd.DataFrame([
@@ -481,23 +611,25 @@ if file_type == "📄 PDF / תמונה (Raster)":
                         }
                     )
                     
-                    st.subheader("📥 ייצוא כתב כמויות")
+                    st.subheader("📥 ייצוא כתב כמויות (דיסציפלינה זו בלבד)")
                     exp_c1, exp_c2 = st.columns(2)
-                    html_report = generate_export_html(boq_rows, title=f"כתב כמויות - {discipline}")
+                    html_report = generate_export_html(boq_rows, title=f"כתב כמויות - {active_disc}")
                     
                     with exp_c1:
                         st.download_button(
                             "📊 הורד כתב כמויות ל-Excel (XLS)",
                             data=html_report.encode("utf-8"),
-                            file_name=f"Takeoff_{discipline}.xls",
-                            mime="application/vnd.ms-excel"
+                            file_name=f"Takeoff_{active_disc}.xls",
+                            mime="application/vnd.ms-excel",
+                            key=f"dl_single_xls_{active_disc}"
                         )
                     with exp_c2:
                         st.download_button(
                             "📄 הורד דוח PDF מעוצב להדפסה (HTML/PDF)",
                             data=html_report.encode("utf-8"),
-                            file_name=f"Report_{discipline}.html",
-                            mime="text/html"
+                            file_name=f"Report_{active_disc}.html",
+                            mime="text/html",
+                            key=f"dl_single_pdf_{active_disc}"
                         )
                 else:
                     st.warning("לא אותרו כמויות מאושרות לדיסציפלינה זו.")
@@ -505,26 +637,36 @@ if file_type == "📄 PDF / תמונה (Raster)":
                 st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
                 st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
                 
+                # --- שלב ההחלטה: סיום פרויקט או מעבר הלאה ---
                 st.markdown("---")
-                st.success("🎉 סיום חישוב הדיסציפלינה בהצלחה!")
-                st.write("**בחר לאיזה חישוב תרצה לעבור כעת:**")
-                n1, n2, n3, n4 = st.columns(4)
-                with n1:
-                    if st.button("⚡ חשמל ומאור", key="btn_go_elec"):
-                        switch_discipline("⚡ חשמל ומאור")
-                with n2:
-                    if st.button("🧱 מחיצות ובניה", key="btn_go_build"):
-                        switch_discipline("🧱 בניה (מחיצות ומעטפת)")
-                with n3:
-                    if st.button("🚿 אינסטלציה", key="btn_go_plumb"):
-                        switch_discipline("🚿 אינסטלציה")
-                with n4:
-                    if st.button("📐 ריצוף וחיפוי", key="btn_go_floor"):
-                        switch_discipline("📐 ריצוף וחיפוי")
+                st.success(f"🎉 חישוב {active_disc} נשמר בהצלחה בפרויקט!")
+                st.markdown("### ❓ מה ברצונך לעשות כעת?")
+                
+                step_c1, step_c2 = st.columns(2)
+                with step_c1:
+                    if st.button("🏁 סיום החישוב והפקת דוחות סופיים לפרויקט", key="btn_finish_all"):
+                        st.session_state["show_master_export"] = True
+                        st.rerun()
+                with step_c2:
+                    st.write("**או המשך לחישוב הבא:**")
+                    n1, n2, n3 = st.columns(3)
+                    remaining = [d for d in disciplines_list if d != active_disc]
+                    with n1:
+                        if st.button(remaining[0], key="btn_next_1"):
+                            set_discipline_programmatically(remaining[0])
+                    with n2:
+                        if st.button(remaining[1], key="btn_next_2"):
+                            set_discipline_programmatically(remaining[1])
+                    with n3:
+                        if st.button(remaining[2], key="btn_next_3"):
+                            set_discipline_programmatically(remaining[2])
 
         else:
             st.info("💡 אנא העלה שרטוט תוכנית (וקובץ מקרא אם קיים) להפעלת הסריקה.")
 
+# ========================================================
+# 📐 CAD וקטורי (DXF)
+# ========================================================
 else:
     scale_val = 1.0
     if mode == "ספירה מתוכנית בודדת":
@@ -532,7 +674,7 @@ else:
         if cad_file and HAS_VECTOR_ENGINE:
             parser = DXFVectorParser(cad_file, unit_scale_to_meter=scale_val)
             layers = [l["name"] for l in parser.get_layers_summary() if l["entity_count"] > 0]
-            if discipline == "⚡ חשמל ומאור":
+            if active_disc == "⚡ חשמל ומאור":
                 st.subheader("⚡ ספירת סמלי חשמל מבוססת בלוקים (100% דיוק וקטורי)")
                 sel_layers = st.multiselect("שכבות חשמל:", layers, default=layers[:3] if layers else [])
                 blocks = parser.extract_blocks(sel_layers)
