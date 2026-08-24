@@ -7,34 +7,43 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 import pypdfium2 as pdfium
-from saq_vector_engine import DXFVectorParser, compare_vector_delta
+
+try:
+    from saq_vector_engine import DXFVectorParser, compare_vector_delta
+    HAS_VECTOR_ENGINE = True
+except Exception:
+    HAS_VECTOR_ENGINE = False
 
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
 app_icon = Image.open(LOGO_PATH) if has_logo else "📐"
 
-st.set_page_config(page_title="S.A.Q - Takeoff & Vector CAD Platform", layout="wide", page_icon=app_icon)
+st.set_page_config(page_title="S.A.Q - Takeoff Platform", layout="wide", page_icon=app_icon)
 
 def load_raster(file, scale=1.3):
-    if file.name.lower().endswith(".pdf"):
-        pdf = pdfium.PdfDocument(file.read())
-        bitmap = pdf.get_page(0).render(scale=scale)
-        pil_img = bitmap.to_pil().convert("RGB")
-        return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-    else:
-        file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
-        if img is None:
-            return None
-        if len(img.shape) == 3 and img.shape[2] == 4:
-            alpha = img[:, :, 3] / 255.0
-            bg = np.ones_like(img[:, :, :3], dtype=np.uint8) * 255
-            for c in range(3):
-                bg[:, :, c] = (img[:, :, c] * alpha + bg[:, :, c] * (1.0 - alpha)).astype(np.uint8)
-            return bg
-        elif len(img.shape) == 2:
-            return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        return img
+    try:
+        if file.name.lower().endswith(".pdf"):
+            pdf = pdfium.PdfDocument(file.read())
+            bitmap = pdf.get_page(0).render(scale=scale)
+            pil_img = bitmap.to_pil().convert("RGB")
+            return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        else:
+            file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
+            if img is None:
+                return None
+            if len(img.shape) == 3 and img.shape[2] == 4:
+                alpha = img[:, :, 3] / 255.0
+                bg = np.ones_like(img[:, :, :3], dtype=np.uint8) * 255
+                for c in range(3):
+                    bg[:, :, c] = (img[:, :, c] * alpha + bg[:, :, c] * (1.0 - alpha)).astype(np.uint8)
+                return bg
+            elif len(img.shape) == 2:
+                return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            return img
+    except Exception as e:
+        st.error(f"שגיאה בטעינת הקובץ: {e}")
+        return None
 
 def is_valid_complex_symbol(crop_gray):
     h, w = crop_gray.shape[:2]
@@ -173,37 +182,40 @@ if file_type == "📄 PDF / תמונה (Raster)":
             if st.button("🚀 הפעל פענוח מקרא וספירה מדויקת בתוכנית"):
                 img_plan = load_raster(f_plan, scale=1.3)
                 img_leg = load_raster(f_legend, scale=1.3)
-                symbols_found = extract_symbols_from_legend(img_leg)
                 
-                if not symbols_found:
-                    st.warning("⚠️ לא אותרו סמלים הנדסיים מבודדים במקרא.")
+                if img_plan is None or img_leg is None:
+                    st.error("שגיאה בטעינת הקבצים. ודא שהקובץ תקין.")
                 else:
-                    progress_bar = st.progress(0, text="מתחיל סריקה נקייה ומהירה...")
-                    plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
-                    h_p, w_p = plan_gray.shape[:2]
-                    active_h = int(h_p * 0.82) if filter_banner else h_p
-                    plan_roi = plan_gray[:active_h, :]
-                    _, plan_inv = cv2.threshold(plan_roi, 230, 255, cv2.THRESH_BINARY_INV)
-                    
-                    all_results = []
-                    total_syms = len(symbols_found)
-                    for i, sym in enumerate(symbols_found):
-                        progress_bar.progress((i + 1) / total_syms, text=f"סורק סמל {i+1} מתוך {total_syms}...")
-                        matches = match_symbol_clean(
-                            plan_inv, 
-                            sym["crop_gray"], 
-                            min_thresh=(min_sens / 100.0),
-                            high_thresh=(high_sens / 100.0)
-                        )
-                        all_results.append({
-                            "index": i + 1,
-                            "symbol_img": sym["crop_color"],
-                            "matches": matches
-                        })
+                    symbols_found = extract_symbols_from_legend(img_leg)
+                    if not symbols_found:
+                        st.warning("⚠️ לא אותרו סמלים הנדסיים מבודדים במקרא.")
+                    else:
+                        progress_bar = st.progress(0, text="מתחיל סריקה נקייה ומהירה...")
+                        plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
+                        h_p, w_p = plan_gray.shape[:2]
+                        active_h = int(h_p * 0.82) if filter_banner else h_p
+                        plan_roi = plan_gray[:active_h, :]
+                        _, plan_inv = cv2.threshold(plan_roi, 230, 255, cv2.THRESH_BINARY_INV)
                         
-                    progress_bar.empty()
-                    st.session_state["legend_results"] = all_results
-                    st.session_state["raw_plan_img"] = img_plan
+                        all_results = []
+                        total_syms = len(symbols_found)
+                        for i, sym in enumerate(symbols_found):
+                            progress_bar.progress((i + 1) / total_syms, text=f"סורק סמל {i+1} מתוך {total_syms}...")
+                            matches = match_symbol_clean(
+                                plan_inv, 
+                                sym["crop_gray"], 
+                                min_thresh=(min_sens / 100.0),
+                                high_thresh=(high_sens / 100.0)
+                            )
+                            all_results.append({
+                                "index": i + 1,
+                                "symbol_img": sym["crop_color"],
+                                "matches": matches
+                            })
+                            
+                        progress_bar.empty()
+                        st.session_state["legend_results"] = all_results
+                        st.session_state["raw_plan_img"] = img_plan
 
             if "legend_results" in st.session_state:
                 res = st.session_state["legend_results"]
@@ -221,43 +233,59 @@ if file_type == "📄 PDF / תמונה (Raster)":
                         if m["status"] == "Yellow":
                             yellow_items.append((s_idx, m_idx, item, m))
                 
-                yellow_items = yellow_items[:6]
+                yellow_items = yellow_items[:8]
+                
+                # --- שלב אישור / דחייה (V / X) ---
                 if yellow_items:
                     st.markdown("---")
                     st.info(f"🔍 **אותרו {len(yellow_items)} נקודות לבדיקה מהירה (Human-in-the-Loop):**")
-                    with st.expander("לחץ כאן לבדיקה ואישור נקודות", expanded=True):
-                        cols = st.columns(3)
+                    with st.expander("לחץ כאן לבדיקה ואישור/דחיית נקודות", expanded=True):
+                        cols = st.columns(min(len(yellow_items), 3))
                         for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
-                            with cols[y_i % 3]:
+                            with cols[y_i % len(cols)]:
                                 x, y, w, h = m["bbox"]
-                                pad = 20
+                                pad = 24
                                 y1, y2 = max(0, y - pad), min(raw_plan.shape[0], y + h + pad)
                                 x1, x2 = max(0, x - pad), min(raw_plan.shape[1], x + w + pad)
                                 crop_zoom = raw_plan[y1:y2, x1:x2].copy()
                                 cv2.rectangle(crop_zoom, (x - x1, y - y1), (x - x1 + w, y - y1 + h), (0, 165, 255), 2)
-                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
-                                approved = st.checkbox("✅ אשר נקודה זו", value=False, key=f"appr_{s_idx}_{m_idx}")
-                                m["user_approved"] = approved
+                                
+                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=140)
+                                choice = st.radio(
+                                    "סטטוס נקודה:",
+                                    ["✅ אשר נקודה (V)", "❌ דחה נקודה (X)"],
+                                    key=f"status_choice_{s_idx}_{m_idx}",
+                                    horizontal=True
+                                )
+                                m["user_decision"] = "Approved" if "אשר" in choice else "Rejected"
                                 st.markdown("---")
                 
+                # --- חישוב כמויות וציור שרטוט לפי V / X ---
                 boq_rows = []
                 for s_idx, item in enumerate(res):
                     confirmed_count = 0
                     for m_idx, m in enumerate(item["matches"]):
-                        is_green = (m["status"] == "Green")
-                        is_user_appr = m.get("user_approved", False)
                         x, y, w, h = m["bbox"]
-                        if is_green:
+                        is_green = (m["status"] == "Green")
+                        user_dec = m.get("user_decision", "Pending")
+                        
+                        if is_green or user_dec == "Approved":
                             confirmed_count += 1
                             cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 200, 0), 3)
-                            cv2.putText(disp_plan, f"#{item['index']}", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 0), 2)
-                        elif is_user_appr:
-                            confirmed_count += 1
-                            cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 200, 0), 3)
-                            cv2.putText(disp_plan, f"#{item['index']} (V)", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 0), 2)
+                            cv2.putText(disp_plan, f"#{item['index']} V", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 200, 0), 2)
+                        elif user_dec == "Rejected":
+                            # סימון X אדום על נקודה שנדחתה
+                            cv2.line(disp_plan, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                            cv2.line(disp_plan, (x + w, y), (x, y + h), (0, 0, 255), 2)
+                            cv2.putText(disp_plan, "X", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                        else:
+                            # טרם נקבע
+                            cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 165, 255), 2)
+                            cv2.putText(disp_plan, "?", (x, max(15, y - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 165, 255), 2)
                             
                     item["confirmed_count"] = confirmed_count
 
+                st.markdown("---")
                 st.subheader("📋 פירוט ספירת כמויות סופית")
                 for item in res:
                     c1, c2, c3 = st.columns([1.5, 2.5, 1.5])
@@ -274,12 +302,12 @@ if file_type == "📄 PDF / תמונה (Raster)":
                         boq_rows.append({
                             "מס'": item["index"],
                             "תיאור הפריט": s_desc,
-                            "כמות": item["confirmed_count"],
+                            "כמות מאושרת": item["confirmed_count"],
                             "יחידת מידה": "יח'"
                         })
                     st.markdown("---")
                     
-                st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
+                st.subheader("🗺️ תוכנית עם סימוני הפריטים (ירוק V = מאושר, אדום X = נדחה):")
                 st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
                 
                 if boq_rows:
@@ -289,7 +317,7 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     
                     csv_data = df_preview.to_csv(index=False).encode('utf-8-sig')
                     st.download_button(
-                        "📥 ייצא כתב כמויות (CSV / Excel)",
+                        "📥 ייצא כתב כמויות ל-Excel (CSV)",
                         data=csv_data,
                         file_name="Approved_Electrical_Takeoff.csv",
                         mime="text/csv"
@@ -301,7 +329,7 @@ else:
     scale_val = 1.0
     if mode == "ספירה מתוכנית בודדת":
         cad_file = st.file_uploader("העלה שרטוט CAD (DXF):", type=["dxf"])
-        if cad_file:
+        if cad_file and HAS_VECTOR_ENGINE:
             parser = DXFVectorParser(cad_file, unit_scale_to_meter=scale_val)
             layers = [l["name"] for l in parser.get_layers_summary() if l["entity_count"] > 0]
             if discipline == "⚡ חשמל ומאור":
@@ -316,4 +344,3 @@ else:
                     edited = st.data_editor(df[["name", "layer", "x", "y", "rotation_deg", "cardinal_rotation", "אושר"]])
                     csv_out = summary.to_csv(index=False).encode('utf-8-sig')
                     st.download_button("📥 ייצא ל-Excel (CSV)", data=csv_out, file_name="Electrical_BOQ.csv", mime="text/csv")
-                    
