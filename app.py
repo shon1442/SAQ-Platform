@@ -94,7 +94,7 @@ def safe_render_table(rows):
     st.dataframe(df, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
 
 # ========================================================
-# 🧱 מודול בניה – מדידה נקייה, סינון מעטפת וצביעה בצהוב
+# 🧱 מודול בניה – מדידה נקייה והצגה עוקבת (סטנדרט ואז ביצוע)
 # ========================================================
 def extract_interior_walls_clean(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -144,66 +144,19 @@ def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
     
     disp_img = plan_img.copy()
     overlay = disp_img.copy()
-    overlay[interior_mask > 0] = [0, 235, 255]
+    overlay[interior_mask > 0] = [0, 235, 255] # צהוב זוהר
     cv2.addWeighted(overlay, 0.65, disp_img, 0.35, 0, disp_img)
     
-    return linear_meters, disp_img, envelope
-
-def compare_building_delta_clean(plan_std, plan_exec, px_per_meter=125.0, is_after_execution=False):
-    interior_std, env_std = extract_interior_walls_clean(plan_std, px_per_meter)
-    interior_exec, env_exec = extract_interior_walls_clean(plan_exec, px_per_meter)
-    
-    h, w = env_std.shape[:2]
-    env_exec_res = cv2.resize(env_exec, (w, h))
-    interior_exec_res = cv2.resize(interior_exec, (w, h))
-    
-    env_diff = cv2.absdiff(env_std, env_exec_res)
-    k_noise = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-    env_diff_clean = cv2.morphologyEx(env_diff, cv2.MORPH_OPEN, k_noise)
-    
-    anomaly_contours, _ = cv2.findContours(env_diff_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    significant_anomalies = [c for c in anomaly_contours if cv2.contourArea(c) > (px_per_meter * 4)]
-    envelope_anomaly = len(significant_anomalies) > 0
-    
-    demolition_mask = cv2.subtract(interior_std, interior_exec_res)
-    new_construction_mask = cv2.subtract(interior_exec_res, interior_std)
-    
-    skel_std = get_morphological_skeleton(interior_std)
-    skel_exec = get_morphological_skeleton(interior_exec_res)
-    skel_demo = get_morphological_skeleton(demolition_mask)
-    skel_new = get_morphological_skeleton(new_construction_mask)
-    
-    total_std_m = round(cv2.countNonZero(skel_std) / float(px_per_meter), 2)
-    total_exec_m = round(cv2.countNonZero(skel_exec) / float(px_per_meter), 2)
-    demo_m = round(cv2.countNonZero(skel_demo) / float(px_per_meter), 2)
-    new_m = round(cv2.countNonZero(skel_new) / float(px_per_meter), 2)
-    
-    delta_disp = cv2.resize(plan_exec, (w, h)).copy()
-    overlay = delta_disp.copy()
-    overlay[interior_exec_res > 0] = [0, 235, 255]
-    overlay[demolition_mask > 0] = [0, 0, 255]
-    overlay[new_construction_mask > 0] = [0, 200, 0]
-    cv2.addWeighted(overlay, 0.65, delta_disp, 0.35, 0, delta_disp)
-    
-    if envelope_anomaly:
-        for c in significant_anomalies:
-            x, y, bw, bh = cv2.boundingRect(c)
-            cv2.rectangle(delta_disp, (max(0, x - 8), max(0, y - 8)), (min(w, x + bw + 8), min(h, y + bh + 8)), (0, 0, 255), 3)
-            
-    return total_std_m, total_exec_m, demo_m, new_m, envelope_anomaly, delta_disp, len(significant_anomalies)
+    return linear_meters, disp_img, interior_mask
 
 # ========================================================
-# 🚿 מודול אינסטלציה – זיהוי כלים סניטריים מבוסס גיאומטריה
+# 🚿 מודול אינסטלציה – זיהוי סניטרי מדויק (אסלות, אמבטיות, כיורים)
 # ========================================================
 def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
     
-    k_filter = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k_filter)
-    
-    contours, _ = cv2.findContours(cleaned, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     fixtures = []
     disp_img = plan_img.copy()
     
@@ -215,89 +168,27 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         max_dim = max(w_m, h_m)
         min_dim = min(w_m, h_m)
         
-        # 1. אמבטיה / מקלחון (1.30–1.95 מ' על 0.65–0.95 מ')
-        if (1.25 <= max_dim <= 1.95) and (0.60 <= min_dim <= 0.95) and area > 1200:
-            fixtures.append({
-                "type": "אמבטיה / מקלחון",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "color": (255, 0, 0),
-                "score": 0.90
-            })
-        # 2. אסלה (0.48–0.82 מ' על 0.32–0.55 מ')
-        elif (0.45 <= max_dim <= 0.85) and (0.30 <= min_dim <= 0.55) and 400 < area < 3500:
-            fixtures.append({
-                "type": "אסלה",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "color": (0, 165, 255),
-                "score": 0.85
-            })
-        # 3. כיור / ארון רחצה (0.40–1.15 מ' על 0.30–0.65 מ')
-        elif (0.38 <= max_dim <= 1.15) and (0.30 <= min_dim <= 0.65) and 500 < area < 5000:
-            fixtures.append({
-                "type": "כיור / ארון רחצה",
-                "center": (x + w // 2, y + h // 2),
-                "bbox": (x, y, w, h),
-                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
-                "color": (0, 200, 0),
-                "score": 0.80
-            })
+        # אמבטיה / מקלחון
+        if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 1000:
+            fixtures.append({"type": "אמבטיה / מקלחון", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "color": (255, 0, 0)})
+        # אסלה
+        elif (0.40 <= max_dim <= 0.90) and (0.30 <= min_dim <= 0.60) and 300 < area < 4000:
+            fixtures.append({"type": "אסלה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "color": (0, 165, 255)})
+        # כיור / ארון רחצה
+        elif (0.35 <= max_dim <= 1.30) and (0.25 <= min_dim <= 0.70) and 350 < area < 5500:
+            fixtures.append({"type": "כיור / ארון רחצה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "color": (0, 200, 0)})
             
-    unique_fixtures = []
+    unique = []
     for f in fixtures:
-        if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.40) for u in unique_fixtures):
-            unique_fixtures.append(f)
+        if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.35) for u in unique):
+            unique.append(f)
             x, y, w, h = f["bbox"]
             cv2.rectangle(disp_img, (x, y), (x + w, y + h), f["color"], 2)
             
-    return unique_fixtures, disp_img
-
-def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
-    fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
-    fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
-    
-    relocations = []
-    added = []
-    b_matched = set()
-    
-    for f_a in fix_std:
-        ca = f_a["center"]
-        best_dist = 999999
-        best_idx_b = -1
-        
-        for idx_b, f_b in enumerate(fix_exec):
-            if idx_b in b_matched: continue
-            cb = f_b["center"]
-            dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
-            dist_m = dist_px / float(px_per_meter)
-            
-            if 0.25 <= dist_m <= 3.5 and dist_px < best_dist and f_a["type"] == f_b["type"]:
-                best_dist = dist_px
-                best_idx_b = idx_b
-                
-        if best_idx_b != -1:
-            b_matched.add(best_idx_b)
-            f_b = fix_exec[best_idx_b]
-            dist_m = round(best_dist / float(px_per_meter), 2)
-            relocations.append({
-                "type": f_b["type"],
-                "distance_m": dist_m,
-                "from": ca,
-                "to": f_b["center"]
-            })
-            cv2.arrowedLine(disp_exec, ca, f_b["center"], (0, 140, 255), 3, tipLength=0.20)
-            
-    for idx_b, f_b in enumerate(fix_exec):
-        if idx_b not in b_matched:
-            added.append(f_b)
-            
-    return relocations, added, disp_exec
+    return unique, disp_img
 
 # ========================================================
-# ⚡ פענוח סמלי חשמל ומאור
+# ⚡ פענוח סמלים (חשמל ומקרא)
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -308,26 +199,18 @@ def extract_symbols_from_legend(legend_img):
     work_color = legend_img[:crop_h, :]
     
     _, thresh = cv2.threshold(work_gray, 225, 255, cv2.THRESH_BINARY_INV)
-    h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 1))
-    v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 25))
-    cleaned = cv2.subtract(thresh, cv2.add(cv2.morphologyEx(thresh, cv2.MORPH_OPEN, h_kernel), cv2.morphologyEx(thresh, cv2.MORPH_OPEN, v_kernel)))
-    
-    contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     raw_symbols = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        area = cv2.contourArea(c)
-        if 14 <= w <= 110 and 14 <= h <= 110 and area > 40:
-            if 0.40 <= (w / float(h)) <= 2.4:
-                pad = 4
-                y1, y2 = max(0, y - pad), min(work_gray.shape[0], y + h + pad)
-                x1, x2 = max(0, x - pad), min(work_gray.shape[1], x + w + pad)
-                raw_symbols.append({
-                    "bbox": (x, y, w, h),
-                    "crop_color": work_color[y1:y2, x1:x2],
-                    "crop_gray": work_gray[y1:y2, x1:x2],
-                    "y_pos": y, "x_pos": x
-                })
+        if 14 <= w <= 110 and 14 <= h <= 110 and cv2.contourArea(c) > 40:
+            pad = 4
+            raw_symbols.append({
+                "bbox": (x, y, w, h),
+                "crop_color": work_color[max(0, y-pad):min(work_gray.shape[0], y+h+pad), max(0, x-pad):min(work_gray.shape[1], x+w+pad)],
+                "crop_gray": work_gray[max(0, y-pad):min(work_gray.shape[0], y+h+pad), max(0, x-pad):min(work_gray.shape[1], x+w+pad)],
+                "y_pos": y, "x_pos": x
+            })
     raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
     unique = []
     for sym in raw_symbols:
@@ -343,58 +226,19 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.74):
         if tw > 8 and th > 8:
             templ_inv = templ_inv[ty:ty+th, tx:tx+tw]
     detections = []
-    for scale in [0.82, 0.90, 1.0, 1.10, 1.20]:
+    for scale in [0.90, 1.0, 1.10]:
         sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
         if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 8 or sh < 8: continue
         resized_t = cv2.resize(templ_inv, (sw, sh))
-        for rot in [0, 90, 180, 270]:
-            if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
-            elif rot == 180: r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
-            elif rot == 270: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_COUNTERCLOCKWISE)
-            else: r_t = resized_t
-            rw, rh = r_t.shape[::-1]
-            res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
-            loc = np.where(res >= min_thresh)
-            for pt in zip(*loc[::-1]):
-                score = float(res[pt[1], pt[0]])
-                detections.append({"bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)), "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)), "score": score, "status": "Green" if score >= high_thresh else "Yellow"})
+        res = cv2.matchTemplate(plan_inv, resized_t, cv2.TM_CCOEFF_NORMED)
+        loc = np.where(res >= min_thresh)
+        for pt in zip(*loc[::-1]):
+            score = float(res[pt[1], pt[0]])
+            detections.append({"bbox": (int(pt[0]), int(pt[1]), int(sw), int(sh)), "center": (int(pt[0] + sw // 2), int(pt[1] + sh // 2)), "score": score, "status": "Green" if score >= high_thresh else "Yellow"})
     if not detections: return []
     indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.20)
     final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
     return [r for r in final_res if r["status"] == "Green"] if len(final_res) > 70 else final_res
-
-# ========================================================
-# 📐 מודול ריצוף וחיפוי
-# ========================================================
-def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=[]):
-    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 225, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    
-    total_flooring_sqm = 0.0
-    wet_rooms_perimeter_m = 0.0
-    disp_img = plan_img.copy()
-    
-    for c in contours:
-        area_px = cv2.contourArea(c)
-        min_room_px = (1.2 * px_per_meter) * (1.2 * px_per_meter)
-        max_room_px = (15.0 * px_per_meter) * (15.0 * px_per_meter)
-        
-        if min_room_px <= area_px <= max_room_px:
-            sqm = area_px / (px_per_meter ** 2)
-            total_flooring_sqm += sqm
-            
-            is_wet_room = any(cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0 for pc in plumbing_centers)
-            peri_m = cv2.arcLength(c, True) / px_per_meter
-            
-            if is_wet_room:
-                wet_rooms_perimeter_m += peri_m
-                cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3)
-            else:
-                cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2)
-                
-    wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
-    return round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img
 
 # ========================================================
 # 📑 מנוע ייצוא HTML / EXCEL / PDF
@@ -504,8 +348,8 @@ with st.sidebar:
     filter_banner = st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
     
     st.markdown("---")
-    st.subheader("🧠 מנוע למידה AI")
-    st.caption(f"תבניות שנלמדו ואושרו: {len(ai_memory.get('approved_patterns', []))}")
+    st.subheader("🧠 מנוע למידה AI פעיל")
+    st.caption(f"תבניות שאושרו בזיכרון: {len(ai_memory.get('approved_patterns', []))}")
     saved_count = len([k for k, v in st.session_state["project_boq"].items() if len(v) > 0])
     st.info(f"דיסציפלינות עם כמויות: **{saved_count}** מתוך 4")
     if st.button("📑 פתח מרכז דוחות פרויקט מלא"):
@@ -555,7 +399,7 @@ if st.session_state.get("show_master_export", False):
 elif file_type == "📄 PDF / תמונה (Raster)":
     
     # ----------------------------------------------------
-    # 1. 🧱 מודול בניה (מחיצות פנים בצהוב והכפלה בגובה)
+    # 1. 🧱 מודול בניה (תצוגה עוקבת: סטנדרט ואז ביצוע)
     # ----------------------------------------------------
     if active_disc == "🧱 בניה (מחיצות ומעטפת)":
         c_exec, c_std, c_leg = st.columns(3)
@@ -564,68 +408,51 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         with c_leg: f_leg = st.file_uploader("3️⃣ מקרא בניה (אופציונלי):", type=["pdf", "png", "jpg"], key="b_leg")
         
         st.markdown("---")
-        c_h, c_stage = st.columns(2)
-        with c_h:
-            b_wall_h = st.number_input("📏 גובה מחיצות פנים להכפלה (מטר):", min_value=1.5, max_value=5.0, value=2.70, step=0.05)
-        with c_stage:
-            stage_mode = st.radio("🛠️ שלב ביצוע השינויים:", ["לפני ביצוע (חישוב תוספת מטרים נטו בקיזוז זכאות סטנדרט)", "אחרי ביצוע (חיוב הריסה מול בניה חדשה)"], horizontal=True)
-            
-        is_after_exec = ("אחרי ביצוע" in stage_mode)
+        b_wall_h = st.number_input("📏 גובה מחיצות פנים להכפלה (מטר):", min_value=1.5, max_value=5.0, value=2.70, step=0.05)
         
         if f_plan:
-            btn_title = "🚀 הפעל השוואת שינויי בניה מול סטנדרט" if f_std else "🚀 הפעל חישוב מחיצות פנים נטו"
+            btn_title = "🚀 הפעל השוואת שינויי בניה עוקבת (סטנדרט ואז ביצוע)" if f_std else "🚀 הפעל חישוב מחיצות פנים נטו"
             if st.button(btn_title):
                 p_bar = st.progress(0, text="מתחיל עיבוד תוכנית בניה... (0%)")
-                img_plan = load_raster(f_plan)
+                img_exec = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(30, text="טוען תוכנית סטנדרט ומנתח קירות... (30%)")
+                    p_bar.progress(35, text="טוען תוכנית סטנדרט ומנתח קירות... (35%)")
                     img_std = load_raster(f_std)
                     
-                    std_m, exec_m, demo_m, new_m, anomaly, delta_img, num_anomalies = compare_building_delta_clean(img_std, img_plan, px_meter, is_after_exec)
+                    lin_std, disp_std, _ = calc_building_partitions_clean(img_std, px_meter)
+                    lin_exec, disp_exec, _ = calc_building_partitions_clean(img_exec, px_meter)
                     
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
                     time.sleep(0.3)
                     p_bar.empty()
                     
-                    b_rows = []
-                    if not is_after_exec:
-                        diff_m = round(max(0.0, exec_m - std_m), 2)
-                        diff_sqm = round(diff_m * b_wall_h, 2)
-                        st.success(f"✅ **חישוב לפני ביצוע (תוספת מחיצות מעבר לסטנדרט בקיזוז זכאות):**")
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("אורך מחיצות בסטנדרט:", f"{std_m} מ\"א")
-                        c2.metric("אורך מחיצות בביצוע:", f"{exec_m} מ\"א")
-                        c3.metric("תוספת לחיוב נטו (בקיזוז סטנדרט):", f"{diff_m} מ\"א", f"{diff_sqm} מ\"ר")
-                        
-                        b_rows = [
-                            {"מס'": 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת מחיצות פנים מעבר לסטנדרט (ביצוע {exec_m} מ\"א מול {std_m} מ\"א בסטנדרט)", "כמות מאושרת": diff_m, "יחידת מידה": 'מ"א'},
-                            {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"שטח תוספת מחיצות לחיוב (גובה {b_wall_h} מ')", "כמות מאושרת": diff_sqm, "יחידת מידה": 'מ"ר'}
-                        ]
-                    else:
-                        demo_sqm = round(demo_m * b_wall_h, 2)
-                        new_sqm = round(new_m * b_wall_h, 2)
-                        st.success(f"✅ **חישוב אחרי ביצוע (הריסה ובניה בפועל):**")
-                        c1, c2 = st.columns(2)
-                        c1.metric("מחיצות פנים להריסה:", f"{demo_m} מ\"א", f"{demo_sqm} מ\"ר")
-                        c2.metric("מחיצות פנים חדשות לבניה:", f"{new_m} מ\"א", f"{new_sqm} מ\"ר")
-                        
-                        b_rows = [
-                            {"מס'": 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"מחיצות פנים להריסה (אורך {demo_m} מ\"א * גובה {b_wall_h} מ')", "כמות מאושרת": demo_sqm, "יחידת מידה": 'מ"ר'},
-                            {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"מחיצות פנים חדשות לבנייה (אורך {new_m} מ\"א * גובה {b_wall_h} מ')", "כמות מאושרת": new_sqm, "יחידת מידה": 'מ"ר'}
-                        ]
-                        
-                    if anomaly:
-                        st.error(f"🚨 **התראת שינוי מעטפת (Envelope Anomaly Alert): אותרו {num_anomalies} שינויים במעטפת/עמודים! סומנו בריבוע אדום מודגש בשרטוט להלן.**")
-                    else:
-                        st.info("🛡️ מעטפת המבנה והאלמנטים הקונסטרוקטיביים נשמרו ללא שינוי.")
-                        
+                    sqm_std = round(lin_std * b_wall_h, 2)
+                    sqm_exec = round(lin_exec * b_wall_h, 2)
+                    diff_m = round(max(0.0, lin_exec - lin_std), 2)
+                    diff_sqm = round(diff_m * b_wall_h, 2)
+                    
+                    st.success("✅ החישוב הושלם בהצלחה! להלן יוצגו קודם תוכנית הסטנדרט ולאחר מכן תוכנית הביצוע.")
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("אורך מחיצות בסטנדרט:", f"{lin_std} מ\"א")
+                    c2.metric("אורך מחיצות בביצוע:", f"{lin_exec} מ\"א")
+                    c3.metric("תוספת מחיצות לחיוב נטו:", f"{diff_m} מ\"א", f"{diff_sqm} מ\"ר")
+                    
+                    b_rows = [
+                        {"מס'": 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת מחיצות פנים מעבר לסטנדרט (ביצוע {lin_exec} מ\"א מול {lin_std} מ\"א בסטנדרט)", "כמות מאושרת": diff_m, "יחידת מידה": 'מ"א'},
+                        {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"שטח תוספת מחיצות לחיוב (גובה {b_wall_h} מ')", "כמות מאושרת": diff_sqm, "יחידת מידה": 'מ"ר'}
+                    ]
                     st.session_state["project_boq"][active_disc] = b_rows
                     safe_render_table(b_rows)
-                    st.image(cv2.cvtColor(delta_img, cv2.COLOR_BGR2RGB), caption="צהוב = מחיצות שנמדדו, אדום = הריסה, ירוק = בניה חדשה, ריבוע אדום = חריגת מעטפת")
+                    
+                    st.markdown("### 📄 1. תוכנית סטנדרט (קירות שחושבו מסומנים בצהוב זוהר)")
+                    st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="תוכנית סטנדרט - מחיצות פנים בצהוב")
+                    
+                    st.markdown("### 📄 2. תוכנית ביצוע (קירות שחושבו מסומנים בצהוב זוהר)")
+                    st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="תוכנית ביצוע - מחיצות פנים בצהוב")
                 else:
-                    p_bar.progress(60, text="מסנן קירות מעטפת, ממ\"ד וקווי מידות... (60%)")
-                    lin_m, disp_img, _ = calc_building_partitions_clean(img_plan, px_meter)
+                    p_bar.progress(60, text="מבודד מחיצות פנים ומסנן מעטפת וקווי מידות... (60%)")
+                    lin_m, disp_img, _ = calc_building_partitions_clean(img_exec, px_meter)
                     sqm_total = round(lin_m * b_wall_h, 2)
                     
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
@@ -655,7 +482,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         with c_leg: f_leg = st.file_uploader("3️⃣ מקרא כלים סניטריים (אופציונלי):", type=["pdf", "png", "jpg"], key="p_leg")
         
         if f_plan:
-            btn_title = "🚀 הפעל השוואת שינויים ומרחקי העתקה מול סטנדרט" if f_std else "🚀 הפעל ספירת נקודות וכלים סניטריים"
+            btn_title = "🚀 הפעל השוואת שינויים ומרחקי העתקה מול סטנדרט" if f_std else "🚀 הפעל ספירת כלים סניטריים מדויקת"
             if st.button(btn_title):
                 st.session_state["plumb_verified"] = False
                 p_bar = st.progress(0, text="מתחיל טעינת תוכנית אינסטלציה... (0%)")
@@ -664,7 +491,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 if f_std:
                     p_bar.progress(30, text="מזהה כלים סניטריים בסטנדרט ובביצוע... (30%)")
                     img_std = load_raster(f_std)
-                    
                     relocs, added, disp_delta = compare_plumbing_delta_accurate(img_std, img_plan, px_meter)
                     
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
@@ -676,17 +502,9 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     
                     p_rows = []
                     for idx, r in enumerate(relocs):
-                        p_rows.append({
-                            "מס'": idx+1, "תמונת סמל": "", "image_uri": "",
-                            "תיאור הפריט": f"העתקת {r['type']} (הזזה של {r['distance_m']} מטר)",
-                            "כמות מאושרת": 1, "יחידת מידה": f"יח' ({r['distance_m']} מ')"
-                        })
+                        p_rows.append({"מס'": idx+1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"העתקת {r['type']} (הזזה של {r['distance_m']} מטר)", "כמות מאושרת": 1, "יחידת מידה": f"יח' ({r['distance_m']} מ')"})
                     for idx, a in enumerate(added):
-                        p_rows.append({
-                            "מס'": len(relocs)+idx+1, "תמונת סמל": "", "image_uri": "",
-                            "תיאור הפריט": f"תוספת {a['type']} חדשה מעבר לסטנדרט",
-                            "כמות מאושרת": 1, "יחידת מידה": "יח'"
-                        })
+                        p_rows.append({"מס'": len(relocs)+idx+1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"תוספת {a['type']} חדשה מעבר לסטנדרט", "כמות מאושרת": 1, "יחידת מידה": "יח'"})
                     st.session_state["project_boq"][active_disc] = p_rows
                     safe_render_table(p_rows)
                     st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="חיצים כתומים = העתקת נקודות סניטריות")
@@ -705,22 +523,24 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 raw_fix = st.session_state["plumb_raw_fixtures"]
                 disp_fix = st.session_state["plumb_disp_img"]
                 
-                # מנגנון אישור ולמידה V / X
                 if raw_fix and not st.session_state.get("plumb_verified", False):
                     st.markdown("---")
-                    st.info(f"🔍 **אימות כלים סניטריים שזוהו ולמידת AI ({len(raw_fix)} כלים לבדיקה):**")
-                    with st.expander("לחץ כאן לבדיקה ואישור/דחיית כלים סניטריים (V / X)", expanded=True):
+                    st.info(f"🔍 **אישור כלים סניטריים שזוהו ולמידת AI ({len(raw_fix)} כלים לבדיקה):**")
+                    with st.expander("לחץ כאן לאישור/דחיית כלים סניטריים (V / X)", expanded=True):
                         cols = st.columns(min(len(raw_fix), 3))
                         updated_mem = False
                         for idx, f in enumerate(raw_fix):
                             with cols[idx % len(cols)]:
-                                if f["crop"].size > 0:
-                                    st.image(cv2.cvtColor(f["crop"], cv2.COLOR_BGR2RGB), width=120, caption=f"{f['type']}")
-                                choice = st.radio("סטטוס:", ["✅ אשר כלי (V)", "❌ דחה (X)"], key=f"plumb_choice_{idx}", horizontal=True)
+                                x, y, w, h = f["bbox"]
+                                pad = 20
+                                crop_zoom = disp_fix[max(0, y-pad):min(disp_fix.shape[0], y+h+pad), max(0, x-pad):min(disp_fix.shape[1], x+w+pad)].copy()
+                                cv2.circle(crop_zoom, (w//2, h//2), max(w,h)//2 + 5, (0, 0, 255), 2) # עיגול אדום מודגש סביב הסמל
+                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), width=120, caption=f"{f['type']}")
+                                choice = st.radio("סטטוס:", ["✅ אשר (V)", "❌ דחה (X)"], key=f"plumb_choice_{idx}", horizontal=True)
                                 is_appr = ("אשר" in choice)
                                 f["user_approved"] = is_appr
                                 
-                                p_key = f"plumb_{f['type']}_{f['bbox'][2]}x{f['bbox'][3]}"
+                                p_key = f"plumb_{f['type']}_{w}x{h}"
                                 if is_appr and p_key not in ai_memory["approved_patterns"]:
                                     ai_memory["approved_patterns"].append(p_key)
                                     updated_mem = True
@@ -732,7 +552,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         if updated_mem:
                             save_ai_memory(ai_memory)
                             
-                        if st.button("✨ סיימתי לסמן כלים - נעל סימונים וחשב כמויות"):
+                        if st.button("✨ סיימתי לסמן כלים סניטריים - נעל ועדכן כמויות"):
                             st.session_state["plumb_verified"] = True
                             st.rerun()
 
@@ -744,17 +564,10 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         
                 p_rows = []
                 for idx, (f_type, c_val) in enumerate(counts.items()):
-                    p_rows.append({
-                        "מס'": idx + 1,
-                        "תמונת סמל": "",
-                        "image_uri": "",
-                        "תיאור הפריט": f_type,
-                        "כמות מאושרת": c_val,
-                        "יחידת מידה": "יח'"
-                    })
+                    p_rows.append({"מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f_type, "כמות מאושרת": c_val, "יחידת מידה": "יח'"})
                 st.session_state["project_boq"][active_disc] = p_rows
                 safe_render_table(p_rows)
-                st.image(cv2.cvtColor(disp_fix, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית")
+                st.image(cv2.cvtColor(disp_fix, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית עם סימון מוקף")
 
     # ----------------------------------------------------
     # 3. 📐 מודול ריצוף וחיפוי
@@ -817,7 +630,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="כתום = חלל רטוב לחיפוי קירות, ירוק = ריצוף יבש")
 
     # ----------------------------------------------------
-    # 4. ⚡ מודול חשמל ומאור (כולל למידת AI)
+    # 4. ⚡ מודול חשמל ומאור (כולל עיגול מוקף בשאלת משתמש)
     # ----------------------------------------------------
     else:
         c_exec, c_std, c_leg = st.columns(3)
@@ -831,11 +644,9 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 p_bar = st.progress(0, text="מתחיל טעינת קבצי חשמל... (0%)")
                 img_plan = load_raster(f_plan)
                 
-                p_bar.progress(25, text="מרנדר שכבות הנדסיות ומסנן רעשים... (25%)")
                 plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
                 _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
                 
-                p_bar.progress(35, text="מחלץ סמלים מהמקרא... (35%)")
                 symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
                 all_results = []
                 
@@ -882,7 +693,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 yellow_items = yellow_items[:8]
                 is_done_verifying = st.session_state.get("elec_verified", False)
                 
-                # Human-in-the-loop אישור ולמידה
                 if yellow_items and not is_done_verifying:
                     st.markdown("---")
                     st.info(f"🔍 **אימות סמלי חשמל בספק ולמידת AI ({len(yellow_items)} נקודות לבדיקה):**")
@@ -892,8 +702,11 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
                             with cols[y_i % len(cols)]:
                                 x, y, w, h = m["bbox"]
-                                pad = 20
+                                pad = 24
                                 crop_zoom = raw_plan[max(0, y-pad):min(raw_plan.shape[0], y+h+pad), max(0, x-pad):min(raw_plan.shape[1], x+w+pad)].copy()
+                                # עיגול אדום בולט המקיף את הסמל שעליו שואלים
+                                cv2.circle(crop_zoom, (crop_zoom.shape[1]//2, crop_zoom.shape[0]//2), max(w,h)//2 + 6, (0, 0, 255), 3)
+                                
                                 st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
                                 choice = st.radio("סטטוס:", ["✅ אשר (V)", "❌ דחה (X)"], key=f"elec_choice_{s_idx}_{m_idx}", horizontal=True)
                                 is_appr = ("אשר" in choice)
