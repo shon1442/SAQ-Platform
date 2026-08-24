@@ -150,7 +150,7 @@ def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
     return linear_meters, disp_img, interior_mask
 
 # ========================================================
-# 🚿 מודול אינסטלציה – זיהוי סניטרי מדויק
+# 🚿 מודול אינסטלציה – זיהוי כלים סניטריים מדויק
 # ========================================================
 def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -158,7 +158,6 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     fixtures = []
-    disp_img = plan_img.copy()
     
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
@@ -169,28 +168,48 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         min_dim = min(w_m, h_m)
         
         if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
-            fixtures.append({"type": "אמבטיה / מקלחון", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "color": (255, 0, 0), "status": "Green", "score": 0.90})
+            fixtures.append({
+                "type": "אמבטיה / מקלחון",
+                "center": (x + w // 2, y + h // 2),
+                "bbox": (x, y, w, h),
+                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
+                "status": "Green",
+                "score": 0.90
+            })
         elif (0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4000:
-            fixtures.append({"type": "אסלה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "color": (0, 165, 255), "status": "Green", "score": 0.85})
+            fixtures.append({
+                "type": "אסלה",
+                "center": (x + w // 2, y + h // 2),
+                "bbox": (x, y, w, h),
+                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
+                "status": "Yellow" if area < 1000 else "Green",
+                "score": 0.85
+            })
         elif (0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 5500:
-            fixtures.append({"type": "כיור / ארון רחצה", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)], "color": (0, 200, 0), "status": "Green", "score": 0.80})
+            fixtures.append({
+                "type": "כיור / ארון רחצה",
+                "center": (x + w // 2, y + h // 2),
+                "bbox": (x, y, w, h),
+                "crop": plan_img[max(0, y-5):min(plan_img.shape[0], y+h+5), max(0, x-5):min(plan_img.shape[1], x+w+5)],
+                "status": "Yellow" if area < 1200 else "Green",
+                "score": 0.80
+            })
             
     unique = []
     for f in fixtures:
         if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.30) for u in unique):
             unique.append(f)
-            x, y, w, h = f["bbox"]
-            cv2.rectangle(disp_img, (x, y), (x + w, y + h), f["color"], 2)
             
-    return unique, disp_img
+    return unique
 
 def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
-    fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
-    fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
+    fix_std = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
+    fix_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
     
     relocations = []
     added = []
     b_matched = set()
+    disp_exec = plan_exec.copy()
     
     for f_a in fix_std:
         ca = f_a["center"]
@@ -216,10 +235,14 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
         if idx_b not in b_matched:
             added.append(f_b)
             
+    for f in fix_exec:
+        x, y, w, h = f["bbox"]
+        cv2.rectangle(disp_exec, (x, y), (x + w, y + h), (0, 200, 0), 2)
+        
     return relocations, added, disp_exec
 
 # ========================================================
-# ⚡ פענוח סמלי חשמל ומאור מדויק (Legend + Feature Matching)
+# ⚡ פענוח סמלי חשמל (Legend + Feature Matching)
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -285,6 +308,85 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
     indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.25)
     final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
     return final_res
+
+# ========================================================
+# 🧠 מנגנון אימות ושאלות משתמש אחיד (Human-in-the-Loop V/X)
+# ========================================================
+def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, session_key_raw_res):
+    disp_plan = raw_plan.copy()
+    yellow_items = []
+    
+    for s_idx, item in enumerate(results_list):
+        for m_idx, m in enumerate(item["matches"]):
+            if m["status"] == "Yellow":
+                yellow_items.append((s_idx, m_idx, item, m))
+                
+    # הגבלה למקסימום 6 שאלות בכל פעם
+    yellow_items = yellow_items[:6]
+    is_done_verifying = st.session_state.get(session_key_verified, False)
+    
+    if yellow_items and not is_done_verifying:
+        st.markdown("---")
+        st.info(f"🔍 **אישור סמלים בספק ולמידת AI (מוצגים {len(yellow_items)} פריטים ראשונים לבדיקה):**")
+        with st.expander("לחץ כאן לאישור/דחיית סמלים (ה-AI לומד לפעמים הבאות)", expanded=True):
+            cols = st.columns(min(len(yellow_items), 3))
+            updated_mem = False
+            for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
+                with cols[y_i % len(cols)]:
+                    x, y, w, h = m["bbox"]
+                    pad = 24
+                    crop_zoom = raw_plan[max(0, y-pad):min(raw_plan.shape[0], y+h+pad), max(0, x-pad):min(raw_plan.shape[1], x+w+pad)].copy()
+                    # עיגול אדום מודגש סביב הסמל
+                    cv2.circle(crop_zoom, (crop_zoom.shape[1]//2, crop_zoom.shape[0]//2), max(w,h)//2 + 6, (0, 0, 255), 3)
+                    
+                    st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
+                    choice = st.radio("סטטוס:", ["✅ אשר (V)", "❌ דחה (X)"], key=f"verify_choice_{session_key_verified}_{s_idx}_{m_idx}", horizontal=True)
+                    is_appr = ("אשר" in choice)
+                    m["user_decision"] = "Approved" if is_appr else "Rejected"
+                    
+                    p_key = f"pat_{item['index']}_{w}x{h}"
+                    if is_appr and p_key not in ai_memory["approved_patterns"]:
+                        ai_memory["approved_patterns"].append(p_key)
+                        updated_mem = True
+                    elif not is_appr and p_key not in ai_memory["rejected_patterns"]:
+                        ai_memory["rejected_patterns"].append(p_key)
+                        updated_mem = True
+                    st.markdown("---")
+                    
+            if updated_mem:
+                save_ai_memory(ai_memory)
+                
+            if st.button("✨ סיימתי לסמן - נעל ועדכן כמויות", key=f"btn_lock_{session_key_verified}"):
+                st.session_state[session_key_verified] = True
+                st.rerun()
+
+    rows = []
+    for s_idx, item in enumerate(results_list):
+        confirmed_count = 0
+        for m_idx, m in enumerate(item["matches"]):
+            x, y, w, h = m["bbox"]
+            is_green = (m["status"] == "Green")
+            user_dec = m.get("user_decision", "Pending")
+            
+            if is_green or user_dec == "Approved":
+                confirmed_count += 1
+                cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 200, 0), 2)
+            elif user_dec == "Rejected":
+                cv2.line(disp_plan, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                cv2.line(disp_plan, (x + w, y), (x, y + h), (0, 0, 255), 2)
+                
+        item["confirmed_count"] = confirmed_count
+        if confirmed_count > 0:
+            rows.append({
+                "מס'": item["index"],
+                "תמונת סמל": item["image_uri"],
+                "image_uri": item["image_uri"],
+                "תיאור הפריט": f"סמל מנוהח #{item['index']}",
+                "כמות מאושרת": confirmed_count,
+                "יחידת מידה": "יח'"
+            })
+            
+    return rows, disp_plan
 
 # ========================================================
 # 📐 מודול ריצוף וחיפוי
@@ -552,7 +654,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="הקירות שנמדדו וחושבו צבועים בצהוב זוהר")
 
     # ----------------------------------------------------
-    # 2. 🚿 מודול אינסטלציה
+    # 2. 🚿 מודול אינסטלציה (כולל שאלות אימות V/X)
     # ----------------------------------------------------
     elif active_disc == "🚿 אינסטלציה":
         c_exec, c_std, c_leg = st.columns(3)
@@ -589,67 +691,32 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="חיצים כתומים = העתקת נקודות סניטריות")
                 else:
                     p_bar.progress(40, text="מאתר אסלות, אמבטיות וכיורים בחללים הרטובים... (40%)")
-                    fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                    fixtures_found = detect_sanitary_fixtures_and_points(img_plan, px_meter)
                     
+                    formatted_results = []
+                    for idx, f in enumerate(fixtures_found):
+                        formatted_results.append({
+                            "index": idx + 1,
+                            "symbol_img": f["crop"],
+                            "image_uri": img_to_data_uri(f["crop"]),
+                            "matches": [{"bbox": f["bbox"], "center": f["center"], "score": f["score"], "status": f["status"]}]
+                        })
+                        
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
                     time.sleep(0.3)
                     p_bar.empty()
                     
-                    st.session_state["plumb_raw_fixtures"] = fixtures_found
-                    st.session_state["plumb_disp_img"] = disp_fix
+                    st.session_state["plumb_results"] = formatted_results
+                    st.session_state["plumb_plan_raw"] = img_plan
 
-            if "plumb_raw_fixtures" in st.session_state:
-                raw_fix = st.session_state["plumb_raw_fixtures"]
-                disp_fix = st.session_state["plumb_disp_img"]
+            if "plumb_results" in st.session_state:
+                res = st.session_state["plumb_results"]
+                raw_plan = st.session_state["plumb_plan_raw"]
                 
-                verify_subset = raw_fix[:6]
-                is_done_verifying = st.session_state.get("plumb_verified", False)
-                
-                if verify_subset and not is_done_verifying:
-                    st.markdown("---")
-                    st.info(f"🔍 **אישור כלים סניטריים שזוהו ולמידת AI (מוצגים {len(verify_subset)} פריטים ראשונים לבדיקה):**")
-                    with st.expander("לחץ כאן לאישור/דחיית כלים סניטריים (V / X)", expanded=True):
-                        cols = st.columns(min(len(verify_subset), 3))
-                        updated_mem = False
-                        for idx, f in enumerate(verify_subset):
-                            with cols[idx % len(cols)]:
-                                x, y, w, h = f["bbox"]
-                                pad = 20
-                                crop_zoom = disp_fix[max(0, y-pad):min(disp_fix.shape[0], y+h+pad), max(0, x-pad):min(disp_fix.shape[1], x+w+pad)].copy()
-                                cv2.circle(crop_zoom, (w//2, h//2), max(w,h)//2 + 5, (0, 0, 255), 2)
-                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), width=120, caption=f"{f['type']}")
-                                choice = st.radio("סטטוס:", ["✅ אשר (V)", "❌ דחה (X)"], key=f"plumb_choice_{idx}", horizontal=True)
-                                is_appr = ("אשר" in choice)
-                                f["user_approved"] = is_appr
-                                
-                                p_key = f"plumb_{f['type']}_{w}x{h}"
-                                if is_appr and p_key not in ai_memory["approved_patterns"]:
-                                    ai_memory["approved_patterns"].append(p_key)
-                                    updated_mem = True
-                                elif not is_appr and p_key not in ai_memory["rejected_patterns"]:
-                                    ai_memory["rejected_patterns"].append(p_key)
-                                    updated_mem = True
-                                st.markdown("---")
-                                
-                        if updated_mem:
-                            save_ai_memory(ai_memory)
-                            
-                        if st.button("✨ סיימתי לסמן כלים סניטריים - נעל ועדכן כמויות"):
-                            st.session_state["plumb_verified"] = True
-                            st.rerun()
-
-                counts = {}
-                for f in raw_fix:
-                    if f.get("user_approved", True):
-                        t = f["type"]
-                        counts[t] = counts.get(t, 0) + 1
-                        
-                p_rows = []
-                for idx, (f_type, c_val) in enumerate(counts.items()):
-                    p_rows.append({"מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f_type, "כמות מאושרת": c_val, "יחידת מידה": "יח'"})
-                st.session_state["project_boq"][active_disc] = p_rows
-                safe_render_table(p_rows)
-                st.image(cv2.cvtColor(disp_fix, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית")
+                rows_p, disp_p = run_ai_verification_workflow(raw_plan, res, "plumb_verified", "plumb_results")
+                st.session_state["project_boq"][active_disc] = rows_p
+                safe_render_table(rows_p)
+                st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="כלים סניטריים שזוהו בתוכנית")
 
     # ----------------------------------------------------
     # 3. 📐 מודול ריצוף וחיפוי
@@ -665,14 +732,14 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 p_bar = st.progress(0, text="מתחיל טעינת תוכנית ריצוף... (0%)")
                 img_plan = load_raster(f_plan)
                 
-                fixtures_plan, _ = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                fixtures_plan = detect_sanitary_fixtures_and_points(img_plan, px_meter)
                 plumb_pts = [f["center"] for f in fixtures_plan]
                 floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
                 
                 if f_std:
                     p_bar.progress(50, text="משווה מול תוכנית סטנדרט... (50%)")
                     img_std = load_raster(f_std)
-                    fixtures_std, _ = detect_sanitary_fixtures_and_points(img_std, px_meter)
+                    fixtures_std = detect_sanitary_fixtures_and_points(img_std, px_meter)
                     plumb_pts_std = [f["center"] for f in fixtures_std]
                     f_std_sqm, _, w_std_sqm, _ = calc_flooring_and_wall_tiling(img_std, tile_h, px_meter, plumb_pts_std)
                     
@@ -712,7 +779,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="כתום = חלל רטוב לחיפוי קירות, ירוק = ריצוף יבש")
 
     # ----------------------------------------------------
-    # 4. ⚡ מודול חשמל ומאור (מנוע מקרא מדויק + שאלות משתמש עם עיגול אדום)
+    # 4. ⚡ מודול חשמל ומאור (כולל מנגנון שאלות ואימות V/X עם עיגול אדום)
     # ----------------------------------------------------
     else:
         c_exec, c_std, c_leg = st.columns(3)
@@ -746,7 +813,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                             "matches": m
                         })
                 else:
-                    fixtures_e, _ = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                    fixtures_e = detect_sanitary_fixtures_and_points(img_plan, px_meter)
                     for i, f in enumerate(fixtures_e):
                         all_results.append({
                             "index": i + 1,
@@ -765,80 +832,11 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             if "elec_results" in st.session_state:
                 res = st.session_state["elec_results"]
                 raw_plan = st.session_state["elec_plan_raw"]
-                disp_plan = raw_plan.copy()
                 
-                yellow_items = []
-                for s_idx, item in enumerate(res):
-                    for m_idx, m in enumerate(item["matches"]):
-                        if m["status"] == "Yellow":
-                            yellow_items.append((s_idx, m_idx, item, m))
-                            
-                yellow_items = yellow_items[:6]
-                is_done_verifying = st.session_state.get("elec_verified", False)
-                
-                if yellow_items and not is_done_verifying:
-                    st.markdown("---")
-                    st.info(f"🔍 **אישור סמלי חשמל בספק ולמידת AI (מוצגים {len(yellow_items)} פריטים ראשונים לבדיקה):**")
-                    with st.expander("לחץ כאן לאישור/דחיית סמלים (ה-AI לומד לפעמים הבאות)", expanded=True):
-                        cols = st.columns(min(len(yellow_items), 3))
-                        updated_mem = False
-                        for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
-                            with cols[y_i % len(cols)]:
-                                x, y, w, h = m["bbox"]
-                                pad = 24
-                                crop_zoom = raw_plan[max(0, y-pad):min(raw_plan.shape[0], y+h+pad), max(0, x-pad):min(raw_plan.shape[1], x+w+pad)].copy()
-                                cv2.circle(crop_zoom, (crop_zoom.shape[1]//2, crop_zoom.shape[0]//2), max(w,h)//2 + 6, (0, 0, 255), 3)
-                                
-                                st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
-                                choice = st.radio("סטטוס:", ["✅ אשר (V)", "❌ דחה (X)"], key=f"elec_choice_{s_idx}_{m_idx}", horizontal=True)
-                                is_appr = ("אשר" in choice)
-                                m["user_decision"] = "Approved" if is_appr else "Rejected"
-                                
-                                p_key = f"elec_{item['index']}_{w}x{h}"
-                                if is_appr and p_key not in ai_memory["approved_patterns"]:
-                                    ai_memory["approved_patterns"].append(p_key)
-                                    updated_mem = True
-                                elif not is_appr and p_key not in ai_memory["rejected_patterns"]:
-                                    ai_memory["rejected_patterns"].append(p_key)
-                                    updated_mem = True
-                                st.markdown("---")
-                                
-                        if updated_mem:
-                            save_ai_memory(ai_memory)
-                            
-                        if st.button("✨ סיימתי לסמן נקודות - נעל ועדכן כמויות"):
-                            st.session_state["elec_verified"] = True
-                            st.rerun()
-
-                e_rows = []
-                for s_idx, item in enumerate(res):
-                    confirmed_count = 0
-                    for m_idx, m in enumerate(item["matches"]):
-                        x, y, w, h = m["bbox"]
-                        is_green = (m["status"] == "Green")
-                        user_dec = m.get("user_decision", "Pending")
-                        
-                        if is_green or user_dec == "Approved":
-                            confirmed_count += 1
-                            cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 200, 0), 2)
-                        elif user_dec == "Rejected":
-                            cv2.line(disp_plan, (x, y), (x + w, y + h), (0, 0, 255), 2)
-                            cv2.line(disp_plan, (x + w, y), (x, y + h), (0, 0, 255), 2)
-                            
-                    item["confirmed_count"] = confirmed_count
-                    if confirmed_count > 0:
-                        e_rows.append({
-                            "מס'": item["index"],
-                            "תמונת סמל": item["image_uri"],
-                            "image_uri": item["image_uri"],
-                            "תיאור הפריט": f"סמל חשמל/מאור #{item['index']}",
-                            "כמות מאושרת": confirmed_count,
-                            "יחידת מידה": "יח'"
-                        })
-                        
-                st.session_state["project_boq"][active_disc] = e_rows
-                safe_render_table(e_rows)
-                st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
+                rows_e, disp_e = run_ai_verification_workflow(raw_plan, res, "elec_verified", "elec_results")
+                st.session_state["project_boq"][active_disc] = rows_e
+                safe_render_table(rows_e)
+                st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="נקודות חשמל ותאורה שזוהו בתוכנית")
 
     # ========================================================
     # 🏁 כפתורי סיום פרויקט ומעבר דיסציפלינה (זמינים תמיד)
