@@ -94,7 +94,7 @@ def safe_render_table(rows):
     st.dataframe(df, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
 
 # ========================================================
-# 🧱 מודול בניה – מדידה נקייה, סינון מעטפת וצביעה בצהוב
+# 🧱 מודול בניה (תצוגה עוקבת: סטנדרט ואז ביצוע)
 # ========================================================
 def extract_interior_walls_clean(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -150,7 +150,7 @@ def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
     return linear_meters, disp_img, interior_mask
 
 # ========================================================
-# 🚿 מודול אינסטלציה – זיהוי כלים סניטריים ממוקד
+# 🚿 מודול אינסטלציה – זיהוי סניטרי מדויק
 # ========================================================
 def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
@@ -168,7 +168,8 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         max_dim = max(w_m, h_m)
         min_dim = min(w_m, h_m)
         
-        if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 1000:
+        # אמבטיה / מקלחון
+        if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
             fixtures.append({
                 "type": "אמבטיה / מקלחון",
                 "center": (x + w // 2, y + h // 2),
@@ -178,7 +179,8 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
                 "status": "Green",
                 "score": 0.90
             })
-        elif (0.40 <= max_dim <= 0.90) and (0.30 <= min_dim <= 0.60) and 300 < area < 4000:
+        # אסלה
+        elif (0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4500:
             fixtures.append({
                 "type": "אסלה",
                 "center": (x + w // 2, y + h // 2),
@@ -188,7 +190,8 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
                 "status": "Green",
                 "score": 0.85
             })
-        elif (0.35 <= max_dim <= 1.30) and (0.25 <= min_dim <= 0.70) and 350 < area < 5500:
+        # כיור / ארון רחצה
+        elif (0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 6000:
             fixtures.append({
                 "type": "כיור / ארון רחצה",
                 "center": (x + w // 2, y + h // 2),
@@ -201,7 +204,7 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
             
     unique = []
     for f in fixtures:
-        if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.35) for u in unique):
+        if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.30) for u in unique):
             unique.append(f)
             x, y, w, h = f["bbox"]
             cv2.rectangle(disp_img, (x, y), (x + w, y + h), f["color"], 2)
@@ -243,7 +246,7 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
     return relocations, added, disp_exec
 
 # ========================================================
-# ⚡ פענוח סמלי חשמל ומאור
+# ⚡ פענוח סמלי חשמל ומאור (המנוע המקורי המדויק)
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -253,12 +256,12 @@ def extract_symbols_from_legend(legend_img):
     work_gray = gray[:crop_h, :]
     work_color = legend_img[:crop_h, :]
     
-    _, thresh = cv2.threshold(work_gray, 225, 255, cv2.THRESH_BINARY_INV)
+    _, thresh = cv2.threshold(work_gray, 220, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     raw_symbols = []
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
-        if 14 <= w <= 110 and 14 <= h <= 110 and cv2.contourArea(c) > 40:
+        if 12 <= w <= 100 and 12 <= h <= 100 and cv2.contourArea(c) > 30:
             pad = 4
             raw_symbols.append({
                 "bbox": (x, y, w, h),
@@ -269,21 +272,21 @@ def extract_symbols_from_legend(legend_img):
     raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
     unique = []
     for sym in raw_symbols:
-        if not any(np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 26 for u in unique):
+        if not any(np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 24 for u in unique):
             unique.append(sym)
-    return unique[:16]
+    return unique[:20]
 
-def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.58, high_thresh=0.72):
+def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.55, high_thresh=0.70):
     _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
     pts = cv2.findNonZero(templ_inv)
     if pts is not None:
         tx, ty, tw, th = cv2.boundingRect(pts)
-        if tw > 8 and th > 8:
+        if tw > 6 and th > 6:
             templ_inv = templ_inv[ty:ty+th, tx:tx+tw]
     detections = []
     for scale in [0.85, 0.95, 1.0, 1.05, 1.15]:
         sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
-        if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 8 or sh < 8: continue
+        if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 6 or sh < 6: continue
         resized_t = cv2.resize(templ_inv, (sw, sh))
         for rot in [0, 90, 180, 270]:
             if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
@@ -298,7 +301,7 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.58, high_thresh=0.72):
                 status = "Green" if score >= high_thresh else "Yellow"
                 detections.append({"bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)), "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)), "score": score, "status": status})
     if not detections: return []
-    indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.20)
+    indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.22)
     final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else []
     return final_res
 
@@ -618,7 +621,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 raw_fix = st.session_state["plumb_raw_fixtures"]
                 disp_fix = st.session_state["plumb_disp_img"]
                 
-                # הגבלה למקסימום 6 פריטים לשאלת משתמש לפי דרישה
                 verify_subset = raw_fix[:6]
                 is_done_verifying = st.session_state.get("plumb_verified", False)
                 
@@ -789,7 +791,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         if m["status"] == "Yellow":
                             yellow_items.append((s_idx, m_idx, item, m))
                             
-                # הגבלה למקסימום 6 פריטים בדיקה בלבד
                 yellow_items = yellow_items[:6]
                 is_done_verifying = st.session_state.get("elec_verified", False)
                 
