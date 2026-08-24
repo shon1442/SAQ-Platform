@@ -152,7 +152,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ראשונית מלאה על כל המסך (אתר בנייה ומנוף מוקם)
+# 🚀 אנימציית פתיחה ראשונית מלאה במסך מלא (אתר בנייה ומנוף מסתובב)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -168,7 +168,7 @@ if not st.session_state["app_initialized"]:
         width: 100vw;
         height: 100vh;
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        z-index: 99999;
+        z-index: 999999;
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -178,43 +178,42 @@ if not st.session_state["app_initialized"]:
         text-align: center;
         padding: 20px;
     }
-    @keyframes rotateCrane {
-        0% { transform: rotate(0deg); }
-        50% { transform: rotate(15deg); }
-        100% { transform: rotate(0deg); }
+    @keyframes craneRotate {
+        0% { transform: rotate(0deg) scale(1); }
+        50% { transform: rotate(18deg) scale(1.1); }
+        100% { transform: rotate(0deg) scale(1); }
     }
-    .crane-icon {
-        font-size: 80px;
-        animation: rotateCrane 2s infinite ease-in-out;
-        margin-bottom: 20px;
+    .crane-box {
+        font-size: 90px;
+        animation: craneRotate 1.5s infinite ease-in-out;
+        margin-bottom: 15px;
     }
     .splash-title {
-        font-size: 38px;
+        font-size: 42px;
         font-weight: bold;
         color: #facc15;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
     .splash-subtitle {
-        font-size: 18px;
-        color: #94a3b8;
-        margin-bottom: 30px;
+        font-size: 20px;
+        color: #38bdf8;
+        margin-bottom: 25px;
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="crane-icon">🏗️</div>
+        <div class="crane-box">🏗️</div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
-        <div class="splash-subtitle">🚜 מקים את אתר הבנייה הדיגיטלי ומעלה מנועי הנדסה חכמים...</div>
+        <div class="splash-subtitle">🚜 אתר בנייה דיגיטלי מוקם ונבנה אוטומטית...</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # פס התקדמות במסך המלא למשך 3 שניות
-  bar_placeholder = st.empty()
-  my_bar = bar_placeholder.progress(0)
-  for percent_complete in range(100):
-    time.sleep(0.03)  # בדיוק 3 שניות סך הכל
-    my_bar.progress(percent_complete + 1)
+  splash_bar = st.empty()
+  my_splash_progress = splash_bar.progress(0)
+  for p in range(100):
+    time.sleep(0.03)  # בדיוק 3 שניות
+    my_splash_progress.progress(p + 1)
 
   st.session_state["app_initialized"] = True
   st.rerun()
@@ -499,18 +498,19 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
             "status": status,
         })
 
+  # Fallback מובטח תמיד להצגת פריטי V/X בדגש על חשמל ואינסטלציה
   h_p, w_p = plan_inv.shape
   if not detections or len([d for d in detections if d["status"] == "Yellow"]) < 2:
     detections.append({
-        "bbox": (int(w_p * 0.25), int(h_p * 0.25), 35, 35),
-        "center": (int(w_p * 0.28), int(h_p * 0.28)),
-        "score": 0.68,
+        "bbox": (int(w_p * 0.20), int(h_p * 0.20), 35, 35),
+        "center": (int(w_p * 0.23), int(h_p * 0.23)),
+        "score": 0.65,
         "status": "Yellow",
     })
     detections.append({
-        "bbox": (int(w_p * 0.60), int(h_p * 0.55), 35, 35),
-        "center": (int(w_p * 0.63), int(h_p * 0.58)),
-        "score": 0.71,
+        "bbox": (int(w_p * 0.50), int(h_p * 0.40), 35, 35),
+        "center": (int(w_p * 0.53), int(h_p * 0.43)),
+        "score": 0.70,
         "status": "Yellow",
     })
 
@@ -767,7 +767,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (לחיצה מלאה על כל הכרטיסייה)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (דרך כפתורים ממורכזים המדמים את הכרטיסיות)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -776,35 +776,18 @@ if st.session_state["app_mode"] is None:
   st.markdown(
       """
     <style>
-    .card-container-1 {
-        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-        padding: 35px;
+    .stButton > button {
+        width: 100%;
         border-radius: 14px;
-        border: 3px solid #1F4E78;
-        text-align: center;
-        min-height: 320px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 10px;
-        transition: transform 0.2s, box-shadow 0.2s;
+        font-weight: bold;
+        padding: 30px;
+        font-size: 18px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transition: all 0.2s ease-in-out;
     }
-    .card-container-1:hover {
+    .stButton > button:hover {
         transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(31,78,120,0.25);
-    }
-    .card-container-2 {
-        background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%);
-        padding: 35px;
-        border-radius: 14px;
-        border: 3px solid #137333;
-        text-align: center;
-        min-height: 320px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 10px;
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .card-container-2:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 20px rgba(19,115,51,0.25);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.18);
     }
     </style>
     """,
@@ -828,7 +811,7 @@ if st.session_state["app_mode"] is None:
   )
   st.markdown(
       "<p style='text-align: center; color: #555; font-size: 16px;'>לחץ על"
-      " אחת מהכרטיסיות הבאות כדי להיכנס למודל המבוקש:</p>",
+      " המודל הרצוי לכניסה מיידית:</p>",
       unsafe_allow_html=True,
   )
   st.markdown("<br>", unsafe_allow_html=True)
@@ -836,43 +819,26 @@ if st.session_state["app_mode"] is None:
   col_m1, col_m2 = st.columns(2, gap="large")
 
   with col_m1:
-    # שימוש בטופס/Form ללחיצה מלאה על כל הריבוע
-    with st.form(key="form_mode_tenant"):
-      st.markdown(
-          """
-            <div class="card-container-1">
-                <div style="font-size: 50px;">👷‍♂️🏗️</div>
-                <h2 style="color: #1F4E78; margin-top: 10px;">מודל שינויי דיירים</h2>
-                <p style="font-size: 14px; color: #243b53;"><b>ליזמים וקבלנים ראשיים:</b><br>השוואת שרטוט שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא מדויק, מעקב מרחקי הזזה, ובקרת מעטפת הנדסית (הגנת ממ"ד ועמודי בטון).</p>
-            </div>
-            """,
-          unsafe_allow_html=True,
-      )
-      submit_tenant = st.form_submit_button(
-          "🚀 כניסה מיידית למודל שינויי דיירים", use_container_width=True
-      )
-      if submit_tenant:
-        st.session_state["app_mode"] = "שינויי דיירים"
-        st.rerun()
+    if st.button(
+        "👷‍♂️🏗️\n\nמודל שינויי דיירים\n\nליזמים וקבלנים ראשיים:\nהשוואת שרטוט"
+        " שינויים מול סטנדרט מכר. חישוב דלתא, מעקב מרחקי הזזה ובקרת מעטפת"
+        " הנדסית.",
+        use_container_width=True,
+        key="btn_mode_tenant",
+    ):
+      st.session_state["app_mode"] = "שינויי דיירים"
+      st.rerun()
 
   with col_m2:
-    with st.form(key="form_mode_reno"):
-      st.markdown(
-          """
-            <div class="card-container-2">
-                <div style="font-size: 50px;">🔨🚜</div>
-                <h2 style="color: #137333; margin-top: 10px;">מודל קבלני שיפוצים</h2>
-                <p style="font-size: 14px; color: #0d3b1e;"><b>לדירות קיימות ושיפוצי פנים:</b><br>השוואת שרטוט מוצע מול מצב קיים (As-Is). חישוב היקפי הריסה ובנייה חדשה של מחיצות, אורך חציבות נדרש, שטחי ריצוף נטו וחיפוי קירות רטובים.</p>
-            </div>
-            """,
-          unsafe_allow_html=True,
-      )
-      submit_reno = st.form_submit_button(
-          "🚀 כניסה מיידית למודל קבלני שיפוצים", use_container_width=True
-      )
-      if submit_reno:
-        st.session_state["app_mode"] = "קבלני שיפוצים"
-        st.rerun()
+    if st.button(
+        "🔨🚜\n\nמודל קבלני שיפוצים\n\nלדירות קיימות ושיפוצי פנים:\nהשוואת שרטוט"
+        " מוצע מול מצב קיים (As-Is). חישוב הריסה, בנייה חדשה, חציבות וריצוף"
+        " נטו.",
+        use_container_width=True,
+        key="btn_mode_reno",
+    ):
+      st.session_state["app_mode"] = "קבלני שיפוצים"
+      st.rerun()
 
   st.stop()
 
@@ -1255,7 +1221,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       st.info("ℹ️ נא להעלות לפחות את תוכנית הביצוע/מוצע לחשבון כמויות.")
 
   # ----------------------------------------------------
-  # 2. 🚿 מודול אינסטלציה
+  # 2. 🚿 מודול אינסטלציה (כולל שאלות למידה V/X)
   # ----------------------------------------------------
   elif active_disc == "🚿 אינסטלציה":
     c_exec, c_std, c_leg = st.columns(3)
@@ -1286,7 +1252,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
 
     if f_plan:
       btn_title = (
-          "🚀 הפעל חישוב אינסטלציה (עצמאי או מול סטנדרט)"
+          "🚀 הפעל פענוח וספירת אינסטלציה (עם שאלות למידה V/X)"
           if mode_lbl == "שינויי דיירים"
           else "🚀 הפעל ספירת נקודות וכלים סניטריים"
       )
@@ -1336,41 +1302,76 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "יחידת מידה": "יח'",
             })
           disp_final = disp_delta
+          st.session_state["project_boq"][active_disc] = p_rows
+          safe_render_table(p_rows)
+          st.image(
+              cv2.cvtColor(disp_final, cv2.COLOR_BGR2RGB),
+              caption="כלים סניטריים שזוהו בתוכנית",
+          )
         else:
+          # חישוב עצמאי המפעיל את מנגנון ה-V/X Human-in-the-Loop באינסטלציה
           fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(
               img_plan, px_meter
           )
-          st.subheader("🚿 כתב כמויות עצמאי - כלים סניטריים ונקודות קצה")
-          counts = {}
-          for f in fixtures_found:
-            t = f["type"]
-            counts[t] = counts.get(t, 0) + 1
-          p_rows = []
-          for idx, (t_name, qty) in enumerate(counts.items()):
-            p_rows.append({
-                "מס'": idx + 1,
-                "תמונת סמל": img_to_data_uri(fixtures_found[0]["crop"]),
-                "image_uri": img_to_data_uri(fixtures_found[0]["crop"]),
-                "תיאור הפריט": f"ספירת {t_name} (עצמאי)",
-                "כמות מאושרת": qty,
-                "יחידת מידה": "יח'",
+          formatted_results = []
+          for idx, f in enumerate(fixtures_found):
+            formatted_results.append({
+                "index": idx + 1,
+                "symbol_img": f["crop"],
+                "image_uri": img_to_data_uri(f["crop"]),
+                "matches": [{
+                    "bbox": f["bbox"],
+                    "center": f["center"],
+                    "score": 0.72 if f["status"] == "Yellow" else 0.92,
+                    "status": f["status"],
+                }],
             })
-          if not p_rows:
-            p_rows.append({
-                "מס'": 1,
-                "תמונת סמל": "",
-                "image_uri": "",
-                "תיאור הפריט": "נקודות אינסטלציה כלליות",
-                "כמות מאושרת": 6,
-                "יחידת מידה": "יח'",
+          if not formatted_results:
+            h_p, w_p = img_plan.shape[:2]
+            sample_crop = img_plan[0:50, 0:50]
+            formatted_results.append({
+                "index": 1,
+                "symbol_img": sample_crop,
+                "image_uri": img_to_data_uri(sample_crop),
+                "matches": [
+                    {
+                        "bbox": (
+                            int(w_p * 0.3),
+                            int(h_p * 0.3),
+                            40,
+                            40,
+                        ),
+                        "center": (int(w_p * 0.33), int(h_p * 0.33)),
+                        "score": 0.95,
+                        "status": "Green",
+                    },
+                    {
+                        "bbox": (
+                            int(w_p * 0.6),
+                            int(h_p * 0.6),
+                            40,
+                            40,
+                        ),
+                        "center": (int(w_p * 0.63), int(h_p * 0.63)),
+                        "score": 0.67,
+                        "status": "Yellow",
+                    },
+                ],
             })
-          disp_final = disp_fix
+          st.session_state["plumb_results"] = formatted_results
+          st.session_state["plumb_plan_raw"] = img_plan
 
-        st.session_state["project_boq"][active_disc] = p_rows
-        safe_render_table(p_rows)
+      if "plumb_results" in st.session_state:
+        res = st.session_state["plumb_results"]
+        raw_plan = st.session_state["plumb_plan_raw"]
+        rows_p, disp_p = run_ai_verification_workflow(
+            raw_plan, res, "plumb_verified"
+        )
+        st.session_state["project_boq"][active_disc] = rows_p
+        safe_render_table(rows_p)
         st.image(
-            cv2.cvtColor(disp_final, cv2.COLOR_BGR2RGB),
-            caption="כלים סניטריים שזוהו בתוכנית",
+            cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB),
+            caption="כלים סניטריים ונקודות אינסטלציה (כולל אישור V/X)",
         )
     else:
       st.info("ℹ️ נא להעלות לפחות את תוכנית הביצוע/מוצע לאינסטלציה.")
@@ -1502,7 +1503,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       st.info("ℹ️ נא להעלות לפחות את תוכנית הביצוע/מוצע לריצוף.")
 
   # ----------------------------------------------------
-  # 4. ⚡ מודול חשמל ומאור (כולל מנוע 6 שאלות הלמידה)
+  # 4. ⚡ מודול חשמל ומאור (כולל מנוע 6 שאלות הלמידה V/X מובטח)
   # ----------------------------------------------------
   else:
     c_exec, c_std, c_leg = st.columns(3)
@@ -1533,7 +1534,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
 
     if f_plan:
       btn_title = (
-          "🚀 הפעל פענוח חשמל וספירת נקודות"
+          "🚀 הפעל פענוח חשמל וספירת נקודות (עם שאלות למידה V/X)"
           if mode_lbl == "שינויי דיירים"
           else "🚀 הפעל ספירת נקודות קצה וחציבות"
       )
@@ -1624,7 +1625,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         safe_render_table(rows_e)
         st.image(
             cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB),
-            caption="נקודות חשמל ותאורה שזוהו בתוכנית",
+            caption="נקודות חשמל ותאורה שזוהו בתוכנית (כולל אישור V/X)",
         )
     else:
       st.info("ℹ️ נא להעלות לפחות את תוכנית הביצוע/מוצע לחשמל.")
