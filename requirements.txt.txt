@@ -1,10 +1,1 @@
-streamlit
 opencv-python-headless
-pillow
-numpy
-pandas
-openpyxl
-pypdfium2
-shapely
-ezdxf
-matplotlib
