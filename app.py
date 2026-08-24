@@ -94,15 +94,15 @@ def safe_render_table(rows):
     st.dataframe(df, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
 
 # ========================================================
-# 🏗️ אנימציית טעינה הנדסית (מנוף פעיל S.A.Q)
+# 🏗️ אנימציית טעינה הנדסית (S.A. Quantities AI)
 # ========================================================
-def show_engineering_loader(text="S.A. Quantities AI מפענחת נתונים..."):
+def show_engineering_loader(text="S.A. Quantities AI מפענחת נתונים בהנדסה מתקדמת..."):
     with st.status(f"🏗️ {text}", expanded=True) as status:
-        st.write("⚙️ סורק שכבות CAD / Raster ומזהה אלמנטים...")
+        st.write("⚙️ סורק שכבות CAD / Raster ומזהה אלמנטים גרפיים...")
         time.sleep(0.3)
-        st.write("📐 מפעיל אלגוריתמים הנדסיים מבוססי AI...")
+        st.write("📐 מפעיל אלגוריתמים הנדסיים מבוססי AI ומנוף חישובים...")
         time.sleep(0.3)
-        st.write("✨ ממצה כתב כמויות מדויק...")
+        st.write("✨ ממצה כתב כמויות מדויק בעיצוב צבעוני ומקצועי...")
         status.update(label="✅ עיבוד S.A.Q הסתיים בהצלחה!", state="complete", expanded=False)
 
 # ========================================================
@@ -156,8 +156,8 @@ def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
     
     disp_img = plan_img.copy()
     overlay = disp_img.copy()
-    overlay[interior_mask > 0] = [0, 235, 255] # צהוב זוהר
-    cv2.addWeighted(overlay, 0.65, disp_img, 0.35, 0, disp_img)
+    overlay[interior_mask > 0] = [0, 235, 255] # צהוב זוהר מודגש
+    cv2.addWeighted(overlay, 0.70, disp_img, 0.30, 0, disp_img)
     
     return linear_meters, disp_img, interior_mask
 
@@ -170,6 +170,7 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     
     contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     fixtures = []
+    disp_img = plan_img.copy()
     
     for c in contours:
         x, y, w, h = cv2.boundingRect(c)
@@ -190,17 +191,18 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     for f in fixtures:
         if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.30) for u in unique):
             unique.append(f)
+            x, y, w, h = f["bbox"]
+            cv2.rectangle(disp_img, (x, y), (x + w, y + h), (0, 165, 255), 2)
             
-    return unique
+    return unique, disp_img
 
 def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
-    fix_std = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
-    fix_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
+    fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
+    fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
     
     relocations = []
     added = []
     b_matched = set()
-    disp_exec = plan_exec.copy()
     
     for f_a in fix_std:
         ca = f_a["center"]
@@ -229,7 +231,7 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
     return relocations, added, disp_exec
 
 # ========================================================
-# ⚡ פענוח סמלי חשמל ומאור
+# ⚡ פענוח סמלי חשמל ותאורה
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None: return []
@@ -308,6 +310,7 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified):
             if m["status"] == "Yellow":
                 yellow_items.append((s_idx, m_idx, item, m))
                 
+    # הגבלה למקסימום 6 שאלות בכל פעם
     yellow_items = yellow_items[:6]
     is_done_verifying = st.session_state.get(session_key_verified, False)
     
@@ -322,6 +325,7 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified):
                     x, y, w, h = m["bbox"]
                     pad = 24
                     crop_zoom = raw_plan[max(0, y-pad):min(raw_plan.shape[0], y+h+pad), max(0, x-pad):min(raw_plan.shape[1], x+w+pad)].copy()
+                    # עיגול אדום מודגש סביב הסמל
                     cv2.circle(crop_zoom, (crop_zoom.shape[1]//2, crop_zoom.shape[0]//2), max(w,h)//2 + 6, (0, 0, 255), 3)
                     
                     st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"סמל #{item['index']} (ודאות {m['score']*100:.0f}%)", width=130)
@@ -848,4 +852,3 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         for i, d_target in enumerate(rem):
             if cols[i].button(d_target, key=f"btn_nav_{i}"):
                 set_discipline_programmatically(d_target)
-                
