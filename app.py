@@ -152,31 +152,72 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ראשונית (הקמת אתר בנייה למשך 3 שניות)
+# 🚀 אנימציית פתיחה ראשונית מלאה על כל המסך (אתר בנייה ומנוף מוקם)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
 
 if not st.session_state["app_initialized"]:
-  st.markdown("<br><br>", unsafe_allow_html=True)
-  col_sp1, col_sp2, col_sp3 = st.columns([1, 2, 1])
-  with col_sp2:
-    st.markdown(
-        "<h2 style='text-align: center; color: #1F4E78;'>🏗️ S.A. Quantities"
-        " AI (S.A.Q)</h2>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        "<p style='text-align: center; color: #E67E22; font-weight:"
-        " bold;'>🚜 מקימת אתר הבנייה הדיגיטלי ומנועי ה-AI...</p>",
-        unsafe_allow_html=True,
-    )
-    init_bar = st.progress(0)
-    for i in range(100):
-      time.sleep(0.025)
-      init_bar.progress(i + 1)
-    st.session_state["app_initialized"] = True
-    st.rerun()
+  st.markdown(
+      """
+    <style>
+    .fullscreen-splash {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+    }
+    @keyframes rotateCrane {
+        0% { transform: rotate(0deg); }
+        50% { transform: rotate(15deg); }
+        100% { transform: rotate(0deg); }
+    }
+    .crane-icon {
+        font-size: 80px;
+        animation: rotateCrane 2s infinite ease-in-out;
+        margin-bottom: 20px;
+    }
+    .splash-title {
+        font-size: 38px;
+        font-weight: bold;
+        color: #facc15;
+        margin-bottom: 10px;
+    }
+    .splash-subtitle {
+        font-size: 18px;
+        color: #94a3b8;
+        margin-bottom: 30px;
+    }
+    </style>
+    <div class="fullscreen-splash">
+        <div class="crane-icon">🏗️</div>
+        <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
+        <div class="splash-subtitle">🚜 מקים את אתר הבנייה הדיגיטלי ומעלה מנועי הנדסה חכמים...</div>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
+
+  # פס התקדמות במסך המלא למשך 3 שניות
+  bar_placeholder = st.empty()
+  my_bar = bar_placeholder.progress(0)
+  for percent_complete in range(100):
+    time.sleep(0.03)  # בדיוק 3 שניות סך הכל
+    my_bar.progress(percent_complete + 1)
+
+  st.session_state["app_initialized"] = True
+  st.rerun()
 
 
 # ========================================================
@@ -458,7 +499,6 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
             "status": status,
         })
 
-  # Fallback להבטחת הופעת פריטים לבדיקת V/X
   h_p, w_p = plan_inv.shape
   if not detections or len([d for d in detections if d["status"] == "Yellow"]) < 2:
     detections.append({
@@ -727,7 +767,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (לחיצה מלאה על הכרטיסייה)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (לחיצה מלאה על כל הכרטיסייה)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -738,39 +778,33 @@ if st.session_state["app_mode"] is None:
     <style>
     .card-container-1 {
         background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-        padding: 30px;
+        padding: 35px;
         border-radius: 14px;
         border: 3px solid #1F4E78;
         text-align: center;
-        min-height: 310px;
+        min-height: 320px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 15px;
-        transition: transform 0.2s;
+        margin-bottom: 10px;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     .card-container-1:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(31,78,120,0.25);
     }
     .card-container-2 {
         background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%);
-        padding: 30px;
+        padding: 35px;
         border-radius: 14px;
         border: 3px solid #137333;
         text-align: center;
-        min-height: 310px;
+        min-height: 320px;
         box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        margin-bottom: 15px;
-        transition: transform 0.2s;
+        margin-bottom: 10px;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     .card-container-2:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-    }
-    .stButton > button {
-        width: 100%;
-        border-radius: 8px;
-        font-weight: bold;
-        padding: 10px;
+        transform: translateY(-4px);
+        box-shadow: 0 8px 20px rgba(19,115,51,0.25);
     }
     </style>
     """,
@@ -793,8 +827,8 @@ if st.session_state["app_mode"] is None:
       unsafe_allow_html=True,
   )
   st.markdown(
-      "<p style='text-align: center; color: #555; font-size: 16px;'>בחר את מודל"
-      " הפעילות המבוקש לפרויקט:</p>",
+      "<p style='text-align: center; color: #555; font-size: 16px;'>לחץ על"
+      " אחת מהכרטיסיות הבאות כדי להיכנס למודל המבוקש:</p>",
       unsafe_allow_html=True,
   )
   st.markdown("<br>", unsafe_allow_html=True)
@@ -802,36 +836,43 @@ if st.session_state["app_mode"] is None:
   col_m1, col_m2 = st.columns(2, gap="large")
 
   with col_m1:
-    st.markdown(
-        """
-        <div class="card-container-1">
-            <div style="font-size: 45px;">👷‍♂️🏗️</div>
-            <h2 style="color: #1F4E78; margin-top: 10px;">מודל שינויי דיירים</h2>
-            <p style="font-size: 14px; color: #243b53;"><b>ליזמים וקבלנים ראשיים:</b><br>השוואת שרטוט שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא מדויק, מעקב מרחקי הזזה, ובקרת מעטפת הנדסית (הגנת ממ"ד ועמודי בטון).</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    if st.button("🚀 כניסה למודל שינויי דיירים", use_container_width=True):
-      st.session_state["app_mode"] = "שינויי דיירים"
-      st.rerun()
+    # שימוש בטופס/Form ללחיצה מלאה על כל הריבוע
+    with st.form(key="form_mode_tenant"):
+      st.markdown(
+          """
+            <div class="card-container-1">
+                <div style="font-size: 50px;">👷‍♂️🏗️</div>
+                <h2 style="color: #1F4E78; margin-top: 10px;">מודל שינויי דיירים</h2>
+                <p style="font-size: 14px; color: #243b53;"><b>ליזמים וקבלנים ראשיים:</b><br>השוואת שרטוט שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא מדויק, מעקב מרחקי הזזה, ובקרת מעטפת הנדסית (הגנת ממ"ד ועמודי בטון).</p>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
+      submit_tenant = st.form_submit_button(
+          "🚀 כניסה מיידית למודל שינויי דיירים", use_container_width=True
+      )
+      if submit_tenant:
+        st.session_state["app_mode"] = "שינויי דיירים"
+        st.rerun()
 
   with col_m2:
-    st.markdown(
-        """
-        <div class="card-container-2">
-            <div style="font-size: 45px;">🔨🚜</div>
-            <h2 style="color: #137333; margin-top: 10px;">מודל קבלני שיפוצים</h2>
-            <p style="font-size: 14px; color: #0d3b1e;"><b>לדירות קיימות ושיפוצי פנים:</b><br>השוואת שרטוט מוצע מול מצב קיים (As-Is). חישוב היקפי הריסה ובנייה חדשה של מחיצות, אורך חציבות נדרש, שטחי ריצוף נטו וחיפוי קירות רטובים.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    if st.button(
-        "🚀 כניסה למודל קבלני שיפוצים", use_container_width=True
-    ):
-      st.session_state["app_mode"] = "קבלני שיפוצים"
-      st.rerun()
+    with st.form(key="form_mode_reno"):
+      st.markdown(
+          """
+            <div class="card-container-2">
+                <div style="font-size: 50px;">🔨🚜</div>
+                <h2 style="color: #137333; margin-top: 10px;">מודל קבלני שיפוצים</h2>
+                <p style="font-size: 14px; color: #0d3b1e;"><b>לדירות קיימות ושיפוצי פנים:</b><br>השוואת שרטוט מוצע מול מצב קיים (As-Is). חישוב היקפי הריסה ובנייה חדשה של מחיצות, אורך חציבות נדרש, שטחי ריצוף נטו וחיפוי קירות רטובים.</p>
+            </div>
+            """,
+          unsafe_allow_html=True,
+      )
+      submit_reno = st.form_submit_button(
+          "🚀 כניסה מיידית למודל קבלני שיפוצים", use_container_width=True
+      )
+      if submit_reno:
+        st.session_state["app_mode"] = "קבלני שיפוצים"
+        st.rerun()
 
   st.stop()
 
@@ -1081,7 +1122,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       )
       if st.button(btn_title):
         show_engineering_loader(
-            "S.A.Q AI סורק מחיצות פנים, מחשב אורך מ" "א ושטחים נטו..."
+            "S.A.Q AI סורק מחיצות פנים, מחשב אורך מ\"א ושטחים נטו..."
         )
         img_exec = load_raster(f_plan)
         img_std = load_raster(f_std) if f_std else None
@@ -1522,7 +1563,6 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "matches": m,
             })
         else:
-          # Fallback להבטחת הופעת פריטים לבדיקת V/X
           h_p, w_p = plan_inv.shape
           sample_crop = img_plan[
               int(h_p * 0.2) : int(h_p * 0.3), int(w_p * 0.2) : int(w_p * 0.3)
@@ -1608,4 +1648,3 @@ elif file_type == "📄 PDF / תמונה (Raster)":
     for i, d_target in enumerate(rem):
       if cols[i].button(d_target, key=f"btn_nav_{i}"):
         set_discipline_programmatically(d_target)
-        
