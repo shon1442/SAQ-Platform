@@ -7,9 +7,6 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 import pypdfium2 as pdfium
-import openpyxl
-from openpyxl.drawing.image import Image as OpenpyxlImage
-from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
 from saq_vector_engine import DXFVectorParser, compare_vector_delta
 
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
@@ -143,68 +140,9 @@ def match_symbol_clean(plan_inv, templ_gray, min_thresh=0.68, high_thresh=0.76):
         return [r for r in final_res if r["status"] == "Green"]
     return final_res
 
-def generate_excel_with_embedded_images(boq_rows):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "כתב כמויות חשמל - SAQ"
-    ws.sheet_view.rightToLeft = True
-    
-    headers = ["מס'", "תמונת הסמל", "תיאור הפריט", "כמות מאושרת", "יחידת מידה"]
-    ws.append(headers)
-    
-    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
-    header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
-    thin_border = Border(
-        left=Side(style='thin', color='D9D9D9'),
-        right=Side(style='thin', color='D9D9D9'),
-        top=Side(style='thin', color='D9D9D9'),
-        bottom=Side(style='thin', color='D9D9D9')
-    )
-    
-    for col_num in range(1, 6):
-        cell = ws.cell(row=1, column=col_num)
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center")
-        
-    ws.column_dimensions['A'].width = 8
-    ws.column_dimensions['B'].width = 18
-    ws.column_dimensions['C'].width = 34
-    ws.column_dimensions['D'].width = 16
-    ws.column_dimensions['E'].width = 14
-    ws.row_dimensions[1].height = 30
-    
-    for idx, item in enumerate(boq_rows):
-        row_idx = idx + 2
-        ws.row_dimensions[row_idx].height = 52
-        c_num = ws.cell(row=row_idx, column=1, value=item["מס'"])
-        c_desc = ws.cell(row=row_idx, column=3, value=item["תיאור הפריט"])
-        c_qty = ws.cell(row=row_idx, column=4, value=item["כמות"])
-        c_unit = ws.cell(row=row_idx, column=5, value=item["יחידת מידה"])
-        
-        for c in [c_num, ws.cell(row=row_idx, column=2), c_desc, c_qty, c_unit]:
-            c.alignment = Alignment(horizontal="center", vertical="center")
-            c.border = thin_border
-            c.font = Font(name="Arial", size=10)
-            
-        sym_img = item.get("symbol_img")
-        if sym_img is not None and sym_img.size > 0:
-            rgb = cv2.cvtColor(sym_img, cv2.COLOR_BGR2RGB)
-            pil_img = Image.fromarray(rgb)
-            pil_img.thumbnail((60, 46))
-            img_io = io.BytesIO()
-            pil_img.save(img_io, format="PNG")
-            img_io.seek(0)
-            xl_img = OpenpyxlImage(img_io)
-            ws.add_image(xl_img, f"B{row_idx}")
-            
-    out_io = io.BytesIO()
-    wb.save(out_io)
-    return out_io.getvalue()
-
 with st.sidebar:
     if has_logo:
-        st.image(LOGO_PATH, use_container_width=True)
+        st.image(LOGO_PATH)
     st.header("⚙️ הגדרות עבודה")
     file_type = st.radio("פורמט שרטוט:", ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"])
     mode = st.radio("מצב פעולה:", ["ספירה מתוכנית בודדת", "השוואת שינויים (Delta)"])
@@ -335,7 +273,6 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     if is_inc:
                         boq_rows.append({
                             "מס'": item["index"],
-                            "symbol_img": item["symbol_img"],
                             "תיאור הפריט": s_desc,
                             "כמות": item["confirmed_count"],
                             "יחידת מידה": "יח'"
@@ -343,22 +280,19 @@ if file_type == "📄 PDF / תמונה (Raster)":
                     st.markdown("---")
                     
                 st.subheader("🗺️ תוכנית עם סימוני הפריטים המאושרים:")
-                st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB), use_container_width=True)
+                st.image(cv2.cvtColor(disp_plan, cv2.COLOR_BGR2RGB))
                 
                 if boq_rows:
                     st.subheader("📊 ריכוז סופי לכתב כמויות")
-                    df_preview = pd.DataFrame([
-                        {"מס'": r["מס'"], "תיאור הפריט": r["תיאור הפריט"], "כמות מאושרת": r["כמות"], "יחידת מידה": r["יחידת מידה"]}
-                        for r in boq_rows
-                    ])
-                    st.dataframe(df_preview, use_container_width=True)
+                    df_preview = pd.DataFrame(boq_rows)
+                    st.dataframe(df_preview)
                     
-                    excel_bytes = generate_excel_with_embedded_images(boq_rows)
+                    csv_data = df_preview.to_csv(index=False).encode('utf-8-sig')
                     st.download_button(
-                        "📥 ייצא כתב כמויות ל-Excel (כולל תמונות סמלים)",
-                        data=excel_bytes,
-                        file_name="Approved_Electrical_Takeoff.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        "📥 ייצא כתב כמויות (CSV / Excel)",
+                        data=csv_data,
+                        file_name="Approved_Electrical_Takeoff.csv",
+                        mime="text/csv"
                     )
         else:
             st.info("💡 אנא העלה את קובץ התוכנית ואת קובץ המקרא להפעלת הסריקה.")
@@ -377,11 +311,9 @@ else:
                 if blocks:
                     df = pd.DataFrame(blocks)
                     summary = df.groupby(["name", "cardinal_rotation"]).size().reset_index(name="כמות")
-                    st.dataframe(summary, use_container_width=True)
+                    st.dataframe(summary)
                     df["אושר"] = True
-                    edited = st.data_editor(df[["name", "layer", "x", "y", "rotation_deg", "cardinal_rotation", "אושר"]], use_container_width=True)
-                    out = io.BytesIO()
-                    with pd.ExcelWriter(out, engine="openpyxl") as w:
-                        summary.to_excel(w, sheet_name="ריכוז", index=False)
-                        edited.to_excel(w, sheet_name="פירוט", index=False)
-                    st.download_button("📥 ייצא ל-Excel", data=out.getvalue(), file_name="Electrical_BOQ.xlsx")
+                    edited = st.data_editor(df[["name", "layer", "x", "y", "rotation_deg", "cardinal_rotation", "אושר"]])
+                    csv_out = summary.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("📥 ייצא ל-Excel (CSV)", data=csv_out, file_name="Electrical_BOQ.csv", mime="text/csv")
+                    
