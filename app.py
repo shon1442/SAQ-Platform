@@ -74,6 +74,40 @@ def load_raster(file, scale=1.4):
         return None
 
 # ========================================================
+# 🛡️ מנוע אימות תאימות בין תוכניות (Plan Compatibility Check)
+# ========================================================
+def check_plans_compatibility(img_a, img_b):
+    """בדיקה אוטומטית שהשרטוטים שייכים לאותו פרויקט/חלל ולא מדיסציפלינות סותרות"""
+    if img_a is None or img_b is None:
+        return True, 100.0
+    
+    ref_w, ref_h = 500, 500
+    gray_a = cv2.cvtColor(cv2.resize(img_a, (ref_w, ref_h)), cv2.COLOR_BGR2GRAY)
+    gray_b = cv2.cvtColor(cv2.resize(img_b, (ref_w, ref_h)), cv2.COLOR_BGR2GRAY)
+    
+    edges_a = cv2.Canny(gray_a, 50, 150)
+    edges_b = cv2.Canny(gray_b, 50, 150)
+    
+    orb = cv2.ORB_create(nfeatures=400)
+    kp_a, des_a = orb.detectAndCompute(gray_a, None)
+    kp_b, des_b = orb.detectAndCompute(gray_b, None)
+    
+    struct_corr = cv2.matchTemplate(edges_a, edges_b, cv2.TM_CCOEFF_NORMED)[0][0]
+    
+    if des_a is None or des_b is None or len(kp_a) < 12 or len(kp_b) < 12:
+        is_compat = (struct_corr >= 0.18)
+        return is_compat, round(max(0.0, float(struct_corr)) * 100, 1)
+        
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    matches = bf.match(des_a, des_b)
+    good_matches = [m for m in matches if m.distance < 60]
+    match_ratio = len(good_matches) / float(min(len(kp_a), len(kp_b)))
+    
+    is_compat = (match_ratio >= 0.12) or (struct_corr >= 0.20)
+    score = round(max(match_ratio, struct_corr) * 100, 1)
+    return is_compat, score
+
+# ========================================================
 # ⚡ מנועי פענוח סמלים (חשמל / אינסטלציה / בניה)
 # ========================================================
 def extract_symbols_from_legend(legend_img):
@@ -226,8 +260,8 @@ def compare_building_delta(plan_a, plan_b, wall_height=2.70, px_per_meter=55.0):
     new_sqm = new_len_m * wall_height
     
     delta_disp = cv2.resize(plan_b, (w, h)).copy()
-    delta_disp[demolition_mask > 0] = [0, 0, 255] # אדום = הריסה
-    delta_disp[new_construction_mask > 0] = [0, 200, 0] # ירוק = בניה חדשה
+    delta_disp[demolition_mask > 0] = [0, 0, 255]
+    delta_disp[new_construction_mask > 0] = [0, 200, 0]
     
     return demo_len_m, demo_sqm, new_len_m, new_sqm, envelope_anomaly, delta_disp
 
@@ -286,9 +320,9 @@ def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=55.
             
             if is_wet_room:
                 wet_rooms_perimeter_m += peri_m
-                cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3) # כתום = חדר רטוב
+                cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3)
             else:
-                cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2) # ירוק = חלל יבש
+                cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2)
                 
     wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
     return round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img
@@ -351,6 +385,11 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
 ai_memory = load_ai_memory()
 disciplines_list = ["⚡ חשמל ומאור", "🧱 בניה (מחיצות ומעטפת)", "🚿 אינסטלציה", "📐 ריצוף וחיפוי"]
 
+# אתחול קבוע למניעת שגיאות NameError
+wall_h = 2.70
+tile_h = 2.40
+px_meter = 55.0
+
 if "project_boq" not in st.session_state: st.session_state["project_boq"] = {}
 if "current_discipline" not in st.session_state: st.session_state["current_discipline"] = "⚡ חשמל ומאור"
 if "show_master_export" not in st.session_state: st.session_state["show_master_export"] = False
@@ -382,9 +421,9 @@ with st.sidebar:
     st.subheader("📏 פרמטרים הנדסיים לחישוב")
     px_meter = st.number_input("כיול קנה מידה (פיקסלים למטר):", min_value=20.0, max_value=150.0, value=55.0, step=1.0)
     
-    if discipline == "🧱 בניה (מחיצות ומעטפת)":
+    if st.session_state["current_discipline"] == "🧱 בניה (מחיצות ומעטפת)":
         wall_h = st.number_input("גובה מחיצות פנים (מטר):", min_value=2.0, max_value=4.5, value=2.70, step=0.05)
-    elif discipline == "📐 ריצוף וחיפוי":
+    elif st.session_state["current_discipline"] == "📐 ריצוף וחיפוי":
         tile_h = st.number_input("גובה חיפוי קירות בחדרים רטובים (מטר):", min_value=1.5, max_value=3.5, value=2.40, step=0.10)
         
     filter_banner = st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
@@ -454,13 +493,21 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             if st.button(btn_title):
                 p_bar = st.progress(0, text="מתחיל טעינת קבצים... (0%)")
                 img_plan = load_raster(f_plan)
-                p_bar.progress(30, text="מנתח קווי מחיצות ומעטפת... (30%)")
                 
                 if f_std:
+                    p_bar.progress(20, text="טוען תוכנית סטנדרט ומבצע בדיקת תאימות... (20%)")
                     img_std = load_raster(f_std)
-                    p_bar.progress(60, text="מחשב השוואת הריסה מול בניה חדשה... (60%)")
+                    
+                    # 🛡️ בדיקת תאימות בין התוכניות
+                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
+                    if not is_compat:
+                        p_bar.empty()
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט (השרטוטים שייכים לדיסציפלינות שונות או לתוכניות שאינן של אותו החלל). נא לוודא הזנת שרטוטים תואמים.")
+                        st.stop()
+                        
+                    p_bar.progress(50, text="מחשב השוואת הריסה מול בניה חדשה... (50%)")
                     d_len, d_sqm, n_len, n_sqm, anomaly, delta_img = compare_building_delta(img_std, img_plan, wall_h, px_meter)
-                    p_bar.progress(90, text="בודק שלמות מעטפת קונסטרוקטיבית... (90%)")
+                    p_bar.progress(85, text="בודק שלמות מעטפת קונסטרוקטיבית... (85%)")
                     time.sleep(0.2)
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
                     time.sleep(0.3)
@@ -480,7 +527,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                     st.session_state["project_boq"][active_disc] = b_rows
                     st.image(cv2.cvtColor(delta_img, cv2.COLOR_BGR2RGB), caption="אדום = הריסה, ירוק = בניה חדשה")
                 else:
-                    p_bar.progress(70, text="מבודד קירות פנים בלבד ומסנן מעטפת וממ\"ד... (70%)")
+                    p_bar.progress(60, text="מבודד קירות פנים בלבד ומסנן מעטפת וממ\"ד... (60%)")
                     lin_m, sqm, disp_img, _ = calc_building_partitions(img_plan, wall_h, px_meter)
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
                     time.sleep(0.3)
@@ -511,8 +558,16 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 img_plan = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(25, text="טוען תוכנית סטנדרט ומחלץ נקודות... (25%)")
+                    p_bar.progress(20, text="טוען תוכנית סטנדרט ובודק תאימות שרטוטים... (20%)")
                     img_std = load_raster(f_std)
+                    
+                    # 🛡️ בדיקת תאימות
+                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
+                    if not is_compat:
+                        p_bar.empty()
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט (השרטוטים שייכים לדיסציפלינות שונות או לחללים שונים). נא לוודא הזנת שרטוטים תואמים.")
+                        st.stop()
+                        
                     cl_a = auto_discover_plan_symbols(img_std)
                     p_bar.progress(50, text="מאתר נקודות בתוכנית הביצוע... (50%)")
                     cl_b = auto_discover_plan_symbols(img_plan)
@@ -579,16 +634,23 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             if st.button(btn_title):
                 p_bar = st.progress(0, text="מתחיל טעינת תוכנית ריצוף... (0%)")
                 img_plan = load_raster(f_plan)
-                p_bar.progress(25, text="מזהה כלים סניטריים לאיתור חדרים רטובים... (25%)")
-                plumb_clusters = auto_discover_plan_symbols(img_plan)
-                plumb_pts = [it["center"] for cl in plumb_clusters for it in cl["items"]]
-                
-                p_bar.progress(55, text="מחשב שטחי מצולעי חדרים נטו (ללא קירות)... (55%)")
-                floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
                 
                 if f_std:
-                    p_bar.progress(75, text="משווה מול תוכנית סטנדרט... (75%)")
+                    p_bar.progress(20, text="בודק תאימות שרטוטי ריצוף... (20%)")
                     img_std = load_raster(f_std)
+                    
+                    # 🛡️ בדיקת תאימות
+                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
+                    if not is_compat:
+                        p_bar.empty()
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט. נא לוודא הזנת שרטוטים תואמים.")
+                        st.stop()
+                        
+                    plumb_clusters = auto_discover_plan_symbols(img_plan)
+                    plumb_pts = [it["center"] for cl in plumb_clusters for it in cl["items"]]
+                    floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
+                    
+                    p_bar.progress(60, text="משווה מול תוכנית סטנדרט... (60%)")
                     plumb_std = auto_discover_plan_symbols(img_std)
                     plumb_pts_std = [it["center"] for cl in plumb_std for it in cl["items"]]
                     f_std_sqm, _, w_std_sqm, _ = calc_flooring_and_wall_tiling(img_std, tile_h, px_meter, plumb_pts_std)
@@ -610,6 +672,13 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                         {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"חיפוי חדרים רטובים (ביצוע {wet_wall_sqm} מ\"ר לעומת סטנדרט {w_std_sqm} מ\"ר)", "כמות מאושרת": diff_wall, "יחידת מידה": 'מ"ר הפרש'}
                     ]
                 else:
+                    p_bar.progress(30, text="מזהה כלים סניטריים לאיתור חדרים רטובים... (30%)")
+                    plumb_clusters = auto_discover_plan_symbols(img_plan)
+                    plumb_pts = [it["center"] for cl in plumb_clusters for it in cl["items"]]
+                    
+                    p_bar.progress(70, text="מחשב שטחי מצולעי חדרים נטו (ללא קירות)... (70%)")
+                    floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
+                    
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
                     time.sleep(0.3)
                     p_bar.empty()
@@ -640,12 +709,21 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             if st.button("🚀 הפעל פענוח וספירת חשמל ומאור"):
                 p_bar = st.progress(0, text="מתחיל טעינת קבצי חשמל... (0%)")
                 img_plan = load_raster(f_plan)
-                p_bar.progress(15, text="מרנדר שכבות הנדסיות ומסנן רעשים... (15%)")
                 
+                if f_std:
+                    p_bar.progress(15, text="בודק תאימות שרטוטים... (15%)")
+                    img_std = load_raster(f_std)
+                    is_compat, comp_score = check_plans_compatibility(img_plan, img_std)
+                    if not is_compat:
+                        p_bar.empty()
+                        st.error("❌ **שגיאה: התוכניות שהוזנו אינן תואמות!** זוהה חוסר התאמה מבני בין תוכנית הביצוע לתוכנית הסטנדרט (השרטוטים שייכים לדיסציפלינות שונות או לקומות שונות). נא לוודא הזנת שרטוטים תואמים.")
+                        st.stop()
+                        
+                p_bar.progress(25, text="מרנדר שכבות הנדסיות ומסנן רעשים... (25%)")
                 plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
                 _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
                 
-                p_bar.progress(25, text="מחלץ סמלים מהמקרא... (25%)")
+                p_bar.progress(35, text="מחלץ סמלים מהמקרא... (35%)")
                 symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
                 e_rows = []
                 disp_plan = img_plan.copy()
@@ -653,13 +731,13 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 if symbols:
                     total_s = len(symbols)
                     for i, sym in enumerate(symbols):
-                        pct = 30 + int(((i + 1) / total_s) * 60)
+                        pct = 40 + int(((i + 1) / total_s) * 50)
                         p_bar.progress(pct, text=f"סורק סמל {i+1} מתוך {total_s} בתוכנית... ({pct}%)")
                         m = match_symbol_ai(plan_inv, sym["crop_gray"])
                         for pt in m: cv2.rectangle(disp_plan, (pt["bbox"][0], pt["bbox"][1]), (pt["bbox"][0]+pt["bbox"][2], pt["bbox"][1]+pt["bbox"][3]), (0, 200, 0), 2)
                         e_rows.append({"מס'": i+1, "תמונת סמל": img_to_data_uri(sym["crop_color"]), "image_uri": img_to_data_uri(sym["crop_color"]), "תיאור הפריט": f"סמל חשמל/מאור #{i+1}", "כמות מאושרת": len(m), "יחידת מידה": "יח'"})
                 else:
-                    p_bar.progress(50, text="מאתר ומקבץ נקודות חשמל באופן אוטונומי... (50%)")
+                    p_bar.progress(55, text="מאתר ומקבץ נקודות חשמל באופן אוטונומי... (55%)")
                     clusters = auto_discover_plan_symbols(img_plan)
                     for i, cl in enumerate(clusters):
                         e_rows.append({"מס'": i+1, "תמונת סמל": img_to_data_uri(cl["rep_color"]), "image_uri": img_to_data_uri(cl["rep_color"]), "תיאור הפריט": f"נקודת חשמל #{i+1}", "כמות מאושרת": len(cl["items"]), "יחידת מידה": "יח'"})
