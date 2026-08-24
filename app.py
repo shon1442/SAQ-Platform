@@ -77,12 +77,10 @@ def load_raster(file, scale=1.4):
         return None
 
 def safe_render_table(rows):
-    """מציג טבלת כתב כמויות מוגנת מחריגות KeyError"""
     cols = ["מס'", "תמונת סמל", "תיאור הפריט", "כמות מאושרת", "יחידת מידה"]
     if not rows:
         st.dataframe(pd.DataFrame(columns=cols))
         return
-    
     clean_data = []
     for idx, r in enumerate(rows):
         clean_data.append({
@@ -96,7 +94,141 @@ def safe_render_table(rows):
     st.dataframe(df, column_config={"תמונת סמל": st.column_config.ImageColumn("סמל גרפי", width="small")})
 
 # ========================================================
-# ⚡ מנועי פענוח סמלים (חשמל / אינסטלציה / מקרא)
+# 🛡️ מנוע בדיקת מעטפת חסין עיוותים ופונטים (Scale Invariant)
+# ========================================================
+def get_outer_envelope_contour(plan_img):
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
+    dilated = cv2.dilate(thresh, k, iterations=2)
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not contours:
+        return None
+    return max(contours, key=cv2.contourArea)
+
+def verify_envelope_similarity(plan_a, plan_b):
+    cnt_a = get_outer_envelope_contour(plan_a)
+    cnt_b = get_outer_envelope_contour(plan_b)
+    
+    if cnt_a is None or cnt_b is None:
+        return True, 0.0, None
+        
+    area_a = cv2.contourArea(cnt_a)
+    area_b = cv2.contourArea(cnt_b)
+    if area_a < 1000 or area_b < 1000:
+        return True, 0.0, None
+        
+    shape_diff = cv2.matchShapes(cnt_a, cnt_b, cv2.CONTOURS_MATCH_I1, 0.0)
+    
+    xa, ya, wa, ha = cv2.boundingRect(cnt_a)
+    xb, yb, wb, hb = cv2.boundingRect(cnt_b)
+    aspect_a = wa / float(ha + 1e-5)
+    aspect_b = wb / float(hb + 1e-5)
+    aspect_diff = abs(aspect_a - aspect_b) / max(aspect_a, aspect_b)
+    
+    # חוסר התאמה מהותי: שינוי גיאומטרי קיצוני בצורת המעטפת או ביחס האורך/רוחב
+    is_drastic_mismatch = (shape_diff > 0.60 and aspect_diff > 0.28) or (aspect_diff > 0.45)
+    
+    h, w = 320, 320
+    vis = np.ones((h, w * 2, 3), dtype=np.uint8) * 255
+    
+    norm_a = (cnt_a.copy() - [xa, ya]) * [w / float(wa + 1e-5), h / float(ha + 1e-5)]
+    norm_b = (cnt_b.copy() - [xb, yb]) * [w / float(wb + 1e-5), h / float(hb + 1e-5)]
+    
+    cv2.drawContours(vis[:, :w], [norm_a.astype(np.int32)], -1, (200, 50, 50), 3)
+    cv2.putText(vis, "מעטפת תוכנית סטנדרט", (15, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (180, 0, 0), 2)
+    
+    cv2.drawContours(vis[:, w:], [norm_b.astype(np.int32)], -1, (50, 180, 50), 3)
+    cv2.putText(vis, "מעטפת תוכנית ביצוע", (w + 15, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 140, 0), 2)
+    
+    return not is_drastic_mismatch, round(shape_diff, 3), vis
+
+# ========================================================
+# 🧱 מנוע שלד וקירות פנים (Morphological Centerline Engine)
+# ========================================================
+def get_morphological_skeleton(binary_img):
+    skel = np.zeros(binary_img.shape, np.uint8)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+    img = binary_img.copy()
+    while True:
+        eroded = cv2.erode(img, element)
+        temp = cv2.dilate(eroded, element)
+        temp = cv2.subtract(img, temp)
+        skel = cv2.bitwise_or(skel, temp)
+        img = eroded.copy()
+        if cv2.countNonZero(img) == 0:
+            break
+    return skel
+
+def extract_interior_and_envelope(plan_img, px_per_meter=55.0):
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
+    
+    k_clean = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k_clean)
+    
+    thick_kernel_size = max(9, int(px_per_meter * 0.20))
+    k_thick = cv2.getStructuringElement(cv2.MORPH_RECT, (thick_kernel_size, thick_kernel_size))
+    envelope = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, k_thick)
+    
+    interior = cv2.subtract(cleaned, envelope)
+    k_interior_smooth = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    interior_clean = cv2.morphologyEx(interior, cv2.MORPH_OPEN, k_interior_smooth)
+    
+    return interior_clean, envelope
+
+def calc_building_partitions_linear(plan_img, px_per_meter=55.0):
+    interior_clean, envelope = extract_interior_and_envelope(plan_img, px_per_meter)
+    skel = get_morphological_skeleton(interior_clean)
+    
+    linear_pixels = cv2.countNonZero(skel)
+    linear_meters = round(linear_pixels / float(px_per_meter), 2)
+    
+    disp_img = plan_img.copy()
+    disp_img[skel > 0] = [255, 100, 0]
+    disp_img = cv2.dilate(disp_img, cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2)))
+    
+    return linear_meters, disp_img, envelope
+
+def compare_building_delta_linear(plan_std, plan_exec, px_per_meter=55.0):
+    interior_std, env_std = extract_interior_and_envelope(plan_std, px_per_meter)
+    interior_exec, env_exec = extract_interior_and_envelope(plan_exec, px_per_meter)
+    
+    h, w = env_std.shape[:2]
+    env_exec_res = cv2.resize(env_exec, (w, h))
+    interior_exec_res = cv2.resize(interior_exec, (w, h))
+    
+    env_diff = cv2.absdiff(env_std, env_exec_res)
+    k_noise = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    env_diff_clean = cv2.morphologyEx(env_diff, cv2.MORPH_OPEN, k_noise)
+    
+    anomaly_contours, _ = cv2.findContours(env_diff_clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    significant_anomalies = [c for c in anomaly_contours if cv2.contourArea(c) > (px_per_meter * 3)]
+    envelope_anomaly = len(significant_anomalies) > 0
+    
+    demolition_mask = cv2.subtract(interior_std, interior_exec_res)
+    new_construction_mask = cv2.subtract(interior_exec_res, interior_std)
+    
+    skel_demo = get_morphological_skeleton(demolition_mask)
+    skel_new = get_morphological_skeleton(new_construction_mask)
+    
+    demo_meters = round(cv2.countNonZero(skel_demo) / float(px_per_meter), 2)
+    new_meters = round(cv2.countNonZero(skel_new) / float(px_per_meter), 2)
+    
+    delta_disp = cv2.resize(plan_exec, (w, h)).copy()
+    delta_disp[skel_demo > 0] = [0, 0, 255]
+    delta_disp[skel_new > 0] = [0, 200, 0]
+    
+    if envelope_anomaly:
+        for c in significant_anomalies:
+            x, y, bw, bh = cv2.boundingRect(c)
+            cv2.rectangle(delta_disp, (max(0, x - 8), max(0, y - 8)), (min(w, x + bw + 8), min(h, y + bh + 8)), (0, 0, 255), 3)
+            cv2.putText(delta_disp, "!חריגת מעטפת", (x, max(20, y - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+            
+    return demo_meters, new_meters, envelope_anomaly, delta_disp, len(significant_anomalies)
+
+# ========================================================
+# ⚡ פענוח סמלים (חשמל / אינסטלציה / מקרא)
 # ========================================================
 def extract_symbols_from_legend(legend_img):
     if legend_img is None:
@@ -197,80 +329,7 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.74):
     return [r for r in final_res if r["status"] == "Green"] if len(final_res) > 70 else final_res
 
 # ========================================================
-# 🧱 מודול בניה – מדידת מטר רץ (מ"א) נטו עם סינון קווי רעש
-# ========================================================
-def calc_building_partitions_linear(plan_img, px_per_meter=55.0):
-    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
-    
-    k_clean = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k_clean)
-    
-    k_thick = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 15))
-    envelope = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, k_thick)
-    interior_walls = cv2.subtract(cleaned, envelope)
-    
-    min_wall_len = int(px_per_meter * 0.45)
-    lines = cv2.HoughLinesP(interior_walls, 1, np.pi / 180, threshold=25, minLineLength=min_wall_len, maxLineGap=12)
-    
-    total_linear_pixels = 0
-    disp_img = plan_img.copy()
-    
-    if lines is not None:
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            l_len = np.hypot(x2 - x1, y2 - y1)
-            total_linear_pixels += l_len
-            cv2.line(disp_img, (x1, y1), (x2, y2), (255, 100, 0), 3)
-            
-    total_linear_meters = round(total_linear_pixels / px_per_meter, 2)
-    return total_linear_meters, disp_img, envelope
-
-def compare_building_delta_linear(plan_a, plan_b, px_per_meter=55.0):
-    _, _, env_a = calc_building_partitions_linear(plan_a, px_per_meter)
-    _, _, env_b = calc_building_partitions_linear(plan_b, px_per_meter)
-    
-    h, w = env_a.shape[:2]
-    env_b_res = cv2.resize(env_b, (w, h))
-    env_diff = cv2.absdiff(env_a, env_b_res)
-    envelope_anomaly = np.count_nonzero(env_diff) > (w * h * 0.015)
-    
-    gray_a = cv2.cvtColor(plan_a, cv2.COLOR_BGR2GRAY)
-    gray_b = cv2.cvtColor(plan_b, cv2.COLOR_BGR2GRAY)
-    gray_b_res = cv2.resize(gray_b, (w, h))
-    
-    _, th_a = cv2.threshold(gray_a, 215, 255, cv2.THRESH_BINARY_INV)
-    _, th_b = cv2.threshold(gray_b_res, 215, 255, cv2.THRESH_BINARY_INV)
-    
-    k_clean = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    th_a = cv2.morphologyEx(th_a, cv2.MORPH_OPEN, k_clean)
-    th_b = cv2.morphologyEx(th_b, cv2.MORPH_OPEN, k_clean)
-    
-    demolition_mask = cv2.subtract(th_a, th_b)
-    new_construction_mask = cv2.subtract(th_b, th_a)
-    
-    min_len = int(px_per_meter * 0.40)
-    lines_demo = cv2.HoughLinesP(demolition_mask, 1, np.pi / 180, threshold=20, minLineLength=min_len, maxLineGap=10)
-    lines_new = cv2.HoughLinesP(new_construction_mask, 1, np.pi / 180, threshold=20, minLineLength=min_len, maxLineGap=10)
-    
-    demo_len_px = sum(np.hypot(l[0][2]-l[0][0], l[0][3]-l[0][1]) for l in lines_demo) if lines_demo is not None else 0
-    new_len_px = sum(np.hypot(l[0][2]-l[0][0], l[0][3]-l[0][1]) for l in lines_new) if lines_new is not None else 0
-    
-    demo_len_m = round(demo_len_px / px_per_meter, 2)
-    new_len_m = round(new_len_px / px_per_meter, 2)
-    
-    delta_disp = cv2.resize(plan_b, (w, h)).copy()
-    if lines_demo is not None:
-        for l in lines_demo:
-            cv2.line(delta_disp, (l[0][0], l[0][1]), (l[0][2], l[0][3]), (0, 0, 255), 3)
-    if lines_new is not None:
-        for l in lines_new:
-            cv2.line(delta_disp, (l[0][0], l[0][1]), (l[0][2], l[0][3]), (0, 200, 0), 3)
-            
-    return demo_len_m, new_len_m, envelope_anomaly, delta_disp
-
-# ========================================================
-# 🚿 מודול אינסטלציה (Delta Tracking מוגבר)
+# 🚿 מודול אינסטלציה (Delta Tracking)
 # ========================================================
 def compare_plumbing_delta_smart(plan_a, plan_b, px_per_meter=55.0):
     cl_a = auto_discover_plan_symbols(plan_a)
@@ -397,7 +456,7 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
             html += "<tr><td colspan='5'>לא נרשמו כמויות בדיסציפלינה זו (0)</td></tr>"
         else:
             for r in rows:
-                img_tag = f'<img src="{r["image_uri"]}" width="55" height="40"/>' if r.get("image_uri") else "—"
+                img_tag = f'<img src="{r.get("image_uri", "")}" width="55" height="40"/>' if r.get("image_uri") else "—"
                 html += f"""
                 <tr>
                     <td>{r.get("מס'", 1)}</td>
@@ -505,7 +564,7 @@ if st.session_state.get("show_master_export", False):
 elif file_type == "📄 PDF / תמונה (Raster)":
     
     # ----------------------------------------------------
-    # 1. 🧱 מודול בניה (מחיצות פנים במטר רץ והכפלה בגובה לפי בקשת המשתמש)
+    # 1. 🧱 מודול בניה (מחיצות פנים במ"א והכפלה בגובה)
     # ----------------------------------------------------
     if active_disc == "🧱 בניה (מחיצות ומעטפת)":
         c_exec, c_std, c_leg = st.columns(3)
@@ -523,35 +582,59 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 img_plan = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(30, text="טוען תוכנית סטנדרט ומשווה מחיצות... (30%)")
+                    p_bar.progress(20, text="טוען תוכנית סטנדרט ובודק דמיון מעטפת... (20%)")
                     img_std = load_raster(f_std)
-                    demo_m, new_m, anomaly, delta_img = compare_building_delta_linear(img_std, img_plan, px_meter)
+                    
+                    is_similar, shape_score, vis_env = verify_envelope_similarity(img_std, img_plan)
+                    user_overridden = st.session_state.get(f"override_{active_disc}", False)
+                    
+                    # בדיקת שוני מהותי במעטפת ושאלת המשתמש
+                    if not is_similar and not user_overridden:
+                        p_bar.empty()
+                        st.warning(f"⚠️ **זוהה שוני מהותי במעטפת ובצורת הדירה בין שתי התוכניות (ציון שוני: {shape_score}).** ייתכן שהוזנו תוכניות של דירות שונות לחלוטין.")
+                        if vis_env is not None:
+                            st.image(cv2.cvtColor(vis_env, cv2.COLOR_BGR2RGB), caption="השוואת מעטפת חיצונית מנורמלת")
+                            
+                        st.write("❓ **כיצד תרצה להמשיך?**")
+                        c_opt1, c_opt2 = st.columns(2)
+                        with c_opt1:
+                            if st.button("✅ המשך בחישוב מחיצות פנים בכל זאת", key="btn_override_env"):
+                                st.session_state[f"override_{active_disc}"] = True
+                                st.rerun()
+                        with c_opt2:
+                            st.info("🛑 באפשרותך להחליף את אחת התוכניות מעלה להשוואת אותה הדירה.")
+                        st.stop()
+                    
+                    st.session_state[f"override_{active_disc}"] = False
+                    p_bar.progress(45, text="מבודד מחיצות פנים ומסנן מעטפת... (45%)")
+                    demo_m, new_m, anomaly, delta_img, num_anomalies = compare_building_delta_linear(img_std, img_plan, px_meter)
                     
                     demo_sqm = round(demo_m * b_wall_h, 2)
                     new_sqm = round(new_m * b_wall_h, 2)
                     
-                    p_bar.progress(85, text="בודק שלמות מעטפת קונסטרוקטיבית... (85%)")
+                    p_bar.progress(85, text="מעדכן נתונים ומסמן חריגות מעטפת... (85%)")
                     time.sleep(0.2)
                     p_bar.progress(100, text="החישוב הושלם בהצלחה! (100%)")
                     time.sleep(0.3)
                     p_bar.empty()
                     
-                    if anomaly:
-                        st.error("🚨 **התראת שינוי מעטפת (Envelope Anomaly Alert): זוהה שינוי במעטפת/אלמנט קונסטרוקטיבי!**")
-                    else:
-                        st.success("🛡️ מעטפת המבנה והאלמנטים הקונסטרוקטיביים נשמרו ללא שינוי.")
-                        
+                    st.success("✅ **חישוב מחיצות פנים הושלם בהצלחה (קירות מעטפת, עמודים וממ\"ד סוננו אוטומטית):**")
                     c1, c2 = st.columns(2)
-                    c1.metric("מחיצות להריסה:", f"{demo_m} מ\"א", f"{demo_sqm} מ\"ר (גובה {b_wall_h} מ')")
-                    c2.metric("מחיצות חדשות לבניה:", f"{new_m} מ\"א", f"{new_sqm} מ\"ר (גובה {b_wall_h} מ')")
+                    c1.metric("מחיצות פנים להריסה:", f"{demo_m} מ\"א", f"{demo_sqm} מ\"ר (לפי גובה {b_wall_h} מ')")
+                    c2.metric("מחיצות פנים חדשות לבניה:", f"{new_m} מ\"א", f"{new_sqm} מ\"ר (לפי גובה {b_wall_h} מ')")
                     
+                    if anomaly:
+                        st.error(f"🚨 **התראת שינוי מעטפת (Envelope Anomaly Alert): אותרו {num_anomalies} שינויים באלמנט מעטפת / עמוד קונסטרוקטיבי! המיקומים סומנו בריבוע אדום על גבי השרטוט להלן.**")
+                    else:
+                        st.info("🛡️ מעטפת המבנה והאלמנטים הקונסטרוקטיביים נשמרו ללא שינוי.")
+                        
                     b_rows = [
                         {"מס'": 1, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"מחיצות פנים להריסה (אורך {demo_m} מ\"א * גובה {b_wall_h} מ')", "כמות מאושרת": demo_sqm, "יחידת מידה": 'מ"ר'},
                         {"מס'": 2, "תמונת סמל": "", "image_uri": "", "תיאור הפריט": f"מחיצות פנים חדשות לבנייה (אורך {new_m} מ\"א * גובה {b_wall_h} מ')", "כמות מאושרת": new_sqm, "יחידת מידה": 'מ"ר'}
                     ]
                     st.session_state["project_boq"][active_disc] = b_rows
                     safe_render_table(b_rows)
-                    st.image(cv2.cvtColor(delta_img, cv2.COLOR_BGR2RGB), caption="אדום = הריסה, ירוק = בניה חדשה")
+                    st.image(cv2.cvtColor(delta_img, cv2.COLOR_BGR2RGB), caption="מפת שינויים: אדום = הריסה, ירוק = בניה, ריבוע אדום מודגש = חריגת מעטפת")
                 else:
                     p_bar.progress(60, text="מסנן קירות מעטפת, ממ\"ד וקווי מידה... (60%)")
                     lin_m, disp_img, _ = calc_building_partitions_linear(img_plan, px_meter)
@@ -590,9 +673,27 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 img_plan = load_raster(f_plan)
                 
                 if f_std:
-                    p_bar.progress(30, text="טוען תוכנית סטנדרט ומנתח מיקומי נקודות... (30%)")
+                    p_bar.progress(20, text="טוען תוכנית סטנדרט ובודק דמיון מעטפת... (20%)")
                     img_std = load_raster(f_std)
                     
+                    is_similar, shape_score, vis_env = verify_envelope_similarity(img_std, img_plan)
+                    user_overridden = st.session_state.get(f"override_{active_disc}", False)
+                    
+                    if not is_similar and not user_overridden:
+                        p_bar.empty()
+                        st.warning(f"⚠️ **זוהה שוני מהותי במעטפת ובצורת הדירה בין שתי התוכניות (ציון שוני: {shape_score}).**")
+                        if vis_env is not None:
+                            st.image(cv2.cvtColor(vis_env, cv2.COLOR_BGR2RGB), caption="השוואת מעטפת חיצונית מנורמלת")
+                        c_opt1, c_opt2 = st.columns(2)
+                        with c_opt1:
+                            if st.button("✅ המשך בחישוב אינסטלציה בכל זאת", key="btn_override_env_p"):
+                                st.session_state[f"override_{active_disc}"] = True
+                                st.rerun()
+                        with c_opt2:
+                            st.info("🛑 באפשרותך להחליף תוכנית מעלה.")
+                        st.stop()
+                        
+                    st.session_state[f"override_{active_disc}"] = False
                     p_bar.progress(60, text="מחשב העתקות נקודות ומרחקי הזזה במטרים... (60%)")
                     relocs, added, removed = compare_plumbing_delta_smart(img_std, img_plan, px_meter)
                     
