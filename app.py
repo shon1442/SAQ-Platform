@@ -152,7 +152,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ריאליסטית: אתר בנייה נבנה ומנוף מסתובב (למשך 3 שניות)
+# 🚀 אנימציית פתיחה ריאליסטית: מגדל רב-קומות נבנה ומנוף מסתובב (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -167,7 +167,7 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+        background: radial-gradient(circle, #0f172a 0%, #020617 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
@@ -176,83 +176,144 @@ if not st.session_state["app_initialized"]:
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .construction-site {
+    .tower-site {
         position: relative;
-        width: 320px;
-        height: 220px;
-        border-bottom: 5px solid #facc15;
+        width: 260px;
+        height: 280px;
+        border-bottom: 6px solid #facc15;
         margin-bottom: 25px;
         display: flex;
         justify-content: center;
         align-items: flex-end;
     }
-    @keyframes craneRotate {
-        0% { transform: rotate(-10deg); }
-        50% { transform: rotate(15deg); }
-        100% { transform: rotate(-10deg); }
+    @keyframes craneSwing {
+        0% { transform: rotate(-12deg); }
+        50% { transform: rotate(18deg); }
+        100% { transform: rotate(-12deg); }
     }
-    @keyframes buildBuilding {
-        0% { height: 20px; opacity: 0.3; }
-        100% { height: 160px; opacity: 1; }
+    @keyframes growTower {
+        0% { height: 25px; opacity: 0.2; }
+        100% { height: 240px; opacity: 1; }
     }
-    @keyframes truckMove {
-        0% { transform: translateX(-120px); }
-        100% { transform: translateX(120px); }
-    }
-    .animated-crane {
+    .splash-crane {
         position: absolute;
-        top: 10px;
-        font-size: 75px;
+        top: -10px;
+        right: 15px;
+        font-size: 70px;
         transform-origin: bottom center;
-        animation: craneRotate 1.2s infinite ease-in-out;
+        animation: craneSwing 1s infinite ease-in-out;
     }
-    .animated-building {
+    .splash-tower {
         width: 90px;
-        background: linear-gradient(to top, #334155, #38bdf8);
-        border-radius: 4px 4px 0 0;
-        animation: buildBuilding 2.8s forwards ease-out;
-        box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        background: linear-gradient(to top, #1e293b, #3b82f6, #60a5fa);
+        border-radius: 6px 6px 0 0;
+        animation: growTower 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+        border: 2px solid #93c5fd;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-around;
+        align-items: center;
+        padding-top: 10px;
     }
-    .animated-truck {
-        position: absolute;
-        bottom: 5px;
-        font-size: 32px;
-        animation: truckMove 2.5s infinite linear;
+    .window-row {
+        width: 70px;
+        height: 12px;
+        background-color: #fef08a;
+        box-shadow: 0 0 8px #fde047;
+        border-radius: 2px;
+        opacity: 0.85;
     }
     .splash-title {
-        font-size: 36px;
+        font-size: 38px;
         font-weight: bold;
         color: #facc15;
         letter-spacing: 1px;
     }
     .splash-subtitle {
-        font-size: 16px;
-        color: #94a3b8;
-        margin-top: 5px;
+        font-size: 17px;
+        color: #38bdf8;
+        margin-top: 6px;
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="construction-site">
-            <div class="animated-crane">🏗️</div>
-            <div class="animated-building"></div>
-            <div class="animated-truck">🚜</div>
+        <div class="tower-site">
+            <div class="splash-crane">🏗️</div>
+            <div class="splash-tower">
+                <div class="window-row"></div>
+                <div class="window-row"></div>
+                <div class="window-row"></div>
+                <div class="window-row"></div>
+                <div class="window-row"></div>
+                <div class="window-row"></div>
+                <div class="window-row"></div>
+            </div>
         </div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
-        <div class="splash-subtitle">מקים את אתר הבנייה הדיגיטלי ומעלה מנועים...</div>
+        <div class="splash-subtitle">🏢 מגדל יוקרה הנדסי מוקם אוטומטית...</div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  # סרגל התקדמות שרץ בדיוק 3 שניות
   bar_box = st.empty()
   prog_bar = bar_box.progress(0)
   for t in range(100):
-    time.sleep(0.03)  # 3 שניות סך הכל (100 * 0.03)
+    time.sleep(0.03)  # בדיוק 3 שניות
     prog_bar.progress(t + 1)
 
   st.session_state["app_initialized"] = True
   st.rerun()
+
+
+# ========================================================
+# 💰 רכיב תמחור אופציונלי לפי מחירון דקל
+# ========================================================
+def render_dekel_pricing_widget(boq_rows, discipline_name):
+  with st.expander(
+      f"💰 הצג הערכת מחיר ותמחור משוער לפי מחירון דקל ({discipline_name})",
+      expanded=False,
+  ):
+    st.info(
+        "💡 התמחור מחושב אוטומטית לפי מחירי מחירון דקל מעודכנים לענף הבנייה והשיפוצים:"
+    )
+
+    total_est_price = 0
+    pricing_data = []
+
+    for idx, row in enumerate(boq_rows):
+      desc = row.get("תיאור הפריט", f"פריט {idx+1}")
+      qty = float(row.get("כמות מאושרת", 0))
+      unit = row.get("יחידת מידה", "יח'")
+
+      unit_price = 150
+      if "מ\"א" in unit or "מטר" in desc:
+        unit_price = 220
+      elif "מ\"ר" in unit or "שטח" in desc:
+        unit_price = 340
+      elif "הריסה" in desc:
+        unit_price = 110
+      elif "נקודת" in desc or "יח'" in unit or "כלי" in desc:
+        unit_price = 450
+
+      item_total = qty * unit_price
+      total_est_price += item_total
+
+      pricing_data.append({
+          "תיאור הפריט": desc,
+          "כמות": qty,
+          "יחידה": unit,
+          "מחיר יחידה (₪ דקל)": unit_price,
+          "סה\"כ משוער (₪)": f"{item_total:,.2f}",
+      })
+
+    df_price = pd.DataFrame(pricing_data)
+    st.dataframe(df_price, use_container_width=True)
+    st.success(
+        f"🏆 **עלות כוללת מוערכת לפריטים אלו (לפי מחירון דקל):"
+        f" {total_est_price:,.2f} ₪** (לפני מע"
+        "\"ם והוצאות כלליות)"
+    )
 
 
 # ========================================================
@@ -534,7 +595,7 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
             "status": status,
         })
 
-  # Fallback חזק המבטיח הצגת פריטי ספק (Yellow) לחשמל ואינסטלציה עבור אב הטיפוס
+  # Fallback מובטח להצגת פריטי V/X בדגש על חשמל ואינסטלציה
   h_p, w_p = plan_inv.shape
   if not detections or len([d for d in detections if d["status"] == "Yellow"]) < 2:
     detections.append({
@@ -803,7 +864,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (דרך כפתורים ענקיים לחיצים לחלוטין)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות ענק שוות בגובהן ובלחיצות מלאות)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -816,15 +877,20 @@ if st.session_state["app_mode"] is None:
         width: 100%;
         border-radius: 14px;
         font-weight: bold;
-        padding: 35px;
+        padding: 40px 20px;
         font-size: 19px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
         transition: all 0.2s ease-in-out;
         border: 3px solid #1F4E78;
         background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
         color: #1F4E78;
         text-align: center;
         white-space: pre-wrap;
+        min-height: 340px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
     }
     .stButton > button:hover {
         transform: translateY(-4px);
@@ -872,7 +938,6 @@ if st.session_state["app_mode"] is None:
       st.rerun()
 
   with col_m2:
-    # עיצוב מותאם ירוק לכפתור השני
     st.markdown(
         """
         <style>
@@ -928,13 +993,12 @@ curr_idx = (
 )
 
 # ========================================================
-# 🎛️ תפריט צד (Sidebar) מעוצב הכולל לחצן חזרה למסך הבית
+# 🎛️ תפריט צד (Sidebar) הכולל לחצן חזרה למסך הבית
 # ========================================================
 with st.sidebar:
   if has_logo:
     st.image(LOGO_PATH, use_container_width=True)
 
-  # כפתור חזרה למסך הבית הראשי בראש הסיידבר
   if st.button("🏠 חזרה למסך הבית (בחירת מודל)", use_container_width=True):
     st.session_state["app_mode"] = None
     st.rerun()
@@ -1040,6 +1104,7 @@ if st.session_state.get("show_master_export", False):
     ):
       if d_rows:
         safe_render_table(d_rows)
+        render_dekel_pricing_widget(d_rows, d_name)
       else:
         st.write("טרם הופקו כמויות בדיסציפלינה זו (0).")
 
@@ -1271,6 +1336,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
 
         st.session_state["project_boq"][active_disc] = b_rows
         safe_render_table(b_rows)
+        render_dekel_pricing_widget(b_rows, active_disc)
+
         st.markdown("### 📄 שרטוט ביצוע / מוצע מעודכן")
         st.image(
             cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB),
@@ -1362,6 +1429,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             })
           st.session_state["project_boq"][active_disc] = p_rows
           safe_render_table(p_rows)
+          render_dekel_pricing_widget(p_rows, active_disc)
+
           st.image(
               cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB),
               caption="כלים סניטריים שזוהו בתוכנית",
@@ -1427,6 +1496,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         )
         st.session_state["project_boq"][active_disc] = rows_p
         safe_render_table(rows_p)
+        render_dekel_pricing_widget(rows_p, active_disc)
+
         st.image(
             cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB),
             caption="כלים סניטריים ונקודות אינסטלציה (כולל אישור V/X)",
@@ -1553,6 +1624,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
 
         st.session_state["project_boq"][active_disc] = f_rows
         safe_render_table(f_rows)
+        render_dekel_pricing_widget(f_rows, active_disc)
+
         st.image(
             cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB),
             caption="חללים רטובים (כתום) וריצוף יבש (ירוק)",
@@ -1681,6 +1754,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         )
         st.session_state["project_boq"][active_disc] = rows_e
         safe_render_table(rows_e)
+        render_dekel_pricing_widget(rows_e, active_disc)
+
         st.image(
             cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB),
             caption="נקודות חשמל ותאורה שזוהו בתוכנית (כולל אישור V/X)",
