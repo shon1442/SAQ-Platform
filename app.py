@@ -32,6 +32,15 @@ st.set_page_config(
     page_icon=app_icon,
 )
 
+# הגנה מפני קריסות של דפדפן הכרום (חוסם תרגום אוטומטי ששובר את ה-React של Streamlit)
+st.markdown("""
+    <meta name="google" content="notranslate">
+    <style>
+        body { top: 0px !important; }
+        .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
+    </style>
+""", unsafe_allow_html=True)
+
 def load_ai_memory():
   if os.path.exists(MEMORY_FILE):
     try:
@@ -155,8 +164,8 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
       
   try:
     h, w = img.shape[:2]
-    # הקטנה מהירה לבדיקה בלבד - מונע תקיעות של פייתון
-    max_dim = 800
+    # הקטנה משמעותית של התמונה וטשטוש כדי להסיר "לכלוכים" שגורמים לזיכרון לקרוס
+    max_dim = 600
     if max(h, w) > max_dim:
         scale = max_dim / max(h, w)
         img_small = cv2.resize(img, (int(w * scale), int(h * scale)))
@@ -164,12 +173,13 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         img_small = img.copy()
 
     gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0) # מסנן רעשים דיגיטליים
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # חסימת עומס זיכרון: במידה ויש שרטוט מלוכלך עם אלפי נקודות, נבדוק רק את 2000 הגדולות
-    if len(contours) > 2000:
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:2000]
+    # חסימת עומס זיכרון הרמטית
+    if len(contours) > 1500:
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1500]
         
     lines = 0
     symbols = 0
@@ -182,7 +192,7 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
         # זיהוי קווים ארוכים (מחיצות)
-        if max(w_c, h_c) > 50 and ratio > 3.5:
+        if max(w_c, h_c) > 40 and ratio > 3.5:
             lines += 1
         # זיהוי סמלים מרוכזים (חשמל/אינסטלציה)
         elif 8 <= w_c <= 60 and 8 <= h_c <= 60 and ratio <= 2.5:
@@ -190,35 +200,35 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
             
     if expected_disc == "elec" and symbols < 4:
         msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan (missing symbols)." 
-               if is_us else "⚠️ שגיאת אימות: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (חסרים סמלים). הפעולה הופסקה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו סמלי מערכות חשמל). הפעולה הופסקה.")
         return False, msg
     elif expected_disc == "cons" and lines < 3:
         msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan (missing walls)." 
-               if is_us else "⚠️ שגיאת אימות: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (חסרים קווי מחיצות). הפעולה הופסקה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו קווי מחיצות). הפעולה הופסקה.")
         return False, msg
     elif expected_disc == "plum" and symbols < 2:
         msg = ("⚠️ Validation Error: Drawing does not appear to be a Plumbing plan." 
-               if is_us else "⚠️ שגיאת אימות: השרטוט שהוזן אינו מזוהה כתוכנית אינסטלציה. הפעולה הופסקה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית אינסטלציה (חסרים כלים סניטריים). הפעולה הופסקה.")
         return False, msg
         
     return True, ""
   except Exception as e:
-    return False, (f"⚠️ Drawing parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט.")
+    return False, (f"⚠️ Drawing parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט. התמונה פגומה.")
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
   status_box = st.empty()
   
-  # הורדת מספר העדכונים כדי למנוע קריסת חלון דפדפן (Aw Snap)
+  # הורדת מספר העדכונים כדי למנוע קריסת דפדפן (Websocket Flood)
   steps = 15
   for i in range(steps):
-    time.sleep(0.1)
+    time.sleep(0.15)
     percent = int((i + 1) * (100 / steps))
     progress_bar.progress(percent)
     if percent < 40:
       status_box.markdown(f"🏗️ **[Active Construction Site]** Scanning: {text}" if is_us else f"🏗️ **[אתר בניה פעיל]** סורק שרטוטים: {text}")
     elif percent < 80:
-      status_box.markdown("⚙️ **[AI Engine]** Running algorithms..." if is_us else "⚙️ **[מנוע חישוב AI]** מפעיל חישובים...")
+      status_box.markdown("⚙️ **[AI Engine]** Running algorithms..." if is_us else "⚙️ **[מנוע חישוב AI]** מפעיל חישובים הנדסיים...")
     else:
       status_box.markdown("✨ **[Final Reports]** Compiling quantities..." if is_us else "✨ **[דוחות סופיים]** ממצה כמויות...")
 
@@ -354,7 +364,7 @@ if not st.session_state["app_initialized"]:
     }
     </style>
 
-    <div class="fullscreen-splash">
+    <div class="fullscreen-splash" translate="no">
         <div class="morning-sun"></div>
         <div class="skyline"></div>
         <div class="sea-layer"></div>
@@ -506,7 +516,8 @@ def get_morphological_skeleton(binary_img):
   skel = np.zeros(binary_img.shape, np.uint8)
   element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
   img = binary_img.copy()
-  while True:
+  # חסם קריסה: מניעת לולאה אינסופית בשרטוטים בעייתיים
+  for _ in range(500):
     eroded = cv2.erode(img, element)
     temp = cv2.dilate(eroded, element)
     temp = cv2.subtract(img, temp)
@@ -694,8 +705,8 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
   if len(yellows) < 6:
       needed = 6 - len(yellows)
       for i in range(needed):
-          x_c = min(int(w_p * (0.1 + i*0.1)), max(w_p - 45, 0))
-          y_c = min(int(h_p * (0.1 + i*0.1)), max(h_p - 45, 0))
+          x_c = max(0, min(int(w_p * (0.1 + i*0.1)), max(w_p - 45, 0)))
+          y_c = max(0, min(int(h_p * (0.1 + i*0.1)), max(h_p - 45, 0)))
           
           final_res.append({
               "bbox": (x_c, y_c, 40, 40),
@@ -737,7 +748,7 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
         with cols[y_i % len(cols)]:
           x, y, w, h = m["bbox"]
           pad = 24
-          # הגנה על חריגה מגבולות התמונה בחיתוך התצוגה
+          
           y1 = max(0, y - pad)
           y2 = min(raw_plan.shape[0], y + h + pad)
           x1 = max(0, x - pad)
@@ -950,11 +961,10 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
   return html
 
 
-# דינמיות של שפות
+# דינמיות של תפריט הדיסציפלינות לפי שפה
 if "global_is_us" not in st.session_state:
     st.session_state["global_is_us"] = False
 
-# שימוש במנגנון בטוח שלא נכנס ללופים
 is_us_mode = st.session_state["global_is_us"]
 
 disciplines_dict = {
@@ -1059,7 +1069,7 @@ if st.session_state["app_mode"] is None:
   )
   
   new_is_us = "🇺🇸" in home_geo
-  if new_is_us != st.session_state["global_is_us"]:
+  if new_is_us != st.session_state.get("global_is_us", False):
       st.session_state["global_is_us"] = new_is_us
       st.rerun()
 
@@ -1369,7 +1379,7 @@ elif "📄" in file_type:
                 "תיאור הפריט": f"New partition construction (Height {b_wall_h})" if is_us_mode else f"בניית קירות/מחיצות חדשים (גובה {b_wall_h})",
                 "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
             }]
-          st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="Baseline / As-Is Plan" if is_us_mode else "תוכנית בסיס / קיים")
+          st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="Baseline / As-Is Plan" if is_us_mode else "תוכנית בסיס / קיים", use_container_width=True)
         else:
           st.subheader("📋 Independent Partition Takeoff" if is_us_mode else "📋 דוח בניה עצמאי")
           sqm_total = round(lin_exec * b_wall_h, 2)
@@ -1392,7 +1402,7 @@ elif "📄" in file_type:
         render_pricing_widget(b_rows, disciplines_dict[curr_key], is_us=is_us_mode)
 
         st.markdown("### 📄 Updated Proposed Plan" if is_us_mode else "### 📄 תוכנית מצב סופי מעובדת")
-        st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט")
+        st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the Proposed plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית הבניה המיועדת.")
 
@@ -1447,7 +1457,7 @@ elif "📄" in file_type:
           st.session_state["project_boq"][curr_key] = p_rows
           safe_render_table(p_rows, is_us=is_us_mode)
           render_pricing_widget(p_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="Fixture Shift Vectors" if is_us_mode else "וקטורי הזזת סניטריה")
+          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="Fixture Shift Vectors" if is_us_mode else "וקטורי הזזת סניטריה", use_container_width=True)
         else:
           fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
           formatted_results = []
@@ -1457,14 +1467,15 @@ elif "📄" in file_type:
                 "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}],
             })
           
+          # הבטחת 6 שאלות הדרכה בטוחות מונעות קריסה
           h_p, w_p = img_plan.shape[:2]
           yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
           if len(yellows) < 6:
              needed = 6 - len(yellows)
              base_idx = len(formatted_results) + 1
              for i in range(needed):
-                 x_c = min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0))
-                 y_c = min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0))
+                 x_c = max(0, min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0)))
+                 y_c = max(0, min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0)))
                  sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
                  if sample_c.shape[0] >= 10 and sample_c.shape[1] >= 10:
                      formatted_results.append({
@@ -1482,7 +1493,7 @@ elif "📄" in file_type:
         st.session_state["project_boq"][curr_key] = rows_p
         safe_render_table(rows_p, is_us=is_us_mode)
         render_pricing_widget(rows_p, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא")
+        st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the plumbing plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית האינסטלציה.")
 
@@ -1555,7 +1566,7 @@ elif "📄" in file_type:
         st.session_state["project_boq"][curr_key] = f_rows
         safe_render_table(f_rows, is_us=is_us_mode)
         render_pricing_widget(f_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)")
+        st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the flooring plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית הריצוף.")
 
@@ -1621,7 +1632,7 @@ elif "📄" in file_type:
         st.session_state["project_boq"][curr_key] = rows_e
         safe_render_table(rows_e, is_us=is_us_mode)
         render_pricing_widget(rows_e, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)")
+        st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the electrical plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית החשמל לחישוב.")
 
