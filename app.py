@@ -19,8 +19,14 @@ except Exception:
 
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
+
+# הגנה מפני קריסות של תמונת לוגו ענקית שהופכת לסמל דפדפן
 try:
-  app_icon = Image.open(LOGO_PATH) if has_logo else "🏗️"
+  if has_logo:
+    app_icon = Image.open(LOGO_PATH)
+    app_icon.thumbnail((64, 64)) 
+  else:
+    app_icon = "🏗️"
 except Exception:
   app_icon = "🏗️"
 
@@ -31,6 +37,15 @@ st.set_page_config(
     layout="wide",
     page_icon=app_icon,
 )
+
+# מניעת שגיאות תרגום בכרום
+st.markdown("""
+    <meta name="google" content="notranslate">
+    <style>
+        body { top: 0px !important; }
+        .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
+    </style>
+""", unsafe_allow_html=True)
 
 def load_ai_memory():
   if os.path.exists(MEMORY_FILE):
@@ -54,6 +69,11 @@ def img_to_data_uri(cv2_img):
   if cv2_img is None or not hasattr(cv2_img, "size") or cv2_img.size == 0:
     return ""
   try:
+    h, w = cv2_img.shape[:2]
+    if h > 200 or w > 200:
+        scale = 200 / max(h, w)
+        cv2_img = cv2.resize(cv2_img, (int(w * scale), int(h * scale)))
+        
     _, buf = cv2.imencode(".png", cv2_img)
     return f"data:image/png;base64,{base64.b64encode(buf).decode()}"
   except Exception:
@@ -63,19 +83,19 @@ def load_raster(file, scale=1.4):
   if file is None:
     return None
   try:
-    # מניעת קריסת זיכרון (OOM) של Streamlit ע"י הגבלת כמות הפיקסלים הכוללת
-    max_pixels = 3500 * 3500 
+    file.seek(0)
+    max_pixels = 2000 * 2000 
     
     if file.name.lower().endswith(".pdf"):
       pdf = pdfium.PdfDocument(file.read())
-      bitmap = pdf.get_page(0).render(scale=scale)
-      pil_img = bitmap.to_pil().convert("RGB")
+      page = pdf.get_page(0)
+      w, h = page.get_size()
       
-      if pil_img.size[0] * pil_img.size[1] > max_pixels:
-          ratio = math.sqrt(max_pixels / (pil_img.size[0] * pil_img.size[1]))
-          new_size = (int(pil_img.size[0] * ratio), int(pil_img.size[1] * ratio))
-          pil_img = pil_img.resize(new_size, Image.Resampling.LANCZOS)
-          
+      calc_scale = math.sqrt(max_pixels / max(w * h, 1))
+      final_scale = min(scale, calc_scale)
+      
+      bitmap = page.render(scale=final_scale)
+      pil_img = bitmap.to_pil().convert("RGB")
       return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     else:
       file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
@@ -86,7 +106,7 @@ def load_raster(file, scale=1.4):
       h, w = img.shape[:2]
       if h * w > max_pixels:
           ratio = math.sqrt(max_pixels / (h * w))
-          img = cv2.resize(img, (int(w * ratio), int(h * ratio)))
+          img = cv2.resize(img, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_AREA)
           
       if len(img.shape) == 3 and img.shape[2] == 4:
         alpha = img[:, :, 3] / 255.0
@@ -144,9 +164,6 @@ def safe_render_table(rows, is_us=False):
       },
   )
 
-# ========================================================
-# 🏗️ בקרת אימות לסוג שרטוט - משופר למניעת קריסות (Drawing Validation Shield)
-# ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
       msg = "⚠️ Invalid or corrupted file." if is_us else "⚠️ קובץ לא תקין או פגום. לא ניתן לקרוא את השרטוט."
@@ -154,8 +171,7 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
       
   try:
     h, w = img.shape[:2]
-    # Resize down for quick and safe analysis without memory crashes
-    max_dim = 1200
+    max_dim = 600
     if max(h, w) > max_dim:
         scale = max_dim / max(h, w)
         img_small = cv2.resize(img, (int(w * scale), int(h * scale)))
@@ -163,200 +179,161 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         img_small = img.copy()
 
     gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    long_lines = 0
-    small_symbols = 0
+    if len(contours) > 1500:
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1500]
+        
+    lines = 0
+    symbols = 0
     
     for c in contours:
-        area = cv2.contourArea(c)
-        if area < 5: continue
-        x, y, w_c, h_c = cv2.boundingRect(c)
+        x_c, y_c, w_c, h_c = cv2.boundingRect(c)
+        area = w_c * h_c
+        if area < 10: continue
         
-        # קווים ארוכים למחיצות
-        if (w_c > 60 and h_c < 10) or (h_c > 60 and w_c < 10):
-            long_lines += 1
-        # סמלים קטנים למערכות
-        elif 5 <= w_c <= 40 and 5 <= h_c <= 40:
-            small_symbols += 1
+        ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
+        
+        if max(w_c, h_c) > 35 and ratio > 3.5:
+            lines += 1
+        elif 8 <= w_c <= 65 and 8 <= h_c <= 65 and ratio <= 2.5:
+            symbols += 1
             
-    if expected_disc == "elec" and small_symbols < 3:
-        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be an Electrical plan (missing terminal points & symbols)." 
-               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו מספיק סמלי חשמל או נקודות קצה). אנא ודא שהעלית את השרטוט הנכון.")
+    if expected_disc == "elec" and symbols < 4:
+        msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
         return False, msg
-    elif expected_disc == "cons" and long_lines < 2:
-        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be a Construction/Architectural plan (missing partition lines)." 
-               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו מספיק קווי מחיצות או מעטפת). אנא ודא שהעלית את השרטוט הנכון.")
+    elif expected_disc == "cons" and lines < 3:
+        msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
         return False, msg
+    elif expected_disc == "plum" and symbols < 2:
+        msg = ("⚠️ Validation Error: Drawing does not appear to be a Plumbing plan." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
+        return False, msg
+        
     return True, ""
   except Exception as e:
-    return False, (f"⚠️ Drawing parse error: {e}" if is_us else f"⚠️ שגיאה בפענוח השרטוט לבדיקה: {e}")
+    return False, (f"⚠️ Parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט.")
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
   status_box = st.empty()
-
-  for percent in range(100):
-    time.sleep(0.015)
-    progress_bar.progress(percent + 1)
-    if percent < 30:
-      status_box.markdown(
-          f"🏗️ **[Active Construction Site]** Scanning blueprints: {text}"
-          if is_us else f"🏗️ **[אתר בניה פעיל]** מנוף הנדסי סורק שרטוטים: {text}"
-      )
-    elif percent < 70:
-      status_box.markdown(
-          "⚙️ **[AI Engine]** Running Spatial Diff algorithms..."
-          if is_us else "⚙️ **[מנוע חישוב AI]** מפעיל אלגוריתמים וחישובי השוואה..."
-      )
+  
+  steps = 15
+  for i in range(steps):
+    time.sleep(0.1)
+    percent = int((i + 1) * (100 / steps))
+    progress_bar.progress(percent)
+    if percent < 40:
+      status_box.markdown(f"🏗️ **[Active Construction Site]** Scanning: {text}" if is_us else f"🏗️ **[אתר בניה פעיל]** סורק שרטוטים: {text}")
+    elif percent < 80:
+      status_box.markdown("⚙️ **[AI Engine]** Running algorithms..." if is_us else "⚙️ **[מנוע חישוב AI]** מפעיל חישובים הנדסיים...")
     else:
-      status_box.markdown(
-          "✨ **[Final Reports]** Compiling takeoff quantities..."
-          if is_us else "✨ **[דוחות סופיים]** ממצה ומארגן כמויות..."
-      )
+      status_box.markdown("✨ **[Final Reports]** Compiling quantities..." if is_us else "✨ **[דוחות סופיים]** ממצה כמויות...")
 
   progress_bar.empty()
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה חדשה: בוקר, ים, וקומה שקופה (4 שניות)
+# 🚀 אנימציית פתיחה מבוססת CSS בלבד (מונע קריסות הדפדפן)
 # ========================================================
-if "app_initialized" not in st.session_state:
-  st.session_state["app_initialized"] = False
-
-if not st.session_state["app_initialized"]:
+if "splash_shown" not in st.session_state:
+  st.session_state["splash_shown"] = True
   st.markdown(
       """
     <style>
     .fullscreen-splash {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        /* Morning vibe with cool blues and warm sun hues */
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
         z-index: 999999;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-        font-family: 'Segoe UI', Arial, sans-serif;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
+        animation: hideSplash 4.2s forwards ease-in-out;
     }
 
-    /* Beautiful morning sun */
+    @keyframes hideSplash {
+        0% { opacity: 1; visibility: visible; }
+        85% { opacity: 1; visibility: visible; }
+        99% { opacity: 0; visibility: visible; }
+        100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; }
+    }
+
     .morning-sun {
-        position: absolute;
-        top: 15%;
-        right: 20%;
-        width: 120px;
-        height: 120px;
+        position: absolute; top: 15%; right: 20%;
+        width: 120px; height: 120px;
         background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
-        border-radius: 50%;
-        box-shadow: 0 0 60px rgba(255, 223, 112, 0.8);
-        opacity: 0.9;
+        border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
     }
 
-    /* Sea and Skyline Layer */
     .sea-layer {
-        position: absolute;
-        bottom: 0;
-        width: 100%;
-        height: 30vh;
+        position: absolute; bottom: 0; width: 100%; height: 30vh;
         background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
         box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
     }
+    
     .skyline {
-        position: absolute;
-        bottom: 30vh;
-        width: 100%;
-        height: 25vh;
-        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" preserveAspectRatio="none"><path fill="rgba(45, 60, 80, 0.6)" d="M0,100 L0,80 L50,80 L50,40 L100,40 L100,60 L150,60 L150,20 L200,20 L200,90 L250,90 L250,50 L300,50 L300,70 L350,70 L350,10 L400,10 L400,80 L450,80 L450,40 L500,40 L500,60 L550,60 L550,30 L600,30 L600,90 L650,90 L650,50 L700,50 L700,20 L750,20 L750,80 L800,80 L800,40 L850,40 L850,70 L900,70 L900,10 L950,10 L950,80 L1000,80 L1000,100 Z"/></svg>') bottom;
-        background-size: cover;
+        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
+        background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
+                    linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
     }
 
-    /* The Tower */
     .splash-tower {
-        position: absolute;
-        bottom: 10vh;
-        width: 160px;
-        height: 55vh;
+        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
         background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        border-top: 2px solid #555;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
     }
 
-    /* Crane and Transparent Floor */
     .crane-system {
-        position: absolute;
-        top: 0;
-        height: 100vh;
-        width: 100vw;
-        display: flex;
-        justify-content: center;
-    }
-    .crane-cable {
-        width: 3px;
-        height: 0;
-        background: #333;
-        animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        position: relative;
+        position: absolute; top: 0; height: 100vh; width: 100vw;
+        display: flex; justify-content: center;
     }
     
-    /* Transparent, light glass floor */
+    .crane-cable {
+        width: 3px; height: 0; background: #333;
+        animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
+    }
+    
     .glass-floor {
-        position: absolute;
-        bottom: -30px;
-        left: -82px;
-        width: 167px;
-        height: 30px;
-        background: rgba(255, 255, 255, 0.35);
+        position: absolute; bottom: -30px; left: -82px;
+        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5);
         border: 1px solid rgba(255, 255, 255, 0.9);
         box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
-        backdrop-filter: blur(8px);
     }
     
-    @keyframes lowerCable {
-        0% { height: 5vh; }
-        100% { height: 35vh; } /* Reaches exactly top of the tower */
-    }
+    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
 
-    /* Delicate Dust Particles */
     .dust {
-        position: absolute;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%;
-        width: 3px;
-        height: 3px;
+        position: absolute; background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%; width: 3px; height: 3px;
         box-shadow: 0 0 6px rgba(255, 255, 255, 1);
         animation: float 2.5s infinite ease-in-out alternate;
     }
-    @keyframes float {
-        0% { transform: translateY(0) scale(1); opacity: 0.9; }
-        100% { transform: translateY(-40px) scale(1.5); opacity: 0; }
-    }
+    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
 
-    /* Elegant Text */
     .splash-text-main {
-        position: absolute;
-        bottom: 8%;
-        font-size: 52px;
-        font-weight: 400;
-        color: #ffffff;
-        letter-spacing: 6px;
-        text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        opacity: 0;
-        animation: textFade 2s 1.5s forwards ease-in-out;
+        position: absolute; bottom: 14%;
+        font-size: 52px; font-weight: 400; color: #ffffff;
+        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        opacity: 0; animation: textFade 1s 1s forwards ease-in-out;
     }
-    @keyframes textFade {
-        0% { opacity: 0; transform: translateY(15px); }
-        100% { opacity: 1; transform: translateY(0); }
+    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
+
+    .css-progress-container {
+        position: absolute; bottom: 8%; width: 40%; height: 6px;
+        background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
+        opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out;
     }
+    .css-progress-fill {
+        height: 100%; width: 0%; background: #facc15;
+        animation: fillBar 3s 1.2s linear forwards;
+    }
+    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
     </style>
 
-    <div class="fullscreen-splash">
+    <div class="fullscreen-splash" translate="no">
         <div class="morning-sun"></div>
         <div class="skyline"></div>
         <div class="sea-layer"></div>
@@ -368,24 +345,17 @@ if not st.session_state["app_initialized"]:
                 <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
                 <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
                 <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
-                <div class="dust" style="bottom: -40px; left: 10px; animation-delay: 1.7s;"></div>
-                <div class="dust" style="bottom: -50px; left: -60px; animation-delay: 2.1s;"></div>
             </div>
         </div>
         <div class="splash-text-main">בונים את העתיד</div>
+        <div class="css-progress-container">
+            <div class="css-progress-fill"></div>
+        </div>
     </div>
     """,
       unsafe_allow_html=True,
   )
 
-  bar_box = st.empty()
-  prog_bar = bar_box.progress(0)
-  for t in range(133):
-    time.sleep(0.03)
-    prog_bar.progress(min(100, int((t + 1) * (100 / 133))))
-
-  st.session_state["app_initialized"] = True
-  st.rerun()
 
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
@@ -507,7 +477,7 @@ def get_morphological_skeleton(binary_img):
   skel = np.zeros(binary_img.shape, np.uint8)
   element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
   img = binary_img.copy()
-  while True:
+  for _ in range(500):
     eroded = cv2.erode(img, element)
     temp = cv2.dilate(eroded, element)
     temp = cv2.subtract(img, temp)
@@ -639,12 +609,19 @@ def extract_symbols_from_legend(legend_img):
   return unique[:16]
 
 def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
+  if plan_inv.std() < 1e-5 or templ_gray.std() < 1e-5:
+      return []
+      
   _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
   pts = cv2.findNonZero(templ_inv)
   if pts is not None:
     tx, ty, tw, th = cv2.boundingRect(pts)
     if tw > 8 and th > 8:
       templ_inv = templ_inv[ty : ty + th, tx : tx + tw]
+      
+  if cv2.countNonZero(templ_inv) == 0:
+      return []
+
   detections = []
   for scale in [0.90, 1.0, 1.10]:
     sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
@@ -657,8 +634,8 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
       else: r_t = resized_t
       
       rw, rh = r_t.shape[::-1]
-      # הגנה קריטית נגד קריסת OpenCV
-      if rw > plan_inv.shape[1] or rh > plan_inv.shape[0]: 
+      
+      if rw > plan_inv.shape[1] or rh > plan_inv.shape[0] or r_t.std() < 1e-5: 
           continue
           
       res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
@@ -681,15 +658,13 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
   )
   final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else detections
   
-  # הוספת זיהויים צהובים מלאכותיים כדי לייצר תמיד 6 שאלות הדרכה בטוחות
   yellows = [d for d in final_res if d["status"] == "Yellow"]
   h_p, w_p = plan_inv.shape
   if len(yellows) < 6:
       needed = 6 - len(yellows)
       for i in range(needed):
-          # Safety checks so it doesn't crash on very small images
-          x_c = min(int(w_p * (0.2 + i*0.1)), w_p - 45)
-          y_c = min(int(h_p * (0.2 + i*0.1)), h_p - 45)
+          x_c = max(0, min(int(w_p * (0.1 + i*0.1)), max(w_p - 45, 0)))
+          y_c = max(0, min(int(h_p * (0.1 + i*0.1)), max(h_p - 45, 0)))
           
           final_res.append({
               "bbox": (x_c, y_c, 40, 40),
@@ -711,7 +686,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
       if m["status"] == "Yellow":
         yellow_items.append((s_idx, m_idx, item, m))
 
-  # וידוא ל-6 פריטים מדויקים בספק (Human In The Loop)
   yellow_items = yellow_items[:6]
   is_done_verifying = st.session_state.get(session_key_verified, False)
 
@@ -732,7 +706,17 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
         with cols[y_i % len(cols)]:
           x, y, w, h = m["bbox"]
           pad = 24
-          crop_zoom = raw_plan[max(0, y - pad) : min(raw_plan.shape[0], y + h + pad), max(0, x - pad) : min(raw_plan.shape[1], x + w + pad)].copy()
+          
+          y1 = max(0, y - pad)
+          y2 = min(raw_plan.shape[0], y + h + pad)
+          x1 = max(0, x - pad)
+          x2 = min(raw_plan.shape[1], x + w + pad)
+          
+          if y2 <= y1 or x2 <= x1:
+              crop_zoom = np.zeros((100, 100, 3), dtype=np.uint8)
+          else:
+              crop_zoom = raw_plan[y1:y2, x1:x2].copy()
+              
           cv2.circle(crop_zoom, (crop_zoom.shape[1] // 2, crop_zoom.shape[0] // 2), max(w, h) // 2 + 6, (0, 0, 255), 3)
 
           st.image(
@@ -971,45 +955,25 @@ if st.session_state["app_mode"] is None:
       """
     <style>
     div[data-testid="stSelectbox"] {
-        background: white;
-        padding: 15px 25px;
-        border-radius: 14px;
-        border: 2px solid #cbd5e1;
-        max-width: 850px;
-        margin: 0 auto 30px auto;
+        background: white; padding: 15px 25px; border-radius: 14px;
+        border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
-    div[data-testid="stSelectbox"] > div {
-        margin-bottom: 0 !important;
-    }
+    div[data-testid="stSelectbox"] > div { margin-bottom: 0 !important; }
     div[data-testid="column"] .stButton > button {
-        height: 420px !important;
-        min-height: 420px !important;
-        width: 100%;
-        border-radius: 14px;
-        font-weight: bold;
-        padding: 30px 20px;
-        font-size: 18px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        transition: all 0.2s ease-in-out;
-        border: 3px solid #1F4E78;
-        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-        color: #1F4E78;
-        text-align: center;
-        white-space: pre-wrap;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        height: 420px !important; min-height: 420px !important; width: 100%;
+        border-radius: 14px; font-weight: bold; padding: 30px 20px; font-size: 18px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: all 0.2s ease-in-out;
+        border: 3px solid #1F4E78; background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+        color: #1F4E78; text-align: center; white-space: pre-wrap;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
     }
     div[data-testid="column"] .stButton > button:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(31,78,120,0.25);
+        transform: translateY(-4px); box-shadow: 0 8px 25px rgba(31,78,120,0.25);
         background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
     }
     div[data-testid="column"]:nth-of-type(2) .stButton > button {
-        border: 3px solid #137333 !important;
-        background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
+        border: 3px solid #137333 !important; background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
         color: #137333 !important;
     }
     div[data-testid="column"]:nth-of-type(2) .stButton > button:hover {
@@ -1017,9 +981,7 @@ if st.session_state["app_mode"] is None:
         box-shadow: 0 8px 25px rgba(19,115,51,0.25) !important;
     }
     </style>
-    """,
-      unsafe_allow_html=True,
-  )
+    """, unsafe_allow_html=True)
 
   if has_logo:
     col_logo_cent = st.columns([3, 1, 3])
@@ -1032,18 +994,19 @@ if st.session_state["app_mode"] is None:
   st.markdown(f"<h3 style='text-align: center; color: #E67E22;'>{sub_ttl}</h3>", unsafe_allow_html=True)
   st.markdown("<br>", unsafe_allow_html=True)
 
+  start_idx = 1 if is_us_mode else 0
   home_geo = st.selectbox(
       "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
       [
           "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית) IL",
           "🇺🇸 United States (Imperial - Feet & Inches | RSMeans | English) US",
       ],
-      key="home_geo_selector",
-      index=1 if is_us_mode else 0
+      index=start_idx
   )
-  st.session_state["global_is_us"] = "🇺🇸 United States" in home_geo
   
-  if st.session_state["global_is_us"] != is_us_mode:
+  new_is_us = "🇺🇸" in home_geo
+  if new_is_us != st.session_state.get("global_is_us", False):
+      st.session_state["global_is_us"] = new_is_us
       st.rerun()
 
   choose_lbl = "Select the working model for your project:" if is_us_mode else "בחר את מודל הפעילות המבוקש לפרויקט:"
@@ -1290,9 +1253,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Partition Takeoff" if is_us_mode else ("🚀 הפעל חישוב בניה" if is_tenant else "🚀 הפעל חישוב כמויות בניה ושיפוץ")
       if st.button(btn_title):
-        img_exec = load_raster(f_plan)
-        # Validation Shield - בדיקה קריטית לפני הרצה למניעת קריסות
-        is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_exec = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
+        
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1352,7 +1316,7 @@ elif "📄" in file_type:
                 "תיאור הפריט": f"New partition construction (Height {b_wall_h})" if is_us_mode else f"בניית קירות/מחיצות חדשים (גובה {b_wall_h})",
                 "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
             }]
-          st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="Baseline / As-Is Plan" if is_us_mode else "תוכנית בסיס / קיים")
+          st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="Baseline / As-Is Plan" if is_us_mode else "תוכנית בסיס / קיים", use_container_width=True)
         else:
           st.subheader("📋 Independent Partition Takeoff" if is_us_mode else "📋 דוח בניה עצמאי")
           sqm_total = round(lin_exec * b_wall_h, 2)
@@ -1375,7 +1339,7 @@ elif "📄" in file_type:
         render_pricing_widget(b_rows, disciplines_dict[curr_key], is_us=is_us_mode)
 
         st.markdown("### 📄 Updated Proposed Plan" if is_us_mode else "### 📄 תוכנית מצב סופי מעובדת")
-        st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט")
+        st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the Proposed plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית הבניה המיועדת.")
 
@@ -1396,9 +1360,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Plumbing Takeoff & AI Verification" if is_us_mode else "🚀 הפעל ספירת כלים סניטריים ואימות"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
-        # Plumbing Validation Shield
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
+        
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1430,7 +1395,7 @@ elif "📄" in file_type:
           st.session_state["project_boq"][curr_key] = p_rows
           safe_render_table(p_rows, is_us=is_us_mode)
           render_pricing_widget(p_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="Fixture Shift Vectors" if is_us_mode else "וקטורי הזזת סניטריה")
+          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="Fixture Shift Vectors" if is_us_mode else "וקטורי הזזת סניטריה", use_container_width=True)
         else:
           fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
           formatted_results = []
@@ -1440,17 +1405,16 @@ elif "📄" in file_type:
                 "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}],
             })
           
-          # יצירת שאלות הדרכה במקרה הצורך למערכת יומן און דה לופ (מבטיח 6) - מוגן מגבולות
           h_p, w_p = img_plan.shape[:2]
           yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
           if len(yellows) < 6:
              needed = 6 - len(yellows)
              base_idx = len(formatted_results) + 1
              for i in range(needed):
-                 x_c = min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0))
-                 y_c = min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0))
+                 x_c = max(0, min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0)))
+                 y_c = max(0, min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0)))
                  sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
-                 if sample_c.shape[0] > 0 and sample_c.shape[1] > 0:
+                 if sample_c.shape[0] >= 10 and sample_c.shape[1] >= 10:
                      formatted_results.append({
                          "index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c),
                          "matches": [{"bbox": (x_c, y_c, 40, 40), "center": (x_c+20, y_c+20), "score": 0.65+i*0.02, "status": "Yellow"}]
@@ -1466,7 +1430,7 @@ elif "📄" in file_type:
         st.session_state["project_boq"][curr_key] = rows_p
         safe_render_table(rows_p, is_us=is_us_mode)
         render_pricing_widget(rows_p, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא")
+        st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the plumbing plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית האינסטלציה.")
 
@@ -1485,12 +1449,8 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Flooring & Tiling Takeoff" if is_us_mode else "🚀 הפעל חישוב שטחי ריצוף וחיפוי קירות"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
-        # Validation Shield - בדיקה קריטית
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "tile", is_us=is_us_mode)
-        if not is_valid:
-            st.error(v_msg)
-            st.stop()
+        with st.spinner("⏳ Loading blueprint..." if is_us_mode else "⏳ קורא שרטוט..."):
+            img_plan = load_raster(f_plan)
             
         show_engineering_loader("S.A.Q AI computing net flooring...", is_us=is_us_mode)
         img_std = load_raster(f_std) if f_std else None
@@ -1544,7 +1504,7 @@ elif "📄" in file_type:
         st.session_state["project_boq"][curr_key] = f_rows
         safe_render_table(f_rows, is_us=is_us_mode)
         render_pricing_widget(f_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)")
+        st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the flooring plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית הריצוף.")
 
@@ -1565,10 +1525,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Electrical Takeoff & AI Verification" if is_us_mode else "🚀 הפעל פענוח חשמל וספירת נקודות קצה"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         
-        # Validation Shield for Electrical Plan - עוצר במקום אם השרטוט לא נכון
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1591,7 +1551,9 @@ elif "📄" in file_type:
         else:
           h_p, w_p = plan_inv.shape
           sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
-          if sample_crop.size == 0: sample_crop = img_plan[0:50, 0:50]
+          
+          if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: 
+              sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
           
           dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
           all_results.append({
@@ -1609,7 +1571,7 @@ elif "📄" in file_type:
         st.session_state["project_boq"][curr_key] = rows_e
         safe_render_table(rows_e, is_us=is_us_mode)
         render_pricing_widget(rows_e, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)")
+        st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)", use_container_width=True)
     else:
       st.info("ℹ️ Please upload at least the electrical plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית החשמל לחישוב.")
 
@@ -1629,3 +1591,4 @@ elif "📄" in file_type:
     for i, d_target in enumerate(rem_keys):
       if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
         set_discipline_programmatically(d_target)
+        
