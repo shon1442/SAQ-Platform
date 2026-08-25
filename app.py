@@ -32,9 +32,8 @@ st.set_page_config(
     page_icon=app_icon,
 )
 
-# הגנה מפני קריסות של דפדפן הכרום (חוסם תרגום אוטומטי ששובר את ה-React של Streamlit)
+# הגדרות עיצוב כלליות
 st.markdown("""
-    <meta name="google" content="notranslate">
     <style>
         body { top: 0px !important; }
         .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
@@ -73,7 +72,6 @@ def load_raster(file, scale=1.4):
     return None
   try:
     file.seek(0)
-    # הגנה קשיחה על הזיכרון - מניעת קריסות (OOM)
     max_pixels = 2000 * 2000 
     
     if file.name.lower().endswith(".pdf"):
@@ -155,7 +153,7 @@ def safe_render_table(rows, is_us=False):
   )
 
 # ========================================================
-# 🏗️ בקרת אימות לסוג שרטוט - חסין קריסות (Validation Shield)
+# 🏗️ בקרת אימות לסוג שרטוט - חסין קריסות
 # ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
@@ -164,7 +162,6 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
       
   try:
     h, w = img.shape[:2]
-    # הקטנה משמעותית של התמונה וטשטוש כדי להסיר "לכלוכים" שגורמים לזיכרון לקרוס
     max_dim = 600
     if max(h, w) > max_dim:
         scale = max_dim / max(h, w)
@@ -173,11 +170,10 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         img_small = img.copy()
 
     gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (5, 5), 0) # מסנן רעשים דיגיטליים
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # חסימת עומס זיכרון הרמטית
     if len(contours) > 1500:
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1500]
         
@@ -191,16 +187,14 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        # זיהוי קווים ארוכים (מחיצות)
         if max(w_c, h_c) > 40 and ratio > 3.5:
             lines += 1
-        # זיהוי סמלים מרוכזים (חשמל/אינסטלציה)
         elif 8 <= w_c <= 60 and 8 <= h_c <= 60 and ratio <= 2.5:
             symbols += 1
             
     if expected_disc == "elec" and symbols < 4:
         msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan (missing symbols)." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו סמלי מערכות חשמל). הפעולה הופסקה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו סמלי מערכות). הפעולה הופסקה.")
         return False, msg
     elif expected_disc == "cons" and lines < 3:
         msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan (missing walls)." 
@@ -213,13 +207,12 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         
     return True, ""
   except Exception as e:
-    return False, (f"⚠️ Drawing parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט. התמונה פגומה.")
+    return False, (f"⚠️ Drawing parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט לבדיקה.")
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
   status_box = st.empty()
   
-  # הורדת מספר העדכונים כדי למנוע קריסת דפדפן (Websocket Flood)
   steps = 15
   for i in range(steps):
     time.sleep(0.15)
@@ -236,7 +229,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה (בטוחה ללא הקרסת דפדפן)
+# 🚀 אנימציית פתיחה - בטוחה לחלוטין וללא קריסות (Pure CSS)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -281,13 +274,13 @@ if not st.session_state["app_initialized"]:
         background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
         box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
     }
-    .skyline {
+    
+    .skyline-gradient {
         position: absolute;
         bottom: 30vh;
         width: 100%;
         height: 25vh;
-        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" preserveAspectRatio="none"><path fill="rgba(45, 60, 80, 0.6)" d="M0,100 L0,80 L50,80 L50,40 L100,40 L100,60 L150,60 L150,20 L200,20 L200,90 L250,90 L250,50 L300,50 L300,70 L350,70 L350,10 L400,10 L400,80 L450,80 L450,40 L500,40 L500,60 L550,60 L550,30 L600,30 L600,90 L650,90 L650,50 L700,50 L700,20 L750,20 L750,80 L800,80 L800,40 L850,40 L850,70 L900,70 L900,10 L950,10 L950,80 L1000,80 L1000,100 Z"/></svg>') bottom;
-        background-size: cover;
+        background: linear-gradient(to top, rgba(45, 60, 80, 0.7) 0%, transparent 100%);
     }
 
     .splash-tower {
@@ -308,6 +301,7 @@ if not st.session_state["app_initialized"]:
         display: flex;
         justify-content: center;
     }
+    
     .crane-cable {
         width: 3px;
         height: 0;
@@ -364,9 +358,9 @@ if not st.session_state["app_initialized"]:
     }
     </style>
 
-    <div class="fullscreen-splash" translate="no">
+    <div class="fullscreen-splash">
         <div class="morning-sun"></div>
-        <div class="skyline"></div>
+        <div class="skyline-gradient"></div>
         <div class="sea-layer"></div>
         <div class="splash-tower"></div>
         <div class="crane-system">
@@ -386,13 +380,8 @@ if not st.session_state["app_initialized"]:
       unsafe_allow_html=True,
   )
 
-  # Delay that does not flood websocket
-  bar_box = st.empty()
-  prog_bar = bar_box.progress(0)
-  for t in range(15):
-    time.sleep(0.25)
-    prog_bar.progress(min(100, int((t + 1) * (100 / 15))))
-
+  # ממתין בשקט בלי להציף את השרת בפקודות כדי למנוע קריסה
+  time.sleep(3.8)
   st.session_state["app_initialized"] = True
   st.rerun()
 
@@ -516,7 +505,6 @@ def get_morphological_skeleton(binary_img):
   skel = np.zeros(binary_img.shape, np.uint8)
   element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
   img = binary_img.copy()
-  # חסם קריסה: מניעת לולאה אינסופית בשרטוטים בעייתיים
   for _ in range(500):
     eroded = cv2.erode(img, element)
     temp = cv2.dilate(eroded, element)
@@ -649,7 +637,6 @@ def extract_symbols_from_legend(legend_img):
   return unique[:16]
 
 def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
-  # מניעת קריסות אם האזור המבוקש ריק (הגנת Variance)
   if plan_inv.std() < 1e-5 or templ_gray.std() < 1e-5:
       return []
       
@@ -676,7 +663,6 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
       
       rw, rh = r_t.shape[::-1]
       
-      # הגנה קריטית: חריגה מזיכרון C++
       if rw > plan_inv.shape[1] or rh > plan_inv.shape[0] or r_t.std() < 1e-5: 
           continue
           
@@ -1317,9 +1303,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Partition Takeoff" if is_us_mode else ("🚀 הפעל חישוב בניה" if is_tenant else "🚀 הפעל חישוב כמויות בניה ושיפוץ")
       if st.button(btn_title):
-        img_exec = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_exec = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         
-        is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1423,9 +1410,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Plumbing Takeoff & AI Verification" if is_us_mode else "🚀 הפעל ספירת כלים סניטריים ואימות"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
         
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1467,7 +1455,6 @@ elif "📄" in file_type:
                 "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}],
             })
           
-          # הבטחת 6 שאלות הדרכה בטוחות מונעות קריסה
           h_p, w_p = img_plan.shape[:2]
           yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
           if len(yellows) < 6:
@@ -1512,7 +1499,8 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Flooring & Tiling Takeoff" if is_us_mode else "🚀 הפעל חישוב שטחי ריצוף וחיפוי קירות"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading blueprint..." if is_us_mode else "⏳ קורא שרטוט..."):
+            img_plan = load_raster(f_plan)
             
         show_engineering_loader("S.A.Q AI computing net flooring...", is_us=is_us_mode)
         img_std = load_raster(f_std) if f_std else None
@@ -1587,9 +1575,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Electrical Takeoff & AI Verification" if is_us_mode else "🚀 הפעל פענוח חשמל וספירת נקודות קצה"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
             st.stop()
