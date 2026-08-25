@@ -63,19 +63,21 @@ def load_raster(file, scale=1.4):
   if file is None:
     return None
   try:
-    # מניעת קריסת זיכרון (OOM) של Streamlit ע"י הגבלת כמות הפיקסלים הכוללת
-    max_pixels = 3500 * 3500 
+    file.seek(0)
+    # הגנה קשיחה על הזיכרון - מקסימום פיקסלים
+    max_pixels = 2500 * 2500 
     
     if file.name.lower().endswith(".pdf"):
       pdf = pdfium.PdfDocument(file.read())
-      bitmap = pdf.get_page(0).render(scale=scale)
-      pil_img = bitmap.to_pil().convert("RGB")
+      page = pdf.get_page(0)
+      w, h = page.get_size()
       
-      if pil_img.size[0] * pil_img.size[1] > max_pixels:
-          ratio = math.sqrt(max_pixels / (pil_img.size[0] * pil_img.size[1]))
-          new_size = (int(pil_img.size[0] * ratio), int(pil_img.size[1] * ratio))
-          pil_img = pil_img.resize(new_size, Image.Resampling.LANCZOS)
-          
+      # חישוב קנה מידה דינמי כדי לא ליצור תמונה ענקית שתקרוס
+      calc_scale = math.sqrt(max_pixels / (w * h + 1))
+      final_scale = min(scale, calc_scale)
+      
+      bitmap = page.render(scale=final_scale)
+      pil_img = bitmap.to_pil().convert("RGB")
       return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     else:
       file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
@@ -86,7 +88,7 @@ def load_raster(file, scale=1.4):
       h, w = img.shape[:2]
       if h * w > max_pixels:
           ratio = math.sqrt(max_pixels / (h * w))
-          img = cv2.resize(img, (int(w * ratio), int(h * ratio)))
+          img = cv2.resize(img, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_AREA)
           
       if len(img.shape) == 3 and img.shape[2] == 4:
         alpha = img[:, :, 3] / 255.0
@@ -145,7 +147,7 @@ def safe_render_table(rows, is_us=False):
   )
 
 # ========================================================
-# 🏗️ בקרת אימות לסוג שרטוט - משופר למניעת קריסות (Drawing Validation Shield)
+# 🏗️ בקרת אימות לסוג שרטוט - חסין קריסות
 # ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
@@ -154,8 +156,8 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
       
   try:
     h, w = img.shape[:2]
-    # Resize down for quick and safe analysis without memory crashes
-    max_dim = 1200
+    # הקטנה מהירה ובטוחה לאנליזה בלבד (מונע קריסות זיכרון)
+    max_dim = 1000
     if max(h, w) > max_dim:
         scale = max_dim / max(h, w)
         img_small = cv2.resize(img, (int(w * scale), int(h * scale)))
@@ -166,29 +168,36 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    long_lines = 0
-    small_symbols = 0
+    lines = 0
+    symbols = 0
     
     for c in contours:
-        area = cv2.contourArea(c)
-        if area < 5: continue
-        x, y, w_c, h_c = cv2.boundingRect(c)
+        x_c, y_c, w_c, h_c = cv2.boundingRect(c)
+        area = w_c * h_c
+        if area < 10: continue
         
-        # קווים ארוכים למחיצות
-        if (w_c > 60 and h_c < 10) or (h_c > 60 and w_c < 10):
-            long_lines += 1
-        # סמלים קטנים למערכות
-        elif 5 <= w_c <= 40 and 5 <= h_c <= 40:
-            small_symbols += 1
+        ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
+        
+        # זיהוי קווים ארוכים (מאפיין מובהק של מחיצות/מעטפת בניה)
+        if max(w_c, h_c) > 60 and ratio > 4:
+            lines += 1
+        # זיהוי סמלים קטנים ומרוכזים (מאפיין חשמל ואינסטלציה)
+        elif 8 <= w_c <= 60 and 8 <= h_c <= 60 and ratio < 2.5:
+            symbols += 1
             
-    if expected_disc == "elec" and small_symbols < 3:
-        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be an Electrical plan (missing terminal points & symbols)." 
-               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו מספיק סמלי חשמל או נקודות קצה). אנא ודא שהעלית את השרטוט הנכון.")
+    if expected_disc == "elec" and symbols < 4:
+        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be an Electrical plan (missing terminal points/symbols)." 
+               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו סמלי חשמל או נקודות קצה). הפעולה הופסקה למניעת טעויות.")
         return False, msg
-    elif expected_disc == "cons" and long_lines < 2:
-        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be a Construction/Architectural plan (missing partition lines)." 
-               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו מספיק קווי מחיצות או מעטפת). אנא ודא שהעלית את השרטוט הנכון.")
+    elif expected_disc == "cons" and lines < 3:
+        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be a Construction/Architectural plan (missing partition walls)." 
+               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו קווי מחיצות או מעטפת). הפעולה הופסקה למניעת טעויות.")
         return False, msg
+    elif expected_disc == "plum" and symbols < 2:
+        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be a Plumbing plan." 
+               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית אינסטלציה. הפעולה הופסקה.")
+        return False, msg
+        
     return True, ""
   except Exception as e:
     return False, (f"⚠️ Drawing parse error: {e}" if is_us else f"⚠️ שגיאה בפענוח השרטוט לבדיקה: {e}")
@@ -220,7 +229,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה חדשה: בוקר, ים, וקומה שקופה (4 שניות)
+# 🚀 אנימציית פתיחה
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -235,7 +244,6 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        /* Morning vibe with cool blues and warm sun hues */
         background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
         z-index: 999999;
         display: flex;
@@ -246,7 +254,6 @@ if not st.session_state["app_initialized"]:
         font-family: 'Segoe UI', Arial, sans-serif;
     }
 
-    /* Beautiful morning sun */
     .morning-sun {
         position: absolute;
         top: 15%;
@@ -259,7 +266,6 @@ if not st.session_state["app_initialized"]:
         opacity: 0.9;
     }
 
-    /* Sea and Skyline Layer */
     .sea-layer {
         position: absolute;
         bottom: 0;
@@ -277,7 +283,6 @@ if not st.session_state["app_initialized"]:
         background-size: cover;
     }
 
-    /* The Tower */
     .splash-tower {
         position: absolute;
         bottom: 10vh;
@@ -288,7 +293,6 @@ if not st.session_state["app_initialized"]:
         border-top: 2px solid #555;
     }
 
-    /* Crane and Transparent Floor */
     .crane-system {
         position: absolute;
         top: 0;
@@ -305,7 +309,6 @@ if not st.session_state["app_initialized"]:
         position: relative;
     }
     
-    /* Transparent, light glass floor */
     .glass-floor {
         position: absolute;
         bottom: -30px;
@@ -320,10 +323,9 @@ if not st.session_state["app_initialized"]:
     
     @keyframes lowerCable {
         0% { height: 5vh; }
-        100% { height: 35vh; } /* Reaches exactly top of the tower */
+        100% { height: 35vh; }
     }
 
-    /* Delicate Dust Particles */
     .dust {
         position: absolute;
         background: rgba(255, 255, 255, 0.9);
@@ -338,7 +340,6 @@ if not st.session_state["app_initialized"]:
         100% { transform: translateY(-40px) scale(1.5); opacity: 0; }
     }
 
-    /* Elegant Text */
     .splash-text-main {
         position: absolute;
         bottom: 8%;
@@ -639,12 +640,20 @@ def extract_symbols_from_legend(legend_img):
   return unique[:16]
 
 def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
+  # מנגנון הגנה קריטי למניעת קריסות (Zero-Variance Protection)
+  if plan_inv.std() < 1e-5 or templ_gray.std() < 1e-5:
+      return []
+      
   _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
   pts = cv2.findNonZero(templ_inv)
   if pts is not None:
     tx, ty, tw, th = cv2.boundingRect(pts)
     if tw > 8 and th > 8:
       templ_inv = templ_inv[ty : ty + th, tx : tx + tw]
+      
+  if cv2.countNonZero(templ_inv) == 0:
+      return []
+
   detections = []
   for scale in [0.90, 1.0, 1.10]:
     sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
@@ -657,8 +666,9 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
       else: r_t = resized_t
       
       rw, rh = r_t.shape[::-1]
-      # הגנה קריטית נגד קריסת OpenCV
-      if rw > plan_inv.shape[1] or rh > plan_inv.shape[0]: 
+      
+      # הגנה נוספת ל-OpenCV C++ backend
+      if rw > plan_inv.shape[1] or rh > plan_inv.shape[0] or r_t.std() < 1e-5: 
           continue
           
       res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
@@ -687,9 +697,8 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
   if len(yellows) < 6:
       needed = 6 - len(yellows)
       for i in range(needed):
-          # Safety checks so it doesn't crash on very small images
-          x_c = min(int(w_p * (0.2 + i*0.1)), w_p - 45)
-          y_c = min(int(h_p * (0.2 + i*0.1)), h_p - 45)
+          x_c = min(int(w_p * (0.1 + i*0.1)), max(w_p - 45, 0))
+          y_c = min(int(h_p * (0.1 + i*0.1)), max(h_p - 45, 0))
           
           final_res.append({
               "bbox": (x_c, y_c, 40, 40),
@@ -1291,7 +1300,7 @@ elif "📄" in file_type:
       btn_title = "🚀 Run Partition Takeoff" if is_us_mode else ("🚀 הפעל חישוב בניה" if is_tenant else "🚀 הפעל חישוב כמויות בניה ושיפוץ")
       if st.button(btn_title):
         img_exec = load_raster(f_plan)
-        # Validation Shield - בדיקה קריטית לפני הרצה למניעת קריסות
+        
         is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
@@ -1397,7 +1406,7 @@ elif "📄" in file_type:
       btn_title = "🚀 Run Plumbing Takeoff & AI Verification" if is_us_mode else "🚀 הפעל ספירת כלים סניטריים ואימות"
       if st.button(btn_title):
         img_plan = load_raster(f_plan)
-        # Plumbing Validation Shield
+        
         is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
         if not is_valid:
             st.error(v_msg)
@@ -1440,7 +1449,7 @@ elif "📄" in file_type:
                 "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}],
             })
           
-          # יצירת שאלות הדרכה במקרה הצורך למערכת יומן און דה לופ (מבטיח 6) - מוגן מגבולות
+          # הבטחת 6 שאלות הדרכה בטוחות מונעות קריסה
           h_p, w_p = img_plan.shape[:2]
           yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
           if len(yellows) < 6:
@@ -1450,7 +1459,7 @@ elif "📄" in file_type:
                  x_c = min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0))
                  y_c = min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0))
                  sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
-                 if sample_c.shape[0] > 0 and sample_c.shape[1] > 0:
+                 if sample_c.shape[0] >= 10 and sample_c.shape[1] >= 10:
                      formatted_results.append({
                          "index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c),
                          "matches": [{"bbox": (x_c, y_c, 40, 40), "center": (x_c+20, y_c+20), "score": 0.65+i*0.02, "status": "Yellow"}]
@@ -1486,11 +1495,7 @@ elif "📄" in file_type:
       btn_title = "🚀 Run Flooring & Tiling Takeoff" if is_us_mode else "🚀 הפעל חישוב שטחי ריצוף וחיפוי קירות"
       if st.button(btn_title):
         img_plan = load_raster(f_plan)
-        # Validation Shield - בדיקה קריטית
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "tile", is_us=is_us_mode)
-        if not is_valid:
-            st.error(v_msg)
-            st.stop()
+        # אין אימות חזק לריצוף מונע חסימה מיותרת
             
         show_engineering_loader("S.A.Q AI computing net flooring...", is_us=is_us_mode)
         img_std = load_raster(f_std) if f_std else None
@@ -1567,7 +1572,6 @@ elif "📄" in file_type:
       if st.button(btn_title):
         img_plan = load_raster(f_plan)
         
-        # Validation Shield for Electrical Plan - עוצר במקום אם השרטוט לא נכון
         is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
@@ -1591,7 +1595,10 @@ elif "📄" in file_type:
         else:
           h_p, w_p = plan_inv.shape
           sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
-          if sample_crop.size == 0: sample_crop = img_plan[0:50, 0:50]
+          
+          # הגנה על חיתוך ריק שיקריס את OpenCV
+          if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: 
+              sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
           
           dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
           all_results.append({
