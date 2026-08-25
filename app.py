@@ -183,7 +183,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה עתידנית: מגדל ספירלי ומנוף רובוטי (בדיוק למשך 4 שניות)
+# 🚀 אנימציית פתיחה עתידנית: בונים את העתיד (בדיוק למשך 4 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -198,104 +198,138 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: linear-gradient(135deg, #030712 0%, #0f172a 50%, #311042 100%);
+        /* Sunset / Golden Hour gradient */
+        background: linear-gradient(to bottom, #2b1d3d 0%, #d46a6a 45%, #1a1a24 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        color: white;
+        overflow: hidden;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .cyber-site {
-        position: relative;
-        width: 320px;
-        height: 260px;
-        border-bottom: 5px solid #38bdf8;
-        background-image: linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
-        background-size: 25px 25px;
-        margin-bottom: 25px;
-        display: flex;
-        justify-content: center;
-        align-items: flex-end;
-    }
-    @keyframes roboticArm {
-        0% { transform: rotate(-25deg) translateY(0px); }
-        50% { transform: rotate(15deg) translateY(-10px); }
-        100% { transform: rotate(-25deg) translateY(0px); }
-    }
-    @keyframes spiralRise {
-        0% { height: 15px; opacity: 0.1; transform: scaleX(0.4); }
-        100% { height: 220px; opacity: 1; transform: scaleX(1); }
-    }
-    .splash-robotic-arm {
+
+    /* Vibrant City Skyline at dusk */
+    .skyline {
         position: absolute;
-        top: 5px;
-        right: 10px;
-        font-size: 80px;
-        transform-origin: bottom center;
-        animation: roboticArm 1.1s infinite ease-in-out;
-        filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.9));
+        bottom: 0;
+        width: 100%;
+        height: 35vh;
+        background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 100" preserveAspectRatio="none"><path fill="%230f0f15" d="M0,100 L0,80 L50,80 L50,40 L100,40 L100,60 L150,60 L150,20 L200,20 L200,90 L250,90 L250,50 L300,50 L300,70 L350,70 L350,10 L400,10 L400,80 L450,80 L450,40 L500,40 L500,60 L550,60 L550,30 L600,30 L600,90 L650,90 L650,50 L700,50 L700,20 L750,20 L750,80 L800,80 L800,40 L850,40 L850,70 L900,70 L900,10 L950,10 L950,80 L1000,80 L1000,100 Z"/></svg>') bottom;
+        background-size: cover;
+        opacity: 0.6;
     }
-    .splash-spiral-tower {
-        width: 105px;
-        background: linear-gradient(to top, #1e1b4b, #2563eb, #38bdf8);
-        border-radius: 8px 8px 0 0;
-        animation: spiralRise 3.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
-        box-shadow: 0 0 50px rgba(59, 130, 246, 0.8);
-        border: 2px solid #7dd3fc;
+
+    /* Giant Tower */
+    .splash-tower {
+        position: absolute;
+        bottom: -20px;
+        width: 180px;
+        height: 50vh;
+        background: linear-gradient(to right, #0a0a0f 0%, #202025 50%, #0a0a0f 100%);
+        box-shadow: 0 0 50px rgba(0,0,0,0.9);
         display: flex;
-        flex-direction: column;
-        justify-content: space-around;
-        align-items: center;
-        padding: 10px 0;
+        justify-content: space-between;
+        border-top: 2px solid #333;
     }
-    .holo-panel {
-        width: 80px;
-        height: 10px;
-        background-color: #fde047;
-        box-shadow: 0 0 12px #facc15;
+    
+    /* Vertical Gardens */
+    .vertical-garden-left, .vertical-garden-right {
+        width: 30px;
+        height: 75%;
+        margin-top: 30px;
+        background: linear-gradient(to bottom, #40916c, #1b4332);
+        box-shadow: 0 0 20px rgba(64, 145, 108, 0.4);
         border-radius: 2px;
     }
-    .splash-title {
-        font-size: 38px;
-        font-weight: bold;
-        color: #facc15;
-        letter-spacing: 1px;
-        text-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
+
+    /* Crane System */
+    .crane-system {
+        position: absolute;
+        top: 0;
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        justify-content: center;
     }
-    .splash-subtitle {
-        font-size: 20px;
-        font-weight: 600;
-        color: #38bdf8;
-        margin-top: 10px;
-        text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    .crane-cable {
+        width: 3px;
+        height: 0;
+        background: #999;
+        animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        position: relative;
     }
-    .shot-tag {
-        font-size: 15px;
-        color: #94a3b8;
-        margin-top: 15px;
-        letter-spacing: 2px;
-        font-weight: 500;
+    
+    /* Transparent/Light material floor being placed */
+    .glass-floor {
+        position: absolute;
+        bottom: -35px;
+        left: -92px;
+        width: 187px;
+        height: 35px;
+        background: rgba(220, 240, 255, 0.15);
+        border: 1px solid rgba(220, 240, 255, 0.5);
+        box-shadow: 0 0 30px rgba(150, 200, 255, 0.3), inset 0 0 15px rgba(255,255,255,0.2);
+        backdrop-filter: blur(10px);
+        border-radius: 2px;
+    }
+    
+    @keyframes lowerCable {
+        0% { height: 5vh; }
+        100% { height: 49vh; }
+    }
+
+    /* Glowing Dust Particles */
+    .dust {
+        position: absolute;
+        background: rgba(255, 230, 180, 0.7);
+        border-radius: 50%;
+        width: 4px;
+        height: 4px;
+        box-shadow: 0 0 8px rgba(255, 200, 100, 0.8);
+        animation: float 2.5s infinite ease-in-out alternate;
+    }
+    @keyframes float {
+        0% { transform: translateY(0) scale(1); opacity: 0.9; }
+        100% { transform: translateY(-30px) scale(1.8); opacity: 0; }
+    }
+
+    /* Elegant Text */
+    .splash-text-main {
+        position: absolute;
+        bottom: 12%;
+        font-size: 56px;
+        font-weight: 300;
+        color: #ffffff;
+        letter-spacing: 8px;
+        text-shadow: 0 0 25px rgba(255, 220, 150, 0.6);
+        opacity: 0;
+        animation: textFade 2s 1.5s forwards ease-in-out;
+    }
+    @keyframes textFade {
+        0% { opacity: 0; transform: translateY(15px); }
+        100% { opacity: 1; transform: translateY(0); }
     }
     </style>
+
     <div class="fullscreen-splash">
-        <div class="cyber-site">
-            <div class="splash-robotic-arm">🏗️</div>
-            <div class="splash-spiral-tower">
-                <div class="holo-panel"></div>
-                <div class="holo-panel"></div>
-                <div class="holo-panel"></div>
-                <div class="holo-panel"></div>
-                <div class="holo-panel"></div>
-                <div class="holo-panel"></div>
-                <div class="holo-panel"></div>
+        <div class="skyline"></div>
+        <div class="splash-tower">
+            <div class="vertical-garden-left"></div>
+            <div class="vertical-garden-right"></div>
+        </div>
+        <div class="crane-system">
+            <div class="crane-cable">
+                <div class="glass-floor"></div>
+                <!-- Dust particles around the connection point -->
+                <div class="dust" style="bottom: -45px; left: -100px; animation-delay: 0.2s;"></div>
+                <div class="dust" style="bottom: -35px; left: 100px; animation-delay: 0.5s;"></div>
+                <div class="dust" style="bottom: -60px; left: -40px; animation-delay: 0.8s;"></div>
+                <div class="dust" style="bottom: -25px; left: 50px; animation-delay: 1.2s;"></div>
+                <div class="dust" style="bottom: -50px; left: 10px; animation-delay: 1.7s;"></div>
             </div>
         </div>
-        <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
-        <div class="splash-subtitle">✨ כמויות בראש שקט ✨</div>
-        <div class="shot-tag">מחשבים את העתיד | 0:04s SHOT</div>
+        <div class="splash-text-main">בונים את העתיד</div>
     </div>
     """,
       unsafe_allow_html=True,
@@ -303,7 +337,7 @@ if not st.session_state["app_initialized"]:
 
   bar_box = st.empty()
   prog_bar = bar_box.progress(0)
-  for t in range(133):  # מותאם בדיוק למשך 4 שניות (133 * 0.03 = 4 שניות)
+  for t in range(133):  # 4 שניות בערך
     time.sleep(0.03)
     prog_bar.progress(min(100, int((t + 1) * (100 / 133))))
 
@@ -312,7 +346,7 @@ if not st.session_state["app_initialized"]:
 
 
 # ========================================================
-# 💰 רכיב תמחור מותאם מדינה (דקל מול RSMeans בארה"ב)
+# 💰 רכיב תמחור מותאם מדינה
 # ========================================================
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
@@ -404,7 +438,7 @@ def render_pricing_widget(boq_rows, discipline_name, is_us=False):
 
 
 # ========================================================
-# 🚨 בדיקת מעטפת הנדסית (Structural Safety Shield)
+# 🚨 בדיקת מעטפת הנדסית
 # ========================================================
 def check_structural_envelope_safety(plan_img, is_us=False):
   h, w, _ = plan_img.shape
@@ -716,7 +750,7 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
 
 
 # ========================================================
-# 🧠 מנגנון אימות ושאלות משתמש אחיד (Human-in-the-Loop V/X - 6 שאלות)
+# 🧠 מנגנון אימות ושאלות משתמש אחיד (Human-in-the-Loop V/X)
 # ========================================================
 def run_ai_verification_workflow(
     raw_plan, results_list, session_key_verified, is_us=False
@@ -876,7 +910,7 @@ def calc_flooring_and_wall_tiling(
 
 
 # ========================================================
-# 📑 ייצוא דוחות מרהיב עם לוגו וחישוב דקל / RSMeans מאוחד (כולל מע"מ / מיסים)
+# 📑 ייצוא דוחות מרהיב
 # ========================================================
 def generate_master_export_html(
     project_boq,
@@ -1015,8 +1049,9 @@ if "current_discipline" not in st.session_state:
 if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
+
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (עם בורר שפה מובנה במלבן העליון)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -1025,7 +1060,24 @@ if st.session_state["app_mode"] is None:
   st.markdown(
       """
     <style>
-    .stButton > button {
+    /* Styling the selectbox container itself to be the white rounded box */
+    div[data-testid="stSelectbox"] {
+        background: white;
+        padding: 15px 25px;
+        border-radius: 14px;
+        border: 2px solid #cbd5e1;
+        max-width: 850px;
+        margin: 0 auto 30px auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    div[data-testid="stSelectbox"] > div {
+        margin-bottom: 0 !important;
+    }
+
+    /* Ensuring absolutely equal button heights */
+    div[data-testid="column"] .stButton > button {
+        height: 420px !important;
+        min-height: 420px !important;
         width: 100%;
         border-radius: 14px;
         font-weight: bold;
@@ -1038,25 +1090,26 @@ if st.session_state["app_mode"] is None:
         color: #1F4E78;
         text-align: center;
         white-space: pre-wrap;
-        height: 380px !important;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
     }
-    .stButton > button:hover {
+    div[data-testid="column"] .stButton > button:hover {
         transform: translateY(-4px);
         box-shadow: 0 8px 25px rgba(31,78,120,0.25);
         background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
     }
-    .top-header-box {
-        background: white;
-        padding: 15px 25px;
-        border-radius: 14px;
-        border: 2px solid #cbd5e1;
-        max-width: 850px;
-        margin: 0 auto 30px auto;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    
+    /* Styling for the second button */
+    div[data-testid="column"]:nth-of-type(2) .stButton > button {
+        border: 3px solid #137333 !important;
+        background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
+        color: #137333 !important;
+    }
+    div[data-testid="column"]:nth-of-type(2) .stButton > button:hover {
+        background: linear-gradient(135deg, #ceead6 0%, #b7e1cd 100%) !important;
+        box-shadow: 0 8px 25px rgba(19,115,51,0.25) !important;
     }
     </style>
     """,
@@ -1080,8 +1133,7 @@ if st.session_state["app_mode"] is None:
   )
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # מלבן עליון משולב נקי ואחיד ללא תווית כפולה
-  st.markdown("<div class='top-header-box'>", unsafe_allow_html=True)
+  # Selectbox will now automatically inherit the styled box css above
   home_geo = st.selectbox(
       "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
       [
@@ -1093,7 +1145,6 @@ if st.session_state["app_mode"] is None:
       ],
       key="home_geo_selector",
   )
-  st.markdown("</div>", unsafe_allow_html=True)
 
   is_us_home = "🇺🇸 United States" in home_geo
   st.session_state["global_is_us"] = is_us_home
@@ -1127,22 +1178,6 @@ if st.session_state["app_mode"] is None:
       st.rerun()
 
   with col_m2:
-    st.markdown(
-        """
-        <style>
-        div[data-testid="column"]:nth-of-type(2) .stButton > button {
-            border: 3px solid #137333 !important;
-            background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
-            color: #137333 !important;
-        }
-        div[data-testid="column"]:nth-of-type(2) .stButton > button:hover {
-            background: linear-gradient(135deg, #ceead6 0%, #b7e1cd 100%) !important;
-            box-shadow: 0 8px 25px rgba(19,115,51,0.25) !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
     reno_btn_txt = (
         "🔨🚜\n\nRenovation Contractors (As-Is)\n\nFor Interior Remodeling &"
         " Contractors:\nCompares proposed plan vs. As-Is existing layout."
@@ -1160,6 +1195,7 @@ if st.session_state["app_mode"] is None:
       st.rerun()
 
   st.stop()
+
 
 is_us_mode = st.session_state.get("global_is_us", False)
 
@@ -1188,6 +1224,7 @@ curr_idx = (
     if st.session_state["current_discipline"] in disciplines_list
     else 0
 )
+
 
 # ========================================================
 # 🎛️ תפריט צד (Sidebar)
@@ -1422,6 +1459,7 @@ if st.session_state.get("show_master_export", False):
   ):
     st.session_state["show_master_export"] = False
     st.rerun()
+
 
 # ========================================================
 # 📄 עיבוד שרטוטים לפי מודל נבחר
@@ -1681,7 +1719,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       st.info("ℹ️ Please upload at least the Proposed/Execution plan.")
 
   # ----------------------------------------------------
-  # 2. 🚿 מודול אינסטלציה (כולל שאלות למידה V/X)
+  # 2. 🚿 מודול אינסטלציה
   # ----------------------------------------------------
   elif active_disc == "🚿 אינסטלציה":
     c_exec, c_std, c_leg = st.columns(3)
@@ -1981,7 +2019,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       st.info("ℹ️ Please upload at least the flooring plan.")
 
   # ----------------------------------------------------
-  # 4. ⚡ מודול חשמל ומאור (כולל מנוע 6 שאלות הלמידה)
+  # 4. ⚡ מודול חשמל ומאור
   # ----------------------------------------------------
   else:
     c_exec, c_std, c_leg = st.columns(3)
