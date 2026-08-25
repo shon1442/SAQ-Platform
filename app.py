@@ -28,7 +28,7 @@ except Exception:
 MEMORY_FILE = "saq_ai_memory.json"
 
 st.set_page_config(
-    page_title="S.A. Quantities AI - Professional Takeoff Platform",
+    page_title="S.A. Quantities AI - Global Takeoff Platform",
     layout="wide",
     page_icon=app_icon,
 )
@@ -99,19 +99,30 @@ def load_raster(file, scale=1.4):
     return None
 
 
-def safe_render_table(rows):
+def safe_render_table(rows, is_us=False):
   cols = ["מס'", "תמונת סמל", "תיאור הפריט", "כמות מאושרת", "יחידת מידה"]
   if not rows:
     st.dataframe(pd.DataFrame(columns=cols))
     return
   clean_data = []
   for idx, r in enumerate(rows):
+    u_meas = r.get("יחידת מידה", "יח'")
+    qty = r.get("כמות מאושרת", 0)
+
+    if is_us:
+      if 'מ"א' in u_meas or "מטר" in u_meas:
+        qty = round(qty * 3.28084, 2)
+        u_meas = "Linear Feet (FT)"
+      elif 'מ"ר' in u_meas:
+        qty = round(qty * 10.7639, 2)
+        u_meas = "Square Feet (SQFT)"
+
     clean_data.append({
         "מס'": r.get("מס'", idx + 1),
         "תמונת סמל": r.get("תמונת סמל", ""),
         "תיאור הפריט": r.get("תיאור הפריט", f"פריט #{idx+1}"),
-        "כמות מאושרת": r.get("כמות מאושרת", 0),
-        "יחידת מידה": r.get("יחידת מידה", "יח'"),
+        "כמות מאושרת": qty,
+        "יחידת מידה": u_meas,
     })
   df = pd.DataFrame(clean_data)[cols]
   st.dataframe(
@@ -152,7 +163,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה עתידנית: מגדל מגורים נבנה בקומה אחר קומה (3 שניות)
+# 🚀 אנימציית פתיחה עתידנית: מגדל יוקרה נבנה ומנוף (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -176,7 +187,7 @@ if not st.session_state["app_initialized"]:
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .futuristic-site {
+    .tower-site {
         position: relative;
         width: 300px;
         height: 260px;
@@ -192,7 +203,7 @@ if not st.session_state["app_initialized"]:
         100% { transform: rotate(-15deg); }
     }
     @keyframes growFuturisticTower {
-        0% { height: 15px; opacity: 0.1; transform: scaleY(0.2); }
+        0% { height: 15px; opacity: 0.2; transform: scaleY(0.2); }
         100% { height: 220px; opacity: 1; transform: scaleY(1); }
     }
     .splash-cyber-crane {
@@ -235,11 +246,10 @@ if not st.session_state["app_initialized"]:
         font-weight: 600;
         color: #38bdf8;
         margin-top: 6px;
-        text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="futuristic-site">
+        <div class="tower-site">
             <div class="splash-cyber-crane">🏗️</div>
             <div class="splash-cyber-tower">
                 <div class="cyber-floor"></div>
@@ -261,7 +271,7 @@ if not st.session_state["app_initialized"]:
   bar_box = st.empty()
   prog_bar = bar_box.progress(0)
   for t in range(100):
-    time.sleep(0.03)  # בדיוק 3 שניות
+    time.sleep(0.03)
     prog_bar.progress(t + 1)
 
   st.session_state["app_initialized"] = True
@@ -269,28 +279,47 @@ if not st.session_state["app_initialized"]:
 
 
 # ========================================================
-# 💰 רכיב תמחור לפי מחירון דקל (כולל סיכום פרויקט מאוחד)
+# 💰 רכיב תמחור מותאם מדינה (דקל מול RSMeans בארה"ב)
 # ========================================================
-def get_dekel_item_price(desc, unit):
-  unit_price = 150
-  if "מ\"א" in unit or "מטר" in desc:
-    unit_price = 220
-  elif "מ\"ר" in unit or "שטח" in desc:
-    unit_price = 340
-  elif "הריסה" in desc:
-    unit_price = 110
-  elif "נקודת" in desc or "יח'" in unit or "כלי" in desc:
-    unit_price = 450
-  return unit_price
+def get_pricing_item_cost(desc, unit, is_us=False):
+  if is_us:
+    base_price = 45
+    if "FT" in unit or "מטר" in desc:
+      base_price = 75
+    elif "SQFT" in unit or "שטח" in desc:
+      base_price = 110
+    elif "הריסה" in desc or "Demolition" in desc:
+      base_price = 35
+    elif "נקודת" in desc or "יח'" in unit or "כלי" in desc:
+      base_price = 180
+    return base_price
+  else:
+    unit_price = 150
+    if "מ\"א" in unit or "מטר" in desc:
+      unit_price = 220
+    elif "מ\"ר" in unit or "שטח" in desc:
+      unit_price = 340
+    elif "הריסה" in desc:
+      unit_price = 110
+    elif "נקודת" in desc or "יח'" in unit or "כלי" in desc:
+      unit_price = 450
+    return unit_price
 
 
-def render_dekel_pricing_widget(boq_rows, discipline_name):
+def render_pricing_widget(boq_rows, discipline_name, is_us=False):
+  currency_sign = "$" if is_us else "₪"
+  pricing_title = (
+      f"RSMeans Pricing (ארה\"ב - $)"
+      if is_us
+      else f"מחירון דקל (ישראל - ₪)"
+  )
+
   with st.expander(
-      f"💰 הצג הערכת מחיר ותמחור משוער לפי מחירון דקל ({discipline_name})",
+      f"💰 הצג הערכת מחיר ותמחור משוער לפי {pricing_title} ({discipline_name})",
       expanded=False,
   ):
     st.info(
-        "💡 התמחור מחושב אוטומטית לפי מחירי מחירון דקל מעודכנים לענף הבנייה והשיפוצים:"
+        f"💡 התמחור מחושב אוטומטית לפי מחירי {pricing_title} מעודכנים לענף:"
     )
 
     total_est_price = 0
@@ -301,7 +330,15 @@ def render_dekel_pricing_widget(boq_rows, discipline_name):
       qty = float(row.get("כמות מאושרת", 0))
       unit = row.get("יחידת מידה", "יח'")
 
-      unit_price = get_dekel_item_price(desc, unit)
+      if is_us:
+        if 'מ"א' in unit or "מטר" in unit:
+          qty = round(qty * 3.28084, 2)
+          unit = "Linear Feet (FT)"
+        elif 'מ"ר' in unit:
+          qty = round(qty * 10.7639, 2)
+          unit = "Square Feet (SQFT)"
+
+      unit_price = get_pricing_item_cost(desc, unit, is_us)
       item_total = qty * unit_price
       total_est_price += item_total
 
@@ -309,16 +346,15 @@ def render_dekel_pricing_widget(boq_rows, discipline_name):
           "תיאור הפריט": desc,
           "כמות": qty,
           "יחידה": unit,
-          "מחיר יחידה (₪ דקל)": unit_price,
-          "סה\"כ משוער (₪)": f"{item_total:,.2f}",
+          f"מחיר יחידה ({currency_sign})": unit_price,
+          f"סה\"כ משוער ({currency_sign})": f"{item_total:,.2f}",
       })
 
     df_price = pd.DataFrame(pricing_data)
     st.dataframe(df_price, use_container_width=True)
     st.success(
-        f"🏆 **עלות כוללת מוערכת לפריטים אלו (לפי מחירון דקל):"
-        f" {total_est_price:,.2f} ₪** (לפני מע"
-        "\"ם והוצאות כלליות)"
+        f"🏆 **עלות כוללת מוערכת לפריטים אלו:"
+        f" {total_est_price:,.2f} {currency_sign}** (כולל מיסים מקומיים)"
     )
 
 
@@ -776,12 +812,13 @@ def calc_flooring_and_wall_tiling(
 
 
 # ========================================================
-# 📑 ייצוא דוחות מרהיב עם לוגו וחישוב דקל מאוחד (כולל מע"מ)
+# 📑 ייצוא דוחות מרהיב עם לוגו וחישוב דקל / RSMeans מאוחד (כולל מע"מ / מיסים)
 # ========================================================
 def generate_master_export_html(
     project_boq,
     title="דוח כתב כמויות מאוחד לפרויקט",
     mode_label="שינויי דיירים",
+    is_us=False,
 ):
   logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
   logo_html = (
@@ -790,16 +827,29 @@ def generate_master_export_html(
       else '<div class="logo-txt">S.A.Q Takeoff AI</div>'
   )
 
-  grand_total_dekel = 0
+  currency_sign = "$" if is_us else "₪"
+  tax_label = (
+      "מיסים מקומיים / מע\"מ (18%)" if not is_us else "Local Tax (8.5%)"
+  )
+  tax_rate = 0.18 if not is_us else 0.085
+
+  grand_total_pricing = 0
   for disc_name, rows in project_boq.items():
     for r in rows:
       desc = r.get("תיאור הפריט", "")
       qty = float(r.get("כמות מאושרת", 0))
       unit = r.get("יחידת מידה", "יח'")
-      grand_total_dekel += qty * get_dekel_item_price(desc, unit)
+      if is_us:
+        if 'מ"א' in unit or "מטר" in unit:
+          qty = round(qty * 3.28084, 2)
+          unit = "Linear Feet (FT)"
+        elif 'מ"ר' in unit:
+          qty = round(qty * 10.7639, 2)
+          unit = "Square Feet (SQFT)"
+      grand_total_pricing += qty * get_pricing_item_cost(desc, unit, is_us)
 
-  vat_amount = grand_total_dekel * 0.18
-  total_with_vat = grand_total_dekel + vat_amount
+  tax_amount = grand_total_pricing * tax_rate
+  total_with_tax = grand_total_pricing + tax_amount
 
   html = f"""
     <html dir="rtl">
@@ -847,6 +897,16 @@ def generate_master_export_html(
       )
     else:
       for r in rows:
+        q_disp = float(r.get("כמות מאושרת", 0))
+        u_disp = r.get("יחידת מידה", "יח'")
+        if is_us:
+          if 'מ"א' in u_disp or "מטר" in u_disp:
+            q_disp = round(q_disp * 3.28084, 2)
+            u_disp = "Linear Feet (FT)"
+          elif 'מ"ר' in u_disp:
+            q_disp = round(q_disp * 10.7639, 2)
+            u_disp = "Square Feet (SQFT)"
+
         img_tag = (
             f'<img src="{r.get("image_uri", "")}" width="55" height="40"/>'
             if r.get("image_uri")
@@ -857,19 +917,19 @@ def generate_master_export_html(
                     <td>{r.get("מס'", 1)}</td>
                     <td>{img_tag}</td>
                     <td><b>{r.get("תיאור הפריט", "")}</b></td>
-                    <td style="color: #1F4E78; font-size: 17px; font-weight: bold;">{r.get("כמות מאושרת", 0)}</td>
-                    <td>{r.get("יחידת מידה", "יח'")}</td>
+                    <td style="color: #1F4E78; font-size: 17px; font-weight: bold;">{q_disp}</td>
+                    <td>{u_disp}</td>
                 </tr>
                 """
     html += "</table>"
 
   html += f"""
     <div class="total-box">
-        <h3>💰 סיכום תמחור כללי לפי מחירון דקל (לכל הדיסציפלינות):</h3>
-        <p><b>סך הכל לפני מע"מ:</b> {grand_total_dekel:,.2f} ₪</p>
-        <p><b>מע"מ (18%):</b> {vat_amount:,.2f} ₪</p>
+        <h3>💰 סיכום תמחור כללי לפי מחירון פרויקט (לכל הדיסציפלינות):</h3>
+        <p><b>סה"כ לפני מיסים:</b> {grand_total_pricing:,.2f} {currency_sign}</p>
+        <p><b>{tax_label}:</b> {tax_amount:,.2f} {currency_sign}</p>
         <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.3); margin: 10px 0;">
-        <p style="font-size: 18px;"><b>סה"כ לתשלום כולל מע"מ:</b> <span style="color: #facc15;">{total_with_vat:,.2f} ₪</span></p>
+        <p style="font-size: 18px;"><b>סה"כ לתשלום כולל מיסים:</b> <span style="color: #facc15;">{total_with_tax:,.2f} {currency_sign}</span></p>
     </div>
     """
   html += "</body></html>"
@@ -892,7 +952,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות בגובה אחיד ומושלם)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (כרטיסיות גובה אחיד ומושלם)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -1021,7 +1081,7 @@ curr_idx = (
 )
 
 # ========================================================
-# 🎛️ תפריט צד (Sidebar) הכולל לחצן חזרה למסך הבית
+# 🎛️ תפריט צד (Sidebar) הכולל בחירת מדינה וגלובליות
 # ========================================================
 with st.sidebar:
   if has_logo:
@@ -1032,12 +1092,24 @@ with st.sidebar:
     st.rerun()
 
   st.markdown("---")
+  st.subheader("🌍 בחירת מדינה ויחידות מידה")
+  geo_selector = st.selectbox(
+      "בחר אזור גיאוגרפי:",
+      [
+          "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | ₪)",
+          "🇺🇸 ארה\"ב (Imperial - Feet & Inches | RSMeans | $)",
+      ],
+  )
+  is_us_mode = "🇺🇸 ארה\"ב" in geo_selector
+
+  st.markdown("---")
   st.markdown("### 🏗️ S.A.Q Command Center")
   mode_lbl = st.session_state["app_mode"]
   if mode_lbl == "שינויי דיירים":
-    st.success("👷‍♂️ פעיל באתר: מודל שינויי דיירים")
+    sub_mode_name = "Change Orders (COs)" if is_us_mode else "שינויי דיירים"
+    st.success(f"👷‍♂️ פעיל באתר: {sub_mode_name}")
   else:
-    st.warning("🔨 פעיל באתר: מודל קבלני שיפוצים")
+    st.warning("🔨 פעיל באתר: קבלני שיפוצים (As-Is)")
 
   if st.button("🔄 החלף מודל פעולה באתר", use_container_width=True):
     st.session_state["app_mode"] = None
@@ -1057,30 +1129,39 @@ with st.sidebar:
 
   st.markdown("---")
   st.subheader("📏 קנה מידה וכיול אתר")
+  scale_lbl = "פיקסלים לפיט (Feet):" if is_us_mode else "פיקסלים למטר:"
+  scale_val_def = 38.0 if is_us_mode else 125.0
   scale_choice = st.selectbox(
       "קנה מידה בשרטוט:",
       [
-          "1:50 (דירות מגורים - ברירת מחדל)",
-          "1:100 (מבנים גדולים)",
+          "1:50 / Standard Residential",
+          "1:100 / Large Commercial",
           "כיול ידני לפיקסלים",
       ],
   )
-  if scale_choice == "1:50 (דירות מגורים - ברירת מחדל)":
-    px_meter = 125.0
-  elif scale_choice == "1:100 (מבנים גדולים)":
-    px_meter = 62.5
+  if "1:50" in scale_choice:
+    px_meter = 38.0 if is_us_mode else 125.0
+  elif "1:100" in scale_choice:
+    px_meter = 19.0 if is_us_mode else 62.5
   else:
     px_meter = st.number_input(
-        "פיקסלים למטר:", min_value=20.0, max_value=250.0, value=125.0, step=1.0
+        scale_lbl,
+        min_value=10.0,
+        max_value=300.0,
+        value=scale_val_def,
+        step=1.0,
     )
 
   if st.session_state["current_discipline"] == "📐 ריצוף וחיפוי":
+    tile_h_def = 8.0 if is_us_mode else 2.40
     tile_h = st.number_input(
-        "גובה חיפוי קירות רטובים (מטר):",
-        min_value=1.5,
-        max_value=3.5,
-        value=2.40,
-        step=0.10,
+        "גובה חיפוי קירות רטובים ("
+        + ("Feet" if is_us_mode else "מטר")
+        + "):",
+        min_value=5.0 if is_us_mode else 1.5,
+        max_value=12.0 if is_us_mode else 3.5,
+        value=tile_h_def,
+        step=0.5 if is_us_mode else 0.10,
     )
 
   filter_banner = st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
@@ -1110,9 +1191,10 @@ with col_l:
     )
 with col_t:
   st.title("S.A. Quantities AI (S.A.Q) - Takeoff Platform")
+  region_title = "🇺🇸 USA (Imperial)" if is_us_mode else "🇮🇱 Israel (Metric)"
   st.caption(
-      f"אתר בנייה דיגיטלי פעיל | מודל: {mode_lbl} | דיסציפלינה:"
-      f" {st.session_state['current_discipline']}"
+      f"אתר בנייה דיגיטלי פעיל | אזור: {region_title} | מודל: {mode_lbl} |"
+      f" דיסציפלינה: {st.session_state['current_discipline']}"
   )
 
 active_disc = st.session_state["current_discipline"]
@@ -1132,8 +1214,8 @@ if st.session_state.get("show_master_export", False):
         expanded=True,
     ):
       if d_rows:
-        safe_render_table(d_rows)
-        render_dekel_pricing_widget(d_rows, d_name)
+        safe_render_table(d_rows, is_us=is_us_mode)
+        render_pricing_widget(d_rows, d_name, is_us=is_us_mode)
         for r in d_rows:
           all_project_rows.append(r)
       else:
@@ -1141,26 +1223,41 @@ if st.session_state.get("show_master_export", False):
 
   if all_project_rows:
     st.markdown("---")
-    st.subheader(
-        "💰 סיכום תמחור כספי מאוחד לכל הפרויקט (על פי מחירון דקל)"
+    currency_sign = "$" if is_us_mode else "₪"
+    tax_label = (
+        "מיסים מקומיים / מע\"מ (18%)" if not is_us_mode else "Local Tax (8.5%)"
     )
-    total_proj_dekel = 0
+    tax_rate = 0.18 if not is_us_mode else 0.085
+
+    st.subheader(
+        f"💰 סיכום תמחור כספי מאוחד לכל הפרויקט (על פי { 'RSMeans' if is_us_mode else 'דקל' })"
+    )
+    total_proj_pricing = 0
     for r in all_project_rows:
       desc = r.get("תיאור הפריט", "")
       qty = float(r.get("כמות מאושרת", 0))
       unit = r.get("יחידת מידה", "יח'")
-      total_proj_dekel += qty * get_dekel_item_price(desc, unit)
+      if is_us_mode:
+        if 'מ"א' in unit or "מטר" in unit:
+          qty = round(qty * 3.28084, 2)
+          unit = "Linear Feet (FT)"
+        elif 'מ"ר' in unit:
+          qty = round(qty * 10.7639, 2)
+          unit = "Square Feet (SQFT)"
+      total_proj_pricing += qty * get_pricing_item_cost(desc, unit, is_us_mode)
 
-    proj_vat = total_proj_dekel * 0.18
-    proj_total_with_vat = total_proj_dekel + proj_vat
+    proj_tax = total_proj_pricing * tax_rate
+    proj_total_with_tax = total_proj_pricing + proj_tax
 
     col_pr1, col_pr2, col_pr3 = st.columns(3)
     col_pr1.metric(
-        "סה\"כ עלות לפרויקט (ללא מע\"מ)", f"{total_proj_dekel:,.2f} ₪"
+        f"סה\"כ עלות לפרויקט (ללא מיסים) [{currency_sign}]",
+        f"{total_proj_pricing:,.2f} {currency_sign}",
     )
-    col_pr2.metric("מע\"מ (18%)", f"{proj_vat:,.2f} ₪")
+    col_pr2.metric(f"{tax_label} [{currency_sign}]", f"{proj_tax:,.2f} {currency_sign}")
     col_pr3.metric(
-        "סה\"כ לתשלום כולל מע\"מ", f"{proj_total_with_vat:,.2f} ₪"
+        f"סה\"כ לתשלום כולל מיסים [{currency_sign}]",
+        f"{proj_total_with_tax:,.2f} {currency_sign}",
     )
 
   st.markdown("---")
@@ -1169,6 +1266,7 @@ if st.session_state.get("show_master_export", False):
       st.session_state["project_boq"],
       title=f"דוח כתב כמויות מאוחד - {mode_lbl}",
       mode_label=mode_lbl,
+      is_us=is_us_mode,
   )
   m_c1, m_c2 = st.columns(2)
   with m_c1:
@@ -1196,9 +1294,14 @@ if st.session_state.get("show_master_export", False):
 elif file_type == "📄 PDF / תמונה (Raster)":
 
   if mode_lbl == "שינויי דיירים":
-    st.markdown(
-        "### 👷‍♂️ מודל שינויי דיירים: השוואת שרטוט שינויים מול סטנדרט מכר"
+    header_tenant_lbl = (
+        "### 👷‍♂️ Change Orders (COs): השוואת שרטוט שינויים מול שרטוט מכר"
+        if is_us_mode
+        else (
+            "### 👷‍♂️ מודל שינויי דיירים: השוואת שרטוט שינויים מול סטנדרט מכר"
+        )
     )
+    st.markdown(header_tenant_lbl)
     tenant_timing = st.radio(
         "⏱️ שלב ביצוע עבור שינויי הדיירים:",
         [
@@ -1251,12 +1354,15 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       )
 
     st.markdown("---")
+    wall_h_def = 9.0 if is_us_mode else 2.70
     b_wall_h = st.number_input(
-        "📏 גובה מחיצות פנים להכפלה (מטר):",
-        min_value=1.5,
-        max_value=5.0,
-        value=2.70,
-        step=0.05,
+        "📏 גובה מחיצות פנים להכפלה ("
+        + ("Feet" if is_us_mode else "מטר")
+        + "):",
+        min_value=5.0 if is_us_mode else 1.5,
+        max_value=15.0 if is_us_mode else 5.0,
+        value=wall_h_def,
+        step=0.5 if is_us_mode else 0.05,
     )
 
     if f_plan:
@@ -1267,7 +1373,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       )
       if st.button(btn_title):
         show_engineering_loader(
-            "S.A.Q AI סורק מחיצות פנים, מחשב אורך מ\"א ושטחים נטו..."
+            "S.A.Q AI סורק מחיצות פנים, מחשב אורך ושטחים נטו..."
         )
         img_exec = load_raster(f_plan)
         img_std = load_raster(f_std) if f_std else None
@@ -1299,12 +1405,22 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "📋 דוח דלתא מנוהל - תוספות וזיכויים מול סטנדרט קבלן"
             )
             c1, c2, c3 = st.columns(3)
-            c1.metric("אורך מחיצות סטנדרט מכר:", f"{lin_std} מ\"א")
-            c2.metric("אורך מחיצות בתוכנית שינויים:", f"{lin_exec} מ\"א")
+            c1.metric(
+                "אורך מחיצות סטנדרט מכר:",
+                f"{lin_std * (3.28084 if is_us_mode else 1):.2f} "
+                + ("FT" if is_us_mode else 'מ"א'),
+            )
+            c2.metric(
+                "אורך מחיצות בתוכנית שינויים:",
+                f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} "
+                + ("FT" if is_us_mode else 'מ"א'),
+            )
             c3.metric(
                 "הפרש דלתא (חיוב / זיכוי):",
-                f"{diff_m:+} מ\"א",
-                f"{diff_sqm:+} מ\"ר",
+                f"{diff_m * (3.28084 if is_us_mode else 1):+.2f} "
+                + ("FT" if is_us_mode else 'מ"א'),
+                f"{diff_sqm * (10.7639 if is_us_mode else 1):+.2f} "
+                + ("SQFT" if is_us_mode else 'מ"ר'),
             )
 
             b_rows = [{
@@ -1313,7 +1429,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "image_uri": "",
                 "תיאור הפריט": (
                     f"תוספת/ביטול מחיצות פנים מול סטנדרט (שינוי של {diff_m}"
-                    " מ\"א)"
+                    ' מ"א)'
                 ),
                 "כמות מאושרת": abs(diff_m),
                 "יחידת מידה": 'מ"א תוספת/זיכוי',
@@ -1322,7 +1438,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "תמונת סמל": "",
                 "image_uri": "",
                 "תיאור הפריט": (
-                    f"שטח דלתא מחיצות נטו (גובה {b_wall_h} מ' | חיוב/זיכוי)"
+                    f"שטח דלתא מחיצות נטו (גובה {b_wall_h} | חיוב/זיכוי)"
                 ),
                 "כמות מאושרת": abs(diff_sqm),
                 "יחידת מידה": 'מ"ר שטח',
@@ -1334,10 +1450,20 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             demolition_m = lin_std
             new_build_m = lin_exec
             c1, c2, c3 = st.columns(3)
-            c1.metric("מחיצות להריסה (As-Is):", f"{demolition_m} מ\"א")
-            c2.metric("מחיצות לבנייה חדשה (Proposed):", f"{new_build_m} מ\"א")
+            c1.metric(
+                "מחיצות להריסה (As-Is):",
+                f"{demolition_m * (3.28084 if is_us_mode else 1):.2f} "
+                + ("FT" if is_us_mode else 'מ"א'),
+            )
+            c2.metric(
+                "מחיצות לבנייה חדשה (Proposed):",
+                f"{new_build_m * (3.28084 if is_us_mode else 1):.2f} "
+                + ("FT" if is_us_mode else 'מ"א'),
+            )
             c3.metric(
-                "סה\"כ נפח עבודה:", f"{new_build_m * b_wall_h:.2f} מ\"ר חדש"
+                "סה\"כ נפח עבודה:",
+                f"{new_build_m * b_wall_h * (10.7639 if is_us_mode else 1):.2f}"
+                + (" SQFT" if is_us_mode else ' מ"ר חדש'),
             )
 
             b_rows = [{
@@ -1345,8 +1471,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "תמונת סמל": "",
                 "image_uri": "",
                 "תיאור הפריט": (
-                    f"הריסת מחיצות קיימות (כולל פינוי אתר, גובה {b_wall_h}"
-                    " מ')"
+                    f"הריסת מחיצות קיימות (כולל פינוי אתר, גובה {b_wall_h})"
                 ),
                 "כמות מאושרת": round(demolition_m * b_wall_h, 2),
                 "יחידת מידה": 'מ"ר הריסה',
@@ -1354,9 +1479,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "מס'": 2,
                 "תמונת סמל": "",
                 "image_uri": "",
-                "תיאור הפריט": (
-                    f"בניית מחיצות חדשות (בלוק/גבס, גובה {b_wall_h} מ')"
-                ),
+                "תיאור הפריט": f"בניית מחיצות חדשות (גובה {b_wall_h})",
                 "כמות מאושרת": round(new_build_m * b_wall_h, 2),
                 "יחידת מידה": 'מ"ר בנייה',
             }]
@@ -1368,8 +1491,16 @@ elif file_type == "📄 PDF / תמונה (Raster)":
           st.subheader("📋 כתב כמויות עצמאי - מחיצות פנים ומעטפת")
           sqm_total = round(lin_exec * b_wall_h, 2)
           c1, c2 = st.columns(2)
-          c1.metric("אורך מחיצות פנים נטו:", f"{lin_exec} מ\"א")
-          c2.metric("שטח מחיצות פנים כולל:", f"{sqm_total} מ\"ר")
+          c1.metric(
+              "אורך מחיצות פנים נטו:",
+              f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} "
+              + ("FT" if is_us_mode else 'מ"א'),
+          )
+          c2.metric(
+              "שטח מחיצות פנים כולל:",
+              f"{sqm_total * (10.7639 if is_us_mode else 1):.2f} "
+              + ("SQFT" if is_us_mode else 'מ"ר'),
+          )
 
           b_rows = [{
               "מס'": 1,
@@ -1382,16 +1513,14 @@ elif file_type == "📄 PDF / תמונה (Raster)":
               "מס'": 2,
               "תמונת סמל": "",
               "image_uri": "",
-              "תיאור הפריט": (
-                  f"שטח מחיצות פנים (גובה {b_wall_h} מ' ספירה עצמאית)"
-              ),
+              "תיאור הפריט": f"שטח מחיצות פנים (גובה {b_wall_h} ספירה עצמאית)",
               "כמות מאושרת": sqm_total,
               "יחידת מידה": 'מ"ר',
           }]
 
         st.session_state["project_boq"][active_disc] = b_rows
-        safe_render_table(b_rows)
-        render_dekel_pricing_widget(b_rows, active_disc)
+        safe_render_table(b_rows, is_us=is_us_mode)
+        render_pricing_widget(b_rows, active_disc, is_us=is_us_mode)
 
         st.markdown("### 📄 שרטוט ביצוע / מוצע מעודכן")
         st.image(
@@ -1457,8 +1586,13 @@ elif file_type == "📄 PDF / תמונה (Raster)":
           )
           p_rows = []
           for idx, r in enumerate(relocs):
+            dist_disp = (
+                f"{r['distance_m'] * 3.28084:.2f} FT"
+                if is_us_mode
+                else f"{r['distance_m']} מ'"
+            )
             exceeded_txt = (
-                " (חריגה מרדיוס 1.5מ' - לחיוב נוסף)"
+                " (חריגה מרדיוס - לחיוב נוסף)"
                 if r["radius_exceeded"]
                 else " (בתוך רדיוס סטנדרט חינם)"
             )
@@ -1467,11 +1601,10 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "תמונת סמל": "",
                 "image_uri": "",
                 "תיאור הפריט": (
-                    f"העתקת {r['type']} (הזזה של {r['distance_m']} מטר)"
-                    f" {exceeded_txt}"
+                    f"העתקת {r['type']} (הזזה של {dist_disp}) {exceeded_txt}"
                 ),
                 "כמות מאושרת": 1,
-                "יחידת מידה": f"יח' ({r['distance_m']} מ')",
+                "יחידת מידה": f"יח' ({dist_disp})",
             })
           for idx, a in enumerate(added):
             p_rows.append({
@@ -1483,15 +1616,14 @@ elif file_type == "📄 PDF / תמונה (Raster)":
                 "יחידת מידה": "יח'",
             })
           st.session_state["project_boq"][active_disc] = p_rows
-          safe_render_table(p_rows)
-          render_dekel_pricing_widget(p_rows, active_disc)
+          safe_render_table(p_rows, is_us=is_us_mode)
+          render_pricing_widget(p_rows, active_disc, is_us=is_us_mode)
 
           st.image(
               cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB),
               caption="כלים סניטריים שזוהו בתוכנית",
           )
         else:
-          # הפעלת מנוע V/X אינסטלציה עצמאי
           fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(
               img_plan, px_meter
           )
@@ -1550,8 +1682,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             raw_plan, res, "plumb_verified"
         )
         st.session_state["project_boq"][active_disc] = rows_p
-        safe_render_table(rows_p)
-        render_dekel_pricing_widget(rows_p, active_disc)
+        safe_render_table(rows_p, is_us=is_us_mode)
+        render_pricing_widget(rows_p, active_disc, is_us=is_us_mode)
 
         st.image(
             cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB),
@@ -1622,13 +1754,15 @@ elif file_type == "📄 PDF / תמונה (Raster)":
           c1, c2 = st.columns(2)
           c1.metric(
               "הפרש ריצוף רצפה נטו:",
-              f"{floor_sqm} מ\"ר",
-              f"{diff_floor:+0.2f} מ\"ר דלתא",
+              f"{floor_sqm * (10.7639 if is_us_mode else 1):.2f} "
+              + ("SQFT" if is_us_mode else 'מ"ר'),
+              f"{diff_floor * (10.7639 if is_us_mode else 1):+.2f} דלתא",
           )
           c2.metric(
               "הפרש חיפוי קירות רטובים:",
-              f"{wet_wall_sqm} מ\"ר",
-              f"{diff_wall:+0.2f} מ\"ר דלתא",
+              f"{wet_wall_sqm * (10.7639 if is_us_mode else 1):.2f} "
+              + ("SQFT" if is_us_mode else 'מ"ר'),
+              f"{diff_wall * (10.7639 if is_us_mode else 1):+.2f} דלתא",
           )
 
           f_rows = [{
@@ -1645,8 +1779,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
               "תמונת סמל": "",
               "image_uri": "",
               "תיאור הפריט": (
-                  f"חיפוי קירות רטובים (גובה {tile_h} מ' | שינוי של {diff_wall}"
-                  " מ\"ר)"
+                  f"חיפוי קירות רטובים (גובה {tile_h} | שינוי של {diff_wall}"
+                  ' מ"ר)'
               ),
               "כמות מאושרת": abs(diff_wall),
               "יחידת מידה": 'מ"ר הפרש',
@@ -1654,9 +1788,21 @@ elif file_type == "📄 PDF / תמונה (Raster)":
         else:
           st.subheader("📐 כתב כמויות עצמאי - ריצוף נטו וחיפוי רטובים")
           c1, c2, c3 = st.columns(3)
-          c1.metric("ריצוף רצפה נטו:", f"{floor_sqm} מ\"ר")
-          c2.metric("היקף קירות חדרים רטובים:", f"{wet_peri_m} מ\"א")
-          c3.metric(f"חיפוי קירות (גובה {tile_h} מ'):", f"{wet_wall_sqm} מ\"ר")
+          c1.metric(
+              "ריצוף רצפה נטו:",
+              f"{floor_sqm * (10.7639 if is_us_mode else 1):.2f} "
+              + ("SQFT" if is_us_mode else 'מ"ר'),
+          )
+          c2.metric(
+              "היקף קירות חדרים רטובים:",
+              f"{wet_peri_m * (3.28084 if is_us_mode else 1):.2f} "
+              + ("FT" if is_us_mode else 'מ"א'),
+          )
+          c3.metric(
+              "חיפוי קירות:",
+              f"{wet_wall_sqm * (10.7639 if is_us_mode else 1):.2f} "
+              + ("SQFT" if is_us_mode else 'מ"ר'),
+          )
 
           f_rows = [{
               "מס'": 1,
@@ -1669,17 +1815,14 @@ elif file_type == "📄 PDF / תמונה (Raster)":
               "מס'": 2,
               "תמונת סמל": "",
               "image_uri": "",
-              "תיאור הפריט": (
-                  f"חיפוי קירות חדרים רטובים (היקף {wet_peri_m} מ\"א *"
-                  f" {tile_h} מ')"
-              ),
+              "תיאור הפריט": f"חיפוי קירות חדרים רטובים (גובה {tile_h})",
               "כמות מאושרת": wet_wall_sqm,
               "יחידת מידה": 'מ"ר',
           }]
 
         st.session_state["project_boq"][active_disc] = f_rows
-        safe_render_table(f_rows)
-        render_dekel_pricing_widget(f_rows, active_disc)
+        safe_render_table(f_rows, is_us=is_us_mode)
+        render_pricing_widget(f_rows, active_disc, is_us=is_us_mode)
 
         st.image(
             cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB),
@@ -1808,8 +1951,8 @@ elif file_type == "📄 PDF / תמונה (Raster)":
             raw_plan, res, "elec_verified"
         )
         st.session_state["project_boq"][active_disc] = rows_e
-        safe_render_table(rows_e)
-        render_dekel_pricing_widget(rows_e, active_disc)
+        safe_render_table(rows_e, is_us=is_us_mode)
+        render_pricing_widget(rows_e, active_disc, is_us=is_us_mode)
 
         st.image(
             cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB),
