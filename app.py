@@ -183,7 +183,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה ריאליסטית: מגדל בניין קם ושורט מנוף (3 שניות)
+# 🚀 אנימציית פתיחה עתידנית וריאליסטית: מגדל ספירלי ומנוף רובוטי (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -198,7 +198,7 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: radial-gradient(circle, #020617 0%, #0f172a 60%, #1e1b4b 100%);
+        background: linear-gradient(135deg, #030712 0%, #0f172a 50%, #311042 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
@@ -207,87 +207,94 @@ if not st.session_state["app_initialized"]:
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .blueprint-grid {
+    .cyber-site {
         position: relative;
         width: 320px;
-        height: 250px;
-        border-bottom: 4px solid #38bdf8;
-        background-image: linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
-        background-size: 20px 20px;
+        height: 260px;
+        border-bottom: 5px solid #38bdf8;
+        background-image: linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+        background-size: 25px 25px;
         margin-bottom: 25px;
         display: flex;
         justify-content: center;
         align-items: flex-end;
     }
-    @keyframes realCraneMove {
-        0% { transform: rotate(-20deg); }
-        50% { transform: rotate(25deg); }
-        100% { transform: rotate(-20deg); }
+    @keyframes roboticArm {
+        0% { transform: rotate(-25deg) translateY(0px); }
+        50% { transform: rotate(15deg) translateY(-10px); }
+        100% { transform: rotate(-25deg) translateY(0px); }
     }
-    @keyframes towerRise {
-        0% { height: 10px; opacity: 0.1; }
-        100% { height: 210px; opacity: 1; }
+    @keyframes spiralRise {
+        0% { height: 15px; opacity: 0.1; transform: scaleX(0.4); }
+        100% { height: 220px; opacity: 1; transform: scaleX(1); }
     }
-    .real-crane {
+    .splash-robotic-arm {
         position: absolute;
-        top: 0;
-        right: 15px;
-        font-size: 75px;
+        top: 5px;
+        right: 10px;
+        font-size: 80px;
         transform-origin: bottom center;
-        animation: realCraneMove 0.8s infinite ease-in-out;
-        filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.9));
+        animation: roboticArm 1.1s infinite ease-in-out;
+        filter: drop-shadow(0 0 15px rgba(56, 189, 248, 0.9));
     }
-    .real-tower {
-        width: 100px;
-        background: linear-gradient(to top, #1e3a8a, #3b82f6, #60a5fa);
-        border-radius: 6px 6px 0 0;
-        animation: towerRise 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
+    .splash-spiral-tower {
+        width: 105px;
+        background: linear-gradient(to top, #1e1b4b, #2563eb, #38bdf8);
+        border-radius: 8px 8px 0 0;
+        animation: spiralRise 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
         box-shadow: 0 0 50px rgba(59, 130, 246, 0.8);
-        border: 2px solid #93c5fd;
+        border: 2px solid #7dd3fc;
         display: flex;
         flex-direction: column;
         justify-content: space-around;
         align-items: center;
-        padding: 8px 0;
+        padding: 10px 0;
     }
-    .floor-window {
-        width: 75px;
+    .holo-panel {
+        width: 80px;
         height: 10px;
-        background-color: #fef08a;
-        box-shadow: 0 0 10px #facc15;
+        background-color: #fde047;
+        box-shadow: 0 0 12px #facc15;
         border-radius: 2px;
     }
     .splash-title {
-        font-size: 40px;
+        font-size: 38px;
         font-weight: bold;
         color: #facc15;
         letter-spacing: 1px;
-        text-shadow: 0 0 15px rgba(250, 204, 21, 0.4);
+        text-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
     }
     .splash-subtitle {
-        font-size: 22px;
-        font-weight: bold;
+        font-size: 20px;
+        font-weight: 600;
         color: #38bdf8;
-        margin-top: 8px;
+        margin-top: 10px;
         text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    }
+    .shot-tag {
+        font-size: 14px;
+        color: #94a3b8;
+        margin-top: 15px;
+        letter-spacing: 2px;
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="blueprint-grid">
-            <div class="real-crane">🏗️</div>
-            <div class="real-tower">
-                <div class="floor-window"></div>
-                <div class="floor-window"></div>
-                <div class="floor-window"></div>
-                <div class="floor-window"></div>
-                <div class="floor-window"></div>
-                <div class="floor-window"></div>
-                <div class="floor-window"></div>
+        <div class="cyber-site">
+            <div class="splash-robotic-arm">🏗️</div>
+            <div class="splash-spiral-tower">
+                <div class="holo-panel"></div>
+                <div class="holo-panel"></div>
+                <div class="holo-panel"></div>
+                <div class="holo-panel"></div>
+                <div class="holo-panel"></div>
+                <div class="holo-panel"></div>
+                <div class="holo-panel"></div>
             </div>
         </div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
         <div class="splash-subtitle">✨ כמויות בראש שקט ✨</div>
+        <div class="shot-tag">מחשבים את העתיד | 0:04s SHOT</div>
     </div>
     """,
       unsafe_allow_html=True,
@@ -1043,12 +1050,15 @@ if st.session_state["app_mode"] is None:
     }
     .top-header-box {
         background: white;
-        padding: 20px 25px;
+        padding: 15px 25px;
         border-radius: 14px;
         border: 2px solid #cbd5e1;
-        max-width: 750px;
+        max-width: 850px;
         margin: 0 auto 30px auto;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
     </style>
     """,
@@ -1072,16 +1082,28 @@ if st.session_state["app_mode"] is None:
   )
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # מלבן עליון מרכזי המרכז את בחירת המיקום והשפה הגלובלית (ללא קווים מיותרים)
+  # מלבן עליון משולב: טקסט משמאל ותיבת בחירה מימין
   st.markdown("<div class='top-header-box'>", unsafe_allow_html=True)
-  home_geo = st.selectbox(
-      "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
-      [
-          "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית)",
-          "🇺🇸 United States (Imperial - Feet & Inches | RSMeans | English)",
-      ],
-      key="home_geo_selector",
-  )
+  col_h1, col_h2 = st.columns([1.2, 1.8])
+  with col_h1:
+    st.markdown(
+        "<span style='font-size: 15px; font-weight: 600; color: #1F4E78;'>🌐"
+        " Choose Region & Language / בחירת אזור:</span>",
+        unsafe_allow_html=True,
+    )
+  with col_h2:
+    home_geo = st.selectbox(
+        "",
+        [
+            "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית) IL",
+            (
+                "🇺🇸 United States (Imperial - Feet & Inches | RSMeans |"
+                " English) US"
+            ),
+        ],
+        key="home_geo_selector",
+        label_visibility="collapsed",
+    )
   st.markdown("</div>", unsafe_allow_html=True)
 
   is_us_home = "🇺🇸 United States" in home_geo
