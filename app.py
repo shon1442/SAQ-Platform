@@ -282,117 +282,47 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
-  st.markdown(
-      """
-    <style>
-    .fullscreen-splash {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-        z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center;
-        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
-        animation: hideSplash 4.2s forwards ease-in-out;
-    }
+  
+  splash_css = ""
+  splash_css += "<style>\n"
+  splash_css += ".fullscreen-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; animation: hideSplash 4.2s forwards ease-in-out; }\n"
+  splash_css += "@keyframes hideSplash { 0% { opacity: 1; visibility: visible; } 85% { opacity: 1; visibility: visible; } 99% { opacity: 0; visibility: visible; } 100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; } }\n"
+  splash_css += ".morning-sun { position: absolute; top: 15%; right: 20%; width: 120px; height: 120px; background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%); border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9; }\n"
+  splash_css += ".sea-layer { position: absolute; bottom: 0; width: 100%; height: 30vh; background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%); box-shadow: 0 -5px 25px rgba(0,0,0,0.2); }\n"
+  splash_css += ".skyline { position: absolute; bottom: 30vh; width: 100%; height: 25vh; background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px), linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%); }\n"
+  splash_css += ".splash-tower { position: absolute; bottom: 10vh; width: 160px; height: 55vh; background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%); box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555; }\n"
+  splash_css += ".crane-system { position: absolute; top: 0; height: 100vh; width: 100vw; display: flex; justify-content: center; }\n"
+  splash_css += ".crane-cable { width: 3px; height: 0; background: #333; animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative; }\n"
+  splash_css += ".glass-floor { position: absolute; bottom: -30px; left: -82px; width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5); }\n"
+  splash_css += "@keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }\n"
+  splash_css += ".dust { position: absolute; background: rgba(255, 255, 255, 0.9); border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1); animation: float 2.5s infinite ease-in-out alternate; }\n"
+  splash_css += "@keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }\n"
+  splash_css += ".splash-text-main { position: absolute; bottom: 14%; font-size: 52px; font-weight: 400; color: #ffffff; letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; animation: textFade 1s 1s forwards ease-in-out; }\n"
+  splash_css += "@keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }\n"
+  splash_css += ".css-progress-container { position: absolute; bottom: 8%; width: 40%; height: 6px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out; }\n"
+  splash_css += ".css-progress-fill { height: 100%; width: 0%; background: #facc15; animation: fillBar 3s 1.2s linear forwards; }\n"
+  splash_css += "@keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }\n"
+  splash_css += "</style>\n"
 
-    @keyframes hideSplash {
-        0% { opacity: 1; visibility: visible; }
-        85% { opacity: 1; visibility: visible; }
-        99% { opacity: 0; visibility: visible; }
-        100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; }
-    }
-
-    .morning-sun {
-        position: absolute; top: 15%; right: 20%;
-        width: 120px; height: 120px;
-        background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
-        border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
-    }
-
-    .sea-layer {
-        position: absolute; bottom: 0; width: 100%; height: 30vh;
-        background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
-    }
-    
-    .skyline {
-        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
-        background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
-                    linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
-    }
-
-    .splash-tower {
-        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
-        background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
-    }
-
-    .crane-system {
-        position: absolute; top: 0; height: 100vh; width: 100vw;
-        display: flex; justify-content: center;
-    }
-    
-    .crane-cable {
-        width: 3px; height: 0; background: #333;
-        animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
-    }
-    
-    .glass-floor {
-        position: absolute; bottom: -30px; left: -82px;
-        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
-    }
-    
-    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
-
-    .dust {
-        position: absolute; background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1);
-        animation: float 2.5s infinite ease-in-out alternate;
-    }
-    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
-
-    .splash-text-main {
-        position: absolute; bottom: 14%;
-        font-size: 52px; font-weight: 400; color: #ffffff;
-        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        opacity: 0; animation: textFade 1s 1s forwards ease-in-out;
-    }
-    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-
-    .css-progress-container {
-        position: absolute; bottom: 8%; width: 40%; height: 6px;
-        background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
-        opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out;
-    }
-    .css-progress-fill {
-        height: 100%; width: 0%; background: #facc15;
-        animation: fillBar 3s 1.2s linear forwards;
-    }
-    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
-    </style>
-
-    <div class="fullscreen-splash" translate="no">
-        <div class="morning-sun"></div>
-        <div class="skyline"></div>
-        <div class="sea-layer"></div>
-        <div class="splash-tower"></div>
-        <div class="crane-system">
-            <div class="crane-cable">
-                <div class="glass-floor"></div>
-                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
-                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
-                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
-                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
-            </div>
-        </div>
-        <div class="splash-text-main">מחשבים את העתיד</div>
-        <div class="css-progress-container">
-            <div class="css-progress-fill"></div>
-        </div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
+  splash_html = "<div class='fullscreen-splash' translate='no'>\n"
+  splash_html += "<div class='morning-sun'></div>\n"
+  splash_html += "<div class='skyline'></div>\n"
+  splash_html += "<div class='sea-layer'></div>\n"
+  splash_html += "<div class='splash-tower'></div>\n"
+  splash_html += "<div class='crane-system'>\n"
+  splash_html += "<div class='crane-cable'>\n"
+  splash_html += "<div class='glass-floor'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -35px; left: -90px; animation-delay: 0.2s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -25px; left: 90px; animation-delay: 0.5s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -45px; left: -30px; animation-delay: 0.8s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -20px; left: 40px; animation-delay: 1.2s;'></div>\n"
+  splash_html += "</div>\n"
+  splash_html += "</div>\n"
+  splash_html += "<div class='splash-text-main'>מחשבים את העתיד</div>\n"
+  splash_html += "<div class='css-progress-container'><div class='css-progress-fill'></div></div>\n"
+  splash_html += "</div>\n"
+  
+  st.markdown(splash_css + splash_html, unsafe_allow_html=True)
 
   time.sleep(4)
   st.session_state["app_initialized"] = True
@@ -410,7 +340,6 @@ def get_pricing_item_cost(desc, unit, is_us=False):
     elif "נקודת" in desc or "Units" in unit or "כלי" in desc or "Fixture" in desc:
       base_price = 180
       
-    # HVAC Pricing US
     if "AC" in desc or "HVAC" in desc: base_price = 1200
     if "Drain" in desc: base_price = 80
     if "Grille" in desc or "Supply" in desc: base_price = 150
@@ -428,7 +357,6 @@ def get_pricing_item_cost(desc, unit, is_us=False):
     elif "נקודת" in desc or "יח'" in unit or "כלי" in desc or "Fixture" in desc:
       unit_price = 450
       
-    # מחירון מיזוג אוויר IL
     if "מזגן" in desc or "מיזוג" in desc: unit_price = 3500
     if "ניקוז" in desc or 'קחז"מ' in desc: unit_price = 250
     if "גריל" in desc or "פתחי" in desc: unit_price = 400
@@ -641,7 +569,6 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
       added.append(f_b)
   return relocations, added, disp_exec
 
-# --- פונקציית דלתא ייעודית למודול מיזוג אוויר ---
 def compare_hvac_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
   fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
   fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
@@ -889,48 +816,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
       })
   return rows, disp_plan
 
-def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=None):
-  if plumbing_centers is None:
-      plumbing_centers = []
-      
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-  
-  kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-  closed_walls = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
-  
-  rooms_img = cv2.bitwise_not(closed_walls)
-  contours, _ = cv2.findContours(rooms_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  
-  total_flooring_sqm = 0.0
-  wet_rooms_perimeter_m = 0.0
-  disp_img = plan_img.copy()
-  
-  for c in contours:
-    area_px = cv2.contourArea(c)
-    min_room_px = (1.0 * px_per_meter) * (1.0 * px_per_meter)
-    max_room_px = (20.0 * px_per_meter) * (20.0 * px_per_meter)
-    
-    if min_room_px <= area_px <= max_room_px:
-      sqm = area_px / (px_per_meter**2)
-      total_flooring_sqm += sqm
-      
-      is_wet_room = False
-      for pc in plumbing_centers:
-          if cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0:
-              is_wet_room = True
-              break
-              
-      peri_m = cv2.arcLength(c, True) / px_per_meter
-      
-      if is_wet_room:
-        wet_rooms_perimeter_m += peri_m
-        cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3) 
-      else:
-        cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2) 
-        
-  wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
-  return (round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img)
 
 def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט", mode_label="שינויי דיירים", is_us=False, include_pricing=True):
   logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
@@ -982,8 +867,8 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
     <body>
     <div class="header-box">
         <div>
-            <h2>🏗️ {title}</h2>
-            <p>{"S.A. Quantities AI | Project Mode:" if is_us else "מערכת S.A. Quantities AI | מצב אתר בניה:"} <b>{mode_label}</b></p>
+            <h2>🏗️ S.A. Quantities AI (S.A.Q)</h2>
+            <p><b>{title}</b> | {"Model:" if is_us else "מודל:"} <b>{mode_label}</b></p>
         </div>
         <div>{logo_html}</div>
     </div>
@@ -1301,7 +1186,7 @@ with col_t:
 
 
 # ========================================================
-# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub)
+# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub) - ייצוא ושמירה
 # ========================================================
 if st.session_state.get("show_master_export", False):
   st.markdown("---")
@@ -1349,6 +1234,7 @@ if st.session_state.get("show_master_export", False):
 
     st.markdown("<br>", unsafe_allow_html=True)
     
+    # כפתור גדול - שמור וסיים
     c_save, c_back = st.columns(2)
     with c_save:
         if st.button("✅ Save, Finish & Start New" if is_us_mode else "✅ שמור וסיים חישוב (התחל מחדש)", use_container_width=True):
@@ -1372,8 +1258,11 @@ if st.session_state.get("show_master_export", False):
   st.markdown("---")
   st.subheader("📦 Export Options" if is_us_mode else "📦 אפשרויות ייצוא דוחות")
   
-  html_with_price = generate_master_export_html(st.session_state["project_boq"], title=f"Master BOQ + Pricing - {mode_lbl}", mode_label=mode_lbl, is_us=is_us_mode, include_pricing=True)
-  html_no_price = generate_master_export_html(st.session_state["project_boq"], title=f"Takeoff Quantities Only - {mode_lbl}", mode_label=mode_lbl, is_us=is_us_mode, include_pricing=False)
+  t_price = "Master BOQ + Pricing" if is_us_mode else "דוח כמויות ותמחור מקיף"
+  t_no_price = "Takeoff Quantities Only" if is_us_mode else "דוח כמויות נטו (ללא תמחור)"
+  
+  html_with_price = generate_master_export_html(st.session_state["project_boq"], title=t_price, mode_label=mode_lbl, is_us=is_us_mode, include_pricing=True)
+  html_no_price = generate_master_export_html(st.session_state["project_boq"], title=t_no_price, mode_label=mode_lbl, is_us=is_us_mode, include_pricing=False)
   
   col_ex1, col_ex2 = st.columns(2)
   with col_ex1:
@@ -1393,21 +1282,7 @@ elif "📄" in file_type:
   
   is_tenant = mode_lbl in ["Tenant_CO", "שינויי דיירים"]
 
-  if is_tenant:
-    st.markdown("### 👷‍♂️ Change Orders (COs): Base vs Proposed Comparison" if is_us_mode else "### 👷‍♂️ מודל שינויי דיירים: השוואת שרטוט שינויים מול סטנדרט מכר")
-    tenant_timing = st.radio(
-        "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
-        ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
-        horizontal=True,
-    )
-  else:
-    st.markdown("### 🔨 Renovation Contractors: Demolition & New Build Takeoff" if is_us_mode else "### 🔨 מודל קבלני שיפוצים: חישוב כתב כמויות (עצמאי או לאחר הריסה)")
-    reno_timing = st.radio(
-        "⏱️ Renovation Type:" if is_us_mode else "⏱️ מצב עבודה לשיפוץ:",
-        ["Independent Takeoff (Proposed Only)", "Demolition Takeoff (Proposed vs As-Is)"] if is_us_mode else ["חישוב עצמאי ללא הריסה (תוכנית מוצעת בלבד)", "חישוב לאחר הריסה (תוכנית מוצעת מול מצב קיים / הריסות)"],
-        horizontal=True,
-    )
-
+  # הוסר רדיו באטון והכותרות המיותרות כדי לנקות את הממשק כמו שביקשת
   st.markdown("<br>", unsafe_allow_html=True)
 
   # ----------------------------------------------------
@@ -1521,7 +1396,7 @@ elif "📄" in file_type:
         st.markdown("### 📄 Updated Proposed Plan" if is_us_mode else "### 📄 תוכנית מצב סופי מעובדת")
         st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט", use_container_width=True)
     else:
-      st.info("ℹ️ Please upload at least the Proposed plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית הבניה המיועדת.")
+      st.info("ℹ️ Please input the construction plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית הבניה.")
 
   # ----------------------------------------------------
   # 2. 🚿 מודול אינסטלציה
@@ -1611,7 +1486,7 @@ elif "📄" in file_type:
         render_pricing_widget(rows_p, disciplines_dict[curr_key], is_us=is_us_mode)
         st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא", use_container_width=True)
     else:
-      st.info("ℹ️ Please upload at least the plumbing plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית האינסטלציה.")
+      st.info("ℹ️ Please input the plumbing plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית האינסטלציה.")
 
   # ----------------------------------------------------
   # 3. 📐 מודול ריצוף וחיפוי קירות
@@ -1685,7 +1560,7 @@ elif "📄" in file_type:
         render_pricing_widget(f_rows, disciplines_dict[curr_key], is_us=is_us_mode)
         st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)", use_container_width=True)
     else:
-      st.info("ℹ️ Please upload at least the flooring plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית הריצוף.")
+      st.info("ℹ️ Please input the flooring plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית הריצוף.")
 
   # ----------------------------------------------------
   # 4. ⚡ מודול חשמל ומאור
@@ -1751,7 +1626,7 @@ elif "📄" in file_type:
         render_pricing_widget(rows_e, disciplines_dict[curr_key], is_us=is_us_mode)
         st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)", use_container_width=True)
     else:
-      st.info("ℹ️ Please upload at least the electrical plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית החשמל לחישוב.")
+      st.info("ℹ️ Please input the electrical plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית החשמל.")
 
   # ----------------------------------------------------
   # 5. ❄️ מודול מיזוג אוויר ותשתיות (חדש)
@@ -1826,7 +1701,7 @@ elif "📄" in file_type:
                   "index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m,
               })
           else:
-            h_p, w_p = plan_inv.shape
+            h_p, w_p = img_plan.shape[:2]
             sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
             if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: 
                 sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
@@ -1849,10 +1724,10 @@ elif "📄" in file_type:
         render_pricing_widget(rows_h, disciplines_dict[curr_key], is_us=is_us_mode)
         st.image(cv2.cvtColor(disp_h, cv2.COLOR_BGR2RGB), caption="HVAC Units & Drains (Verified)" if is_us_mode else "יחידות מיזוג וקחז\"מ בשרטוט (לאחר וידוא)", use_container_width=True)
     else:
-      st.info("ℹ️ Please upload at least the HVAC plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית המיזוג לחישוב.")
+      st.info("ℹ️ Please input the HVAC plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית המיזוג.")
 
   # ========================================================
-  # 🏁 כפתורי סיום פרויקט ומעבר דיסציפלינה
+  # 🏁 כפתורי מעבר בין תוכניות בתחתית הדף
   # ========================================================
   st.markdown("---")
   c_next, c_fin = st.columns([2, 1])
