@@ -171,17 +171,10 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
       return False, msg
       
   try:
-    h, w = img.shape[:2]
-    # רזולוציה נמוכה לעיבוד סופר-מהיר (0.05 שניות) שמונע תקיעות של השרת
-    max_dim = 800
-    if max(h, w) > max_dim:
-        scale = max_dim / max(h, w)
-        img_small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    else:
-        img_small = img.copy()
-
-    gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+    # עבודה על עותק התמונה כפי שהיא (שנחתכה כבר ב-load_raster ל-4 מגה-פיקסל) כדי לא לאבד קווים
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
+    _, thresh = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
     lines = 0
@@ -190,36 +183,35 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
     
     for c in contours:
         area = cv2.contourArea(c)
-        if area < 5: continue
+        if area < 10: continue
         
         x_c, y_c, w_c, h_c = cv2.boundingRect(c)
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        # 1. מחיצות וקירות (קווים ארוכים וצרים)
-        if max(w_c, h_c) > 40 and ratio > 4:
+        # 1. קווים ארוכים למחיצות/קירות בניה
+        if max(w_c, h_c) > 50 and ratio > 5:
             lines += 1
             
-        # 2. סמלי חשמל ומאור (שימוש בנוסחת Circularity כדי לסנן טקסטים וקווים ישרים)
+        # 2. סמלי חשמל ומאור (שימוש בנוסחת Circularity לזיהוי עיגולים)
         peri = cv2.arcLength(c, True)
         if peri > 0:
             circularity = 4 * math.pi * (area / (peri * peri))
-            # סמלי חשמל נוטים להיות עגולים או קרובים לעיגול
-            if 0.65 < circularity <= 1.2 and 5 < w_c < 80:
+            if 0.5 < circularity <= 1.2 and 8 < w_c < 70 and 8 < h_c < 70:
                 circular_symbols += 1
                 
-        # 3. כלים סניטריים (בלוקים בינוניים-גדולים בייחס נמוך)
-        if 20 < w_c < 150 and 20 < h_c < 150 and ratio < 2.5 and area > 400:
+        # 3. כלים סניטריים (בלוקים בינוניים-גדולים)
+        if 30 < w_c < 250 and 30 < h_c < 250 and ratio < 3 and area > 500:
             plumbing_fixtures += 1
 
-    # החלטת הבלמה המבוססת על הגיאומטריה הפיזית בשרטוט
+    # תנאי החסימה מוגדרים בצורה סלחנית כדי לא לחסום סתם תוכניות תקינות
     if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols (No circular fixtures detected). Did you upload a blank architecture plan?" 
-               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
+        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols. Did you upload a blank architecture plan?" 
+               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית בניה ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
         return False, msg
         
-    elif expected_disc == "cons" and lines < 3:
+    elif expected_disc == "cons" and lines < 5:
         msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
         return False, msg
         
     elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
@@ -229,7 +221,7 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
 
     return True, ""
   except Exception as e:
-    # במקרה נדיר של שגיאת תמונה, נותנים לזה לעבור כדי לא לחסום משתמש תקין
+    # מונע מצב שקריסת OpenCV חוסמת למשתמש את הגישה
     return True, ""
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
@@ -252,7 +244,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS (מניעת קריסות הדפדפן)
+# 🚀 אנימציית פתיחה CSS
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
@@ -361,7 +353,7 @@ if "splash_shown" not in st.session_state:
                 <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
             </div>
         </div>
-        <div class="splash-text-main">בונים את העתיד</div>
+        <div class="splash-text-main">מחשבים את העתיד</div>
         <div class="css-progress-container">
             <div class="css-progress-fill"></div>
         </div>
@@ -1607,4 +1599,3 @@ elif "📄" in file_type:
     for i, d_target in enumerate(rem_keys):
       if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
         set_discipline_programmatically(d_target)
-        
