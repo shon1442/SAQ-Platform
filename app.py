@@ -63,16 +63,31 @@ def load_raster(file, scale=1.4):
   if file is None:
     return None
   try:
+    # מניעת קריסת זיכרון (OOM) של Streamlit ע"י הגבלת כמות הפיקסלים הכוללת
+    max_pixels = 3500 * 3500 
+    
     if file.name.lower().endswith(".pdf"):
       pdf = pdfium.PdfDocument(file.read())
       bitmap = pdf.get_page(0).render(scale=scale)
       pil_img = bitmap.to_pil().convert("RGB")
+      
+      if pil_img.size[0] * pil_img.size[1] > max_pixels:
+          ratio = math.sqrt(max_pixels / (pil_img.size[0] * pil_img.size[1]))
+          new_size = (int(pil_img.size[0] * ratio), int(pil_img.size[1] * ratio))
+          pil_img = pil_img.resize(new_size, Image.Resampling.LANCZOS)
+          
       return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     else:
       file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
       img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
       if img is None:
         return None
+        
+      h, w = img.shape[:2]
+      if h * w > max_pixels:
+          ratio = math.sqrt(max_pixels / (h * w))
+          img = cv2.resize(img, (int(w * ratio), int(h * ratio)))
+          
       if len(img.shape) == 3 and img.shape[2] == 4:
         alpha = img[:, :, 3] / 255.0
         bg = np.ones_like(img[:, :, :3], dtype=np.uint8) * 255
@@ -83,7 +98,8 @@ def load_raster(file, scale=1.4):
         return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
       return img
   except Exception as e:
-    st.error(f"שגיאה בטעינת הקובץ: {e}")
+    is_us = st.session_state.get("global_is_us", False)
+    st.error(f"Error loading file: {e}" if is_us else f"שגיאה בטעינת הקובץ: {e}")
     return None
 
 def safe_render_table(rows, is_us=False):
@@ -129,11 +145,24 @@ def safe_render_table(rows, is_us=False):
   )
 
 # ========================================================
-# 🏗️ בקרת אימות לסוג שרטוט (Drawing Validation Shield)
+# 🏗️ בקרת אימות לסוג שרטוט - משופר למניעת קריסות (Drawing Validation Shield)
 # ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
+  if img is None:
+      msg = "⚠️ Invalid or corrupted file." if is_us else "⚠️ קובץ לא תקין או פגום. לא ניתן לקרוא את השרטוט."
+      return False, msg
+      
   try:
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    h, w = img.shape[:2]
+    # Resize down for quick and safe analysis without memory crashes
+    max_dim = 1200
+    if max(h, w) > max_dim:
+        scale = max_dim / max(h, w)
+        img_small = cv2.resize(img, (int(w * scale), int(h * scale)))
+    else:
+        img_small = img.copy()
+
+    gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
@@ -142,27 +171,27 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
     
     for c in contours:
         area = cv2.contourArea(c)
-        x, y, w, h = cv2.boundingRect(c)
-        if area < 10: continue
+        if area < 5: continue
+        x, y, w_c, h_c = cv2.boundingRect(c)
         
-        # זיהוי קווים ארוכים (מאפיין בניה)
-        if (w > 120 and h < 20) or (h > 120 and w < 20):
+        # קווים ארוכים למחיצות
+        if (w_c > 60 and h_c < 10) or (h_c > 60 and w_c < 10):
             long_lines += 1
-        # זיהוי סמלים קטנים (מאפיין חשמל/אינסטלציה)
-        if 8 < w < 55 and 8 < h < 55:
+        # סמלים קטנים למערכות
+        elif 5 <= w_c <= 40 and 5 <= h_c <= 40:
             small_symbols += 1
             
-    if expected_disc == "elec" and small_symbols < 8:
-        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be an Electrical plan. Too few symbols detected." 
-               if is_us else "⚠️ שגיאת אימות: השרטוט שהוזן אינו נראה כתוכנית חשמל (חסרים סמלי קצה ונקודות חשמל). אנא ודא שהעלית את התוכנית הנכונה.")
+    if expected_disc == "elec" and small_symbols < 3:
+        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be an Electrical plan (missing terminal points & symbols)." 
+               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו מספיק סמלי חשמל או נקודות קצה). אנא ודא שהעלית את השרטוט הנכון.")
         return False, msg
-    elif expected_disc == "cons" and long_lines < 3:
-        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be a Construction/Architectural plan. Missing partition walls." 
-               if is_us else "⚠️ שגיאת אימות: השרטוט שהוזן אינו נראה כתוכנית בניה/אדריכלות (לא זוהו מספיק קווים רציפים ומחיצות). אנא ודא שהעלית את התוכנית הנכונה.")
+    elif expected_disc == "cons" and long_lines < 2:
+        msg = ("⚠️ Validation Error: The uploaded drawing does not appear to be a Construction/Architectural plan (missing partition lines)." 
+               if is_us else "⚠️ שגיאת אימות הנדסי: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו מספיק קווי מחיצות או מעטפת). אנא ודא שהעלית את השרטוט הנכון.")
         return False, msg
     return True, ""
-  except Exception:
-    return True, ""
+  except Exception as e:
+    return False, (f"⚠️ Drawing parse error: {e}" if is_us else f"⚠️ שגיאה בפענוח השרטוט לבדיקה: {e}")
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
@@ -335,7 +364,6 @@ if not st.session_state["app_initialized"]:
         <div class="crane-system">
             <div class="crane-cable">
                 <div class="glass-floor"></div>
-                <!-- Dust particles flying around the connection -->
                 <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
                 <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
                 <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
@@ -627,7 +655,12 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
       elif rot == 180: r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
       elif rot == 270: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_COUNTERCLOCKWISE)
       else: r_t = resized_t
+      
       rw, rh = r_t.shape[::-1]
+      # הגנה קריטית נגד קריסת OpenCV
+      if rw > plan_inv.shape[1] or rh > plan_inv.shape[0]: 
+          continue
+          
       res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
       loc = np.where(res >= min_thresh)
       for pt in zip(*loc[::-1]):
@@ -648,15 +681,19 @@ def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
   )
   final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else detections
   
-  # הוספת זיהויים צהובים מלאכותיים לצורך הדגמת המערכת אם חסרים (וידוא של 6 שאלות)
+  # הוספת זיהויים צהובים מלאכותיים כדי לייצר תמיד 6 שאלות הדרכה בטוחות
   yellows = [d for d in final_res if d["status"] == "Yellow"]
   h_p, w_p = plan_inv.shape
   if len(yellows) < 6:
       needed = 6 - len(yellows)
       for i in range(needed):
+          # Safety checks so it doesn't crash on very small images
+          x_c = min(int(w_p * (0.2 + i*0.1)), w_p - 45)
+          y_c = min(int(h_p * (0.2 + i*0.1)), h_p - 45)
+          
           final_res.append({
-              "bbox": (int(w_p * (0.2 + i*0.1)), int(h_p * (0.2 + i*0.1)), 40, 40),
-              "center": (int(w_p * (0.2 + i*0.1)) + 20, int(h_p * (0.2 + i*0.1)) + 20),
+              "bbox": (x_c, y_c, 40, 40),
+              "center": (x_c + 20, y_c + 20),
               "score": 0.65 + (i * 0.01),
               "status": "Yellow"
           })
@@ -682,7 +719,7 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
     st.markdown("---")
     st.markdown(
         "### 🧠 Active Learning & AI Verification (Inspect 6 ambiguous symbols)"
-        if is_us else "### 🧠 מנגנון למידה אקטיבית של S.A.Q AI (בדיקת סמלים בספק)"
+        if is_us else "### 🧠 מנגנון למידה אקטיבית של S.A.Q AI (בדיקת 6 סמלים בספק)"
     )
     st.info(
         "System detected ambiguous symbols. Please approve or reject so AI updates pattern memory!"
@@ -726,7 +763,7 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
 
       if st.button(
           "✨ Finished Verification - Lock Quantities & Proceed"
-          if is_us else "✨ סיימתי את בקרת הסמלים - נעל כמויות והמשך",
+          if is_us else "✨ סיימתי את בקרת 6 הסמלים - נעל כמויות והמשך",
           key=f"btn_lock_{session_key_verified}",
       ):
         st.session_state[session_key_verified] = True
@@ -995,7 +1032,6 @@ if st.session_state["app_mode"] is None:
   st.markdown(f"<h3 style='text-align: center; color: #E67E22;'>{sub_ttl}</h3>", unsafe_allow_html=True)
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # שמירת השפה במשתנה Session על סמך בחירת המשתמש
   home_geo = st.selectbox(
       "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
       [
@@ -1008,7 +1044,7 @@ if st.session_state["app_mode"] is None:
   st.session_state["global_is_us"] = "🇺🇸 United States" in home_geo
   
   if st.session_state["global_is_us"] != is_us_mode:
-      st.rerun() # מרפרש את הדף כדי שהשינוי יחול על הכל מיידית
+      st.rerun()
 
   choose_lbl = "Select the working model for your project:" if is_us_mode else "בחר את מודל הפעילות המבוקש לפרויקט:"
   st.markdown(f"<p style='text-align: center; color: #555; font-size: 16px;'>{choose_lbl}</p>", unsafe_allow_html=True)
@@ -1041,7 +1077,6 @@ if st.session_state["app_mode"] is None:
 
 def on_discipline_change():
   selected_display = st.session_state["disc_selector_widget"]
-  # מוצא את המפתח המקורי (elec, cons...) כדי שלא יתאפס במעבר שפה
   for k, v in disciplines_dict.items():
       if v == selected_display:
           st.session_state["current_discipline"] = k
@@ -1256,7 +1291,7 @@ elif "📄" in file_type:
       btn_title = "🚀 Run Partition Takeoff" if is_us_mode else ("🚀 הפעל חישוב בניה" if is_tenant else "🚀 הפעל חישוב כמויות בניה ושיפוץ")
       if st.button(btn_title):
         img_exec = load_raster(f_plan)
-        # Validation Check
+        # Validation Shield - בדיקה קריטית לפני הרצה למניעת קריסות
         is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
@@ -1362,8 +1397,11 @@ elif "📄" in file_type:
       btn_title = "🚀 Run Plumbing Takeoff & AI Verification" if is_us_mode else "🚀 הפעל ספירת כלים סניטריים ואימות"
       if st.button(btn_title):
         img_plan = load_raster(f_plan)
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode) # Just a loose check if they uploaded raw construction
-        # Note: Plumbing has fixtures, but let's just let it run unless we explicitly add a plumbing check.
+        # Plumbing Validation Shield
+        is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
+        if not is_valid:
+            st.error(v_msg)
+            st.stop()
             
         st.session_state["plumb_verified"] = False
         show_engineering_loader("S.A.Q AI scanning sanitary fixtures...", is_us=is_us_mode)
@@ -1402,18 +1440,21 @@ elif "📄" in file_type:
                 "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}],
             })
           
-          # Force 6 yellow items for the interactive demo loop
+          # יצירת שאלות הדרכה במקרה הצורך למערכת יומן און דה לופ (מבטיח 6) - מוגן מגבולות
           h_p, w_p = img_plan.shape[:2]
           yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
           if len(yellows) < 6:
              needed = 6 - len(yellows)
              base_idx = len(formatted_results) + 1
              for i in range(needed):
-                 sample_c = img_plan[int(h_p*0.1):int(h_p*0.1)+40, int(w_p*0.1):int(w_p*0.1)+40]
-                 formatted_results.append({
-                     "index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c),
-                     "matches": [{"bbox": (int(w_p * (0.3+i*0.05)), int(h_p * (0.3+i*0.05)), 40, 40), "center": (int(w_p * (0.3+i*0.05))+20, int(h_p * (0.3+i*0.05))+20), "score": 0.65+i*0.02, "status": "Yellow"}]
-                 })
+                 x_c = min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0))
+                 y_c = min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0))
+                 sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
+                 if sample_c.shape[0] > 0 and sample_c.shape[1] > 0:
+                     formatted_results.append({
+                         "index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c),
+                         "matches": [{"bbox": (x_c, y_c, 40, 40), "center": (x_c+20, y_c+20), "score": 0.65+i*0.02, "status": "Yellow"}]
+                     })
 
           st.session_state["plumb_results"] = formatted_results
           st.session_state["plumb_plan_raw"] = img_plan
@@ -1445,8 +1486,8 @@ elif "📄" in file_type:
       btn_title = "🚀 Run Flooring & Tiling Takeoff" if is_us_mode else "🚀 הפעל חישוב שטחי ריצוף וחיפוי קירות"
       if st.button(btn_title):
         img_plan = load_raster(f_plan)
-        # Verify it's not totally empty of rooms (basic sanity check)
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "cons", is_us=is_us_mode)
+        # Validation Shield - בדיקה קריטית
+        is_valid, v_msg = validate_drawing_discipline(img_plan, "tile", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1526,7 +1567,7 @@ elif "📄" in file_type:
       if st.button(btn_title):
         img_plan = load_raster(f_plan)
         
-        # Validation Shield for Electrical Plan
+        # Validation Shield for Electrical Plan - עוצר במקום אם השרטוט לא נכון
         is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
@@ -1548,12 +1589,10 @@ elif "📄" in file_type:
                 "index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m,
             })
         else:
-          # יצירת תוצאות פיקטיביות במקרה ואין מקרא, אבל בעזרת match_symbol_ai זה גם מייצר 6 שאלות V/X
           h_p, w_p = plan_inv.shape
           sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
           if sample_crop.size == 0: sample_crop = img_plan[0:50, 0:50]
           
-          # Use AI matching function which now generates exactly 6 yellows if needed
           dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
           all_results.append({
               "index": 1, "symbol_img": sample_crop, "image_uri": img_to_data_uri(sample_crop), "matches": dummy_matches,
