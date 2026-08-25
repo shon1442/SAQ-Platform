@@ -42,7 +42,6 @@ st.set_page_config(
 # ========================================================
 app_mode = st.session_state.get("app_mode")
 
-# יצירת מחרוזות CSS ללא רווחים בתחילת שורה כדי ש-Streamlit לא יהפוך אותן לטקסט
 css_code = ""
 css_code += "<meta name='google' content='notranslate'>\n"
 css_code += "<style>\n"
@@ -51,7 +50,6 @@ css_code += ".stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-se
 css_code += ".block-container { padding-top: 2rem !important; max-width: 95% !important; }\n"
 css_code += "section[data-testid='stSidebar'] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important; border-right: 1px solid #334155; box-shadow: 2px 0 15px rgba(0,0,0,0.1); }\n"
 css_code += "section[data-testid='stSidebar'] * { color: #f8fafc !important; }\n"
-# התיקון הקריטי לצבע הטקסט בתוך ההתראות בסיידבר
 css_code += "section[data-testid='stSidebar'] div[data-testid='stAlert'] * { color: #0f172a !important; font-weight: 600 !important; }\n"
 css_code += "section[data-testid='stSidebar'] div[data-baseweb='select'] > div, section[data-testid='stSidebar'] input { background-color: #334155 !important; border: 1px solid #475569 !important; border-radius: 8px !important; color: white !important; }\n"
 css_code += "h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }\n"
@@ -209,9 +207,13 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         img_small = img.copy()
 
     gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
+    if len(contours) > 1500:
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1500]
+        
     lines = 0
     circular_symbols = 0
     plumbing_fixtures = 0
@@ -223,7 +225,7 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         x_c, y_c, w_c, h_c = cv2.boundingRect(c)
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        if max(w_c, h_c) > 40 and ratio > 4:
+        if max(w_c, h_c) > 40 and ratio > 3.5:
             lines += 1
             
         peri = cv2.arcLength(c, True)
@@ -240,9 +242,9 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
                if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
         return False, msg
         
-    elif expected_disc == "cons" and lines < 5:
+    elif expected_disc == "cons" and lines < 3:
         msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
         return False, msg
         
     elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
@@ -274,7 +276,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS טהור ללא השהיות או קריסות
+# 🚀 אנימציית פתיחה CSS (מחשבים את העתיד)
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
@@ -747,29 +749,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
       })
   return rows, disp_plan
 
-def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=[]):
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  _, thresh = cv2.threshold(gray, 225, 255, cv2.THRESH_BINARY)
-  contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-  total_flooring_sqm = 0.0
-  wet_rooms_perimeter_m = 0.0
-  disp_img = plan_img.copy()
-  for c in contours:
-    area_px = cv2.contourArea(c)
-    min_room_px = (1.2 * px_per_meter) * (1.2 * px_per_meter)
-    max_room_px = (15.0 * px_per_meter) * (15.0 * px_per_meter)
-    if min_room_px <= area_px <= max_room_px:
-      sqm = area_px / (px_per_meter**2)
-      total_flooring_sqm += sqm
-      is_wet_room = any(cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0 for pc in plumbing_centers)
-      peri_m = cv2.arcLength(c, True) / px_per_meter
-      if is_wet_room:
-        wet_rooms_perimeter_m += peri_m
-        cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3)
-      else:
-        cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2)
-  wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
-  return (round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img)
 
 def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט", mode_label="שינויי דיירים", is_us=False):
   logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
@@ -885,6 +864,15 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
     """
   return html
 
+def reset_project_state():
+    st.session_state["project_boq"] = {k: [] for k in disciplines_keys}
+    keys_to_clear = [
+        "elec_results", "elec_plan_raw", "elec_verified",
+        "plumb_results", "plumb_plan_raw", "plumb_verified",
+        "show_master_export"
+    ]
+    for key in keys_to_clear:
+        st.session_state.pop(key, None)
 
 if "global_is_us" not in st.session_state:
     st.session_state["global_is_us"] = False
@@ -909,15 +897,16 @@ if "current_discipline" not in st.session_state:
 if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
+if "saved_quotes" not in st.session_state:
+    st.session_state["saved_quotes"] = []
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (עיצוב חדש לחלוטין)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
 
 if st.session_state["app_mode"] is None:
-  
   home_css = ""
   home_css += "<style>\n"
   home_css += "div[data-testid='stSelectbox'] { background: white; padding: 15px 25px; border-radius: 14px; border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }\n"
@@ -971,6 +960,7 @@ if st.session_state["app_mode"] is None:
     )
     if st.button(tenant_btn_txt, use_container_width=True, key="btn_mode_tenant"):
       st.session_state["app_mode"] = "Tenant_CO" if is_us_mode else "שינויי דיירים"
+      reset_project_state()
       st.rerun()
 
   with col_m2:
@@ -981,6 +971,7 @@ if st.session_state["app_mode"] is None:
     )
     if st.button(reno_btn_txt, use_container_width=True, key="btn_mode_reno"):
       st.session_state["app_mode"] = "Renovation" if is_us_mode else "קבלני שיפוצים"
+      reset_project_state()
       st.rerun()
 
   st.stop()
@@ -1017,15 +1008,9 @@ with st.sidebar:
   if has_logo:
     st.image(LOGO_PATH, use_container_width=True)
 
-  sb_css = ""
-  sb_css += "<style>\n"
-  sb_css += "section[data-testid='stSidebar'] div.stButton > button { background: transparent !important; border: 1px solid #475569 !important; box-shadow: none !important; color: #f8fafc !important; }\n"
-  sb_css += "section[data-testid='stSidebar'] div.stButton > button:hover { background: rgba(255,255,255,0.1) !important; border-color: #cbd5e1 !important; }\n"
-  sb_css += "</style>\n"
-  st.markdown(sb_css, unsafe_allow_html=True)
-
   if st.button("🏠 Back to Home" if is_us_mode else "🏠 חזרה למסך הבית (בחירת מודל)", use_container_width=True):
     st.session_state["app_mode"] = None
+    reset_project_state()
     st.rerun()
 
   st.markdown("---")
@@ -1084,6 +1069,22 @@ with st.sidebar:
   if st.button("📑 Open Master BOQ Hub" if is_us_mode else "📑 פתח מרכז דוחות פרויקט מלא", use_container_width=True):
     st.session_state["show_master_export"] = True
     st.rerun()
+    
+  # הצעות מחיר היסטוריות בסיידבר
+  st.markdown("---")
+  st.markdown("### 📁 Saved Quotes" if is_us_mode else "### 📁 הצעות מחיר שמורות")
+  with st.expander("View History" if is_us_mode else "צפה בהיסטוריה", expanded=False):
+      if not st.session_state["saved_quotes"]:
+          st.info("No saved quotes." if is_us_mode else "אין עדיין הצעות מחיר שמורות.")
+      else:
+          for i, q in enumerate(reversed(st.session_state["saved_quotes"])):
+              st.markdown(f"**{q['date']}**<br><span style='font-size:0.9em; color:#94a3b8;'>{q['model']}</span>", unsafe_allow_html=True)
+              st.markdown(f"<h4 style='margin-top:0; color:#3b82f6;'>{q['total']:,.2f} {q['currency']}</h4>", unsafe_allow_html=True)
+              st.markdown("<hr style='margin: 8px 0; border-color: #475569;'>", unsafe_allow_html=True)
+          
+          if st.button("Clear History" if is_us_mode else "נקה היסטוריה", key="clear_quotes_btn"):
+              st.session_state["saved_quotes"] = []
+              st.rerun()
 
 
 col_l, col_t = st.columns([1, 8])
@@ -1097,7 +1098,7 @@ with col_t:
 
 
 # ========================================================
-# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub)
+# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub) + שמירת הצעת מחיר
 # ========================================================
 if st.session_state.get("show_master_export", False):
   st.markdown("---")
@@ -1142,6 +1143,21 @@ if st.session_state.get("show_master_export", False):
     col_pr1.metric(f"{lbl_c1} [{currency_sign}]", f"{total_proj_pricing:,.2f} {currency_sign}")
     col_pr2.metric(f"{tax_label} [{currency_sign}]", f"{proj_tax:,.2f} {currency_sign}")
     col_pr3.metric(f"{lbl_c3} [{currency_sign}]", f"{proj_total_with_tax:,.2f} {currency_sign}")
+
+    st.markdown("---")
+    
+    # כפתור חדש לשמירת הצעת מחיר
+    col_save, _ = st.columns([1, 2])
+    with col_save:
+        if st.button("💾 Save Quote to History" if is_us_mode else "💾 שמור הצעת מחיר זו למערכת"):
+            now_str = time.strftime("%d/%m/%Y %H:%M")
+            st.session_state["saved_quotes"].append({
+                "date": now_str,
+                "model": mode_lbl,
+                "total": proj_total_with_tax,
+                "currency": currency_sign
+            })
+            st.success("Quote saved to Command Center!" if is_us_mode else "הצעת המחיר נשמרה בהצלחה! (תוכל לראותה בסרגל הכלים בצד)")
 
   st.markdown("---")
   st.subheader("📦 Export Branded S.A.Q Report" if is_us_mode else "📦 ייצוא דוח ממותג סופי")
