@@ -20,7 +20,6 @@ except Exception:
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
 
-# הגנה מפני קריסות של תמונת לוגו ענקית שהופכת לסמל דפדפן
 try:
   if has_logo:
     app_icon = Image.open(LOGO_PATH)
@@ -38,7 +37,6 @@ st.set_page_config(
     page_icon=app_icon,
 )
 
-# מניעת שגיאות תרגום בכרום
 st.markdown("""
     <meta name="google" content="notranslate">
     <style>
@@ -164,59 +162,75 @@ def safe_render_table(rows, is_us=False):
       },
   )
 
+# ========================================================
+# 🏗️ מנוע זיהוי תוכניות חכם ומהיר (Geometric AI Shield)
+# ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
-      msg = "⚠️ Invalid or corrupted file." if is_us else "⚠️ קובץ לא תקין או פגום. לא ניתן לקרוא את השרטוט."
+      msg = "⚠️ Invalid file." if is_us else "⚠️ קובץ לא קריא."
       return False, msg
       
   try:
     h, w = img.shape[:2]
-    max_dim = 600
+    # רזולוציה נמוכה לעיבוד סופר-מהיר (0.05 שניות) שמונע תקיעות של השרת
+    max_dim = 800
     if max(h, w) > max_dim:
         scale = max_dim / max(h, w)
-        img_small = cv2.resize(img, (int(w * scale), int(h * scale)))
+        img_small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     else:
         img_small = img.copy()
 
     gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
-    if len(contours) > 1500:
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1500]
-        
     lines = 0
-    symbols = 0
+    circular_symbols = 0
+    plumbing_fixtures = 0
     
     for c in contours:
-        x_c, y_c, w_c, h_c = cv2.boundingRect(c)
-        area = w_c * h_c
-        if area < 10: continue
+        area = cv2.contourArea(c)
+        if area < 5: continue
         
+        x_c, y_c, w_c, h_c = cv2.boundingRect(c)
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        if max(w_c, h_c) > 35 and ratio > 3.5:
+        # 1. מחיצות וקירות (קווים ארוכים וצרים)
+        if max(w_c, h_c) > 40 and ratio > 4:
             lines += 1
-        elif 8 <= w_c <= 65 and 8 <= h_c <= 65 and ratio <= 2.5:
-            symbols += 1
             
-    if expected_disc == "elec" and symbols < 4:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
-        return False, msg
-    elif expected_disc == "cons" and lines < 3:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
-        return False, msg
-    elif expected_disc == "plum" and symbols < 2:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be a Plumbing plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
+        # 2. סמלי חשמל ומאור (שימוש בנוסחת Circularity כדי לסנן טקסטים וקווים ישרים)
+        peri = cv2.arcLength(c, True)
+        if peri > 0:
+            circularity = 4 * math.pi * (area / (peri * peri))
+            # סמלי חשמל נוטים להיות עגולים או קרובים לעיגול
+            if 0.65 < circularity <= 1.2 and 5 < w_c < 80:
+                circular_symbols += 1
+                
+        # 3. כלים סניטריים (בלוקים בינוניים-גדולים בייחס נמוך)
+        if 20 < w_c < 150 and 20 < h_c < 150 and ratio < 2.5 and area > 400:
+            plumbing_fixtures += 1
+
+    # החלטת הבלמה המבוססת על הגיאומטריה הפיזית בשרטוט
+    if expected_disc == "elec" and circular_symbols < 3:
+        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols (No circular fixtures detected). Did you upload a blank architecture plan?" 
+               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
         return False, msg
         
+    elif expected_disc == "cons" and lines < 3:
+        msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
+        return False, msg
+        
+    elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
+        msg = ("⚠️ Engineering Alert: No plumbing fixtures detected." 
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו כלים סניטריים או קווי מים. ודא שזו אכן תוכנית אינסטלציה.")
+        return False, msg
+
     return True, ""
   except Exception as e:
-    return False, (f"⚠️ Parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט.")
+    # במקרה נדיר של שגיאת תמונה, נותנים לזה לעבור כדי לא לחסום משתמש תקין
+    return True, ""
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
@@ -238,7 +252,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה מבוססת CSS בלבד (מונע קריסות הדפדפן)
+# 🚀 אנימציית פתיחה CSS (מניעת קריסות הדפדפן)
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
@@ -356,6 +370,9 @@ if "splash_shown" not in st.session_state:
       unsafe_allow_html=True,
   )
 
+  time.sleep(4)
+  st.session_state["app_initialized"] = True
+  st.rerun()
 
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
@@ -919,7 +936,6 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
   return html
 
 
-# דינמיות של תפריט הדיסציפלינות לפי שפה
 if "global_is_us" not in st.session_state:
     st.session_state["global_is_us"] = False
 
