@@ -37,11 +37,111 @@ st.set_page_config(
     page_icon=app_icon,
 )
 
+# עיצוב מודרני מקצועי לממשק (Dashboard Style)
 st.markdown("""
     <meta name="google" content="notranslate">
     <style>
+        /* General App Background */
+        .stApp { 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #f4f7fb; 
+        }
+        
+        /* Hide top padding slightly */
         body { top: 0px !important; }
-        .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
+
+        /* Typography & Headers */
+        h1, h2, h3 { 
+            color: #1e293b; 
+            font-weight: 600 !important; 
+        }
+        
+        hr {
+            border-color: #cbd5e1 !important;
+            opacity: 0.5;
+        }
+
+        /* File Uploaders - Dashboard Card Style */
+        [data-testid="stFileUploader"] {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            border: 1px dashed #94a3b8;
+            transition: all 0.3s ease;
+        }
+        [data-testid="stFileUploader"]:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Modern Radio Buttons */
+        [data-testid="stRadio"] > div {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+        }
+
+        /* The Main "Run Takeoff" Button */
+        div.stButton > button {
+            background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%) !important;
+            color: white !important;
+            border-radius: 12px !important;
+            border: none !important;
+            padding: 16px 24px !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+            letter-spacing: 0.5px;
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.25) !important;
+            transition: all 0.3s ease !important;
+            width: 100%;
+        }
+        div.stButton > button:hover {
+            transform: translateY(-3px) !important;
+            box-shadow: 0 8px 25px rgba(37, 99, 235, 0.35) !important;
+        }
+
+        /* Metrics styling (Delta reports) */
+        [data-testid="stMetric"] {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+            border-left: 6px solid #3b82f6;
+            border-top: 1px solid #e2e8f0;
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        [data-testid="stMetricValue"] {
+            color: #0f172a;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        /* DataFrame / Tables */
+        [data-testid="stDataFrame"] {
+            background: white;
+            border-radius: 12px;
+            padding: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.04);
+            border: 1px solid #e2e8f0;
+        }
+        
+        /* Data Expanders */
+        [data-testid="stExpander"] {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
+        }
+        
+        /* Alert Boxes */
+        .stAlert {
+            border-radius: 12px !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -162,19 +262,22 @@ def safe_render_table(rows, is_us=False):
       },
   )
 
-# ========================================================
-# 🏗️ מנוע זיהוי תוכניות חכם ומהיר (Geometric AI Shield)
-# ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
       msg = "⚠️ Invalid file." if is_us else "⚠️ קובץ לא קריא."
       return False, msg
       
   try:
-    # עבודה על עותק התמונה כפי שהיא (שנחתכה כבר ב-load_raster ל-4 מגה-פיקסל) כדי לא לאבד קווים
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
-    _, thresh = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)
+    h, w = img.shape[:2]
+    max_dim = 800
+    if max(h, w) > max_dim:
+        scale = max_dim / max(h, w)
+        img_small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    else:
+        img_small = img.copy()
+
+    gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     
     lines = 0
@@ -183,45 +286,35 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
     
     for c in contours:
         area = cv2.contourArea(c)
-        if area < 10: continue
+        if area < 5: continue
         
         x_c, y_c, w_c, h_c = cv2.boundingRect(c)
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        # 1. קווים ארוכים למחיצות/קירות בניה
-        if max(w_c, h_c) > 50 and ratio > 5:
+        if max(w_c, h_c) > 40 and ratio > 4:
             lines += 1
             
-        # 2. סמלי חשמל ומאור (שימוש בנוסחת Circularity לזיהוי עיגולים)
         peri = cv2.arcLength(c, True)
         if peri > 0:
             circularity = 4 * math.pi * (area / (peri * peri))
-            if 0.5 < circularity <= 1.2 and 8 < w_c < 70 and 8 < h_c < 70:
+            if 0.65 < circularity <= 1.2 and 5 < w_c < 80:
                 circular_symbols += 1
                 
-        # 3. כלים סניטריים (בלוקים בינוניים-גדולים)
-        if 30 < w_c < 250 and 30 < h_c < 250 and ratio < 3 and area > 500:
+        if 20 < w_c < 150 and 20 < h_c < 150 and ratio < 2.5 and area > 400:
             plumbing_fixtures += 1
 
-    # תנאי החסימה מוגדרים בצורה סלחנית כדי לא לחסום סתם תוכניות תקינות
     if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols. Did you upload a blank architecture plan?" 
-               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית בניה ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
+        msg = ("⚠️ Engineering Alert: Check plan type." if is_us else "⚠️ התראת מערכת: ייתכן שהשרטוט אינו מתאים לדיסציפלינה (חסרים סמלי מערכות).")
         return False, msg
-        
-    elif expected_disc == "cons" and lines < 5:
-        msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
+    elif expected_disc == "cons" and lines < 3:
+        msg = ("⚠️ Engineering Alert: Check plan type." if is_us else "⚠️ התראת מערכת: ייתכן שהשרטוט אינו מתאים (לא זוהו מחיצות רציפות).")
         return False, msg
-        
     elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
-        msg = ("⚠️ Engineering Alert: No plumbing fixtures detected." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו כלים סניטריים או קווי מים. ודא שזו אכן תוכנית אינסטלציה.")
+        msg = ("⚠️ Engineering Alert: Check plan type." if is_us else "⚠️ התראת מערכת: ייתכן שהשרטוט אינו מתאים (חסרים כלים סניטריים).")
         return False, msg
 
     return True, ""
   except Exception as e:
-    # מונע מצב שקריסת OpenCV חוסמת למשתמש את הגישה
     return True, ""
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
@@ -244,7 +337,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS
+# 🚀 אנימציית פתיחה CSS 
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
@@ -254,8 +347,7 @@ if "splash_shown" not in st.session_state:
     .fullscreen-splash {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-        z-index: 999999;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center;
         overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
         animation: hideSplash 4.2s forwards ease-in-out;
     }
@@ -313,8 +405,7 @@ if "splash_shown" not in st.session_state:
 
     .dust {
         position: absolute; background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%; width: 3px; height: 3px;
-        box-shadow: 0 0 6px rgba(255, 255, 255, 1);
+        border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1);
         animation: float 2.5s infinite ease-in-out alternate;
     }
     @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
@@ -959,6 +1050,7 @@ if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
 
 if st.session_state["app_mode"] is None:
+  # כאן מוזרק ה-CSS של הכפתורים הגדולים במסך הבית
   st.markdown(
       """
     <style>
@@ -1144,7 +1236,7 @@ with col_l:
   if has_logo: st.image(LOGO_PATH, use_container_width=True)
   else: st.markdown("<div style='font-size: 50px; text-align: center;'>🏗️</div>", unsafe_allow_html=True)
 with col_t:
-  st.title("S.A. Quantities AI (S.A.Q) - Global Takeoff Platform" if is_us_mode else "S.A. Quantities AI (S.A.Q) - פלטפורמת חישוב כמויות")
+  st.title("S.A. Quantities AI (S.A.Q) - Global Takeoff Platform" if is_us_mode else "פלטפורמת חישוב כמויות - S.A. Quantities AI (S.A.Q)")
   region_title = "🇺🇸 USA (Imperial)" if is_us_mode else "🇮🇱 Israel (Metric)"
   st.caption(f"Active Site | Region: {region_title} | Model: {mode_lbl} | Discipline: {disciplines_dict[curr_key]}")
 
@@ -1237,6 +1329,8 @@ elif "📄" in file_type:
         horizontal=True,
     )
 
+  st.markdown("<br>", unsafe_allow_html=True)
+
   # ----------------------------------------------------
   # 1. 🧱 מודול בניה
   # ----------------------------------------------------
@@ -1266,8 +1360,7 @@ elif "📄" in file_type:
             is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         
         if not is_valid:
-            st.error(v_msg)
-            st.stop()
+            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
             
         show_engineering_loader("S.A.Q AI scanning partitions and computing quantities...", is_us=is_us_mode)
         img_std = load_raster(f_std) if f_std else None
@@ -1373,8 +1466,7 @@ elif "📄" in file_type:
             is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
         
         if not is_valid:
-            st.error(v_msg)
-            st.stop()
+            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
             
         st.session_state["plumb_verified"] = False
         show_engineering_loader("S.A.Q AI scanning sanitary fixtures...", is_us=is_us_mode)
@@ -1538,8 +1630,7 @@ elif "📄" in file_type:
             is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         
         if not is_valid:
-            st.error(v_msg)
-            st.stop()
+            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
             
         st.session_state["elec_verified"] = False
         show_engineering_loader("S.A.Q AI analyzing outlets, lighting and switches...", is_us=is_us_mode)
