@@ -183,7 +183,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה עתידנית וריאליסטית: מגדל ספירלי ומנוף רובוטי (3 שניות)
+# 🚀 אנימציית פתיחה עתידנית: מגדל ספירלי ומנוף רובוטי (בדיוק למשך 4 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -242,7 +242,7 @@ if not st.session_state["app_initialized"]:
         width: 105px;
         background: linear-gradient(to top, #1e1b4b, #2563eb, #38bdf8);
         border-radius: 8px 8px 0 0;
-        animation: spiralRise 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
+        animation: spiralRise 3.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
         box-shadow: 0 0 50px rgba(59, 130, 246, 0.8);
         border: 2px solid #7dd3fc;
         display: flex;
@@ -273,10 +273,11 @@ if not st.session_state["app_initialized"]:
         text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
     }
     .shot-tag {
-        font-size: 14px;
+        font-size: 15px;
         color: #94a3b8;
         margin-top: 15px;
         letter-spacing: 2px;
+        font-weight: 500;
     }
     </style>
     <div class="fullscreen-splash">
@@ -302,9 +303,9 @@ if not st.session_state["app_initialized"]:
 
   bar_box = st.empty()
   prog_bar = bar_box.progress(0)
-  for t in range(100):
-    time.sleep(0.03)  # בדיוק 3 שניות
-    prog_bar.progress(t + 1)
+  for t in range(133):  # מותאם בדיוק למשך 4 שניות (133 * 0.03 = 4 שניות)
+    time.sleep(0.03)
+    prog_bar.progress(min(100, int((t + 1) * (100 / 133))))
 
   st.session_state["app_initialized"] = True
   st.rerun()
@@ -1056,9 +1057,6 @@ if st.session_state["app_mode"] is None:
         max-width: 850px;
         margin: 0 auto 30px auto;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
     }
     </style>
     """,
@@ -1082,28 +1080,19 @@ if st.session_state["app_mode"] is None:
   )
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # מלבן עליון משולב: טקסט משמאל ותיבת בחירה מימין
+  # מלבן עליון משולב נקי ואחיד ללא תווית כפולה
   st.markdown("<div class='top-header-box'>", unsafe_allow_html=True)
-  col_h1, col_h2 = st.columns([1.2, 1.8])
-  with col_h1:
-    st.markdown(
-        "<span style='font-size: 15px; font-weight: 600; color: #1F4E78;'>🌐"
-        " Choose Region & Language / בחירת אזור:</span>",
-        unsafe_allow_html=True,
-    )
-  with col_h2:
-    home_geo = st.selectbox(
-        "",
-        [
-            "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית) IL",
-            (
-                "🇺🇸 United States (Imperial - Feet & Inches | RSMeans |"
-                " English) US"
-            ),
-        ],
-        key="home_geo_selector",
-        label_visibility="collapsed",
-    )
+  home_geo = st.selectbox(
+      "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
+      [
+          "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית) IL",
+          (
+              "🇺🇸 United States (Imperial - Feet & Inches | RSMeans |"
+              " English) US"
+          ),
+      ],
+      key="home_geo_selector",
+  )
   st.markdown("</div>", unsafe_allow_html=True)
 
   is_us_home = "🇺🇸 United States" in home_geo
