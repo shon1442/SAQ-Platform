@@ -42,105 +42,102 @@ st.set_page_config(
 # ========================================================
 app_mode = st.session_state.get("app_mode")
 
-# ללא רווחים בתחילת השורה כדי למנוע מ-Streamlit להציג זאת כטקסט!
-base_css = """<style>
-/* פונטים והסרת רווחים עליונים מיותרים */
-body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-.block-container { padding-top: 2rem !important; max-width: 95% !important; }
-
-/* תפריט צד (Sidebar) - לוח בקרה הנדסי כהה ואלגנטי */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
-    border-right: 1px solid #334155;
-    box-shadow: 2px 0 15px rgba(0,0,0,0.1);
-}
-[data-testid="stSidebar"] * {
-    color: #f8fafc !important;
-}
-[data-testid="stSidebar"] div[data-baseweb="select"] > div, 
-[data-testid="stSidebar"] input {
-    background-color: #334155 !important;
-    border: 1px solid #475569 !important;
-    border-radius: 8px !important;
-    color: white !important;
-}
-
-/* כותרות וטקסט ראשי */
-h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }
-
-/* כפתורים משודרגים - עיצוב כללי */
-div.stButton > button {
-    border-radius: 12px !important;
-    font-weight: 600 !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    border: none !important;
-}
-div.stButton > button:hover {
-    transform: translateY(-2px) !important;
-}
-</style>"""
+# שימוש בתגיות HTML תקניות כדי למנוע את דליפת הטקסט (Markdown Bug Fix)
+css_string = """
+<meta name="google" content="notranslate">
+<style>
+    body { top: 0px !important; }
+    .stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .block-container { padding-top: 2rem !important; max-width: 95% !important; }
+    
+    /* תפריט צד (Sidebar) - לוח בקרה הנדסי כהה ואלגנטי */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+        border-right: 1px solid #334155;
+        box-shadow: 2px 0 15px rgba(0,0,0,0.1);
+    }
+    section[data-testid="stSidebar"] * {
+        color: #f8fafc !important;
+    }
+    section[data-testid="stSidebar"] div[data-baseweb="select"] > div, 
+    section[data-testid="stSidebar"] input {
+        background-color: #334155 !important;
+        border: 1px solid #475569 !important;
+        border-radius: 8px !important;
+        color: white !important;
+    }
+    
+    h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }
+    
+    /* כפתורים משודרגים */
+    div.stButton > button {
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        border: none !important;
+    }
+    div.stButton > button:hover {
+        transform: translateY(-2px) !important;
+    }
+</style>
+"""
 
 if app_mode in ["Tenant_CO", "שינויי דיירים"]:
-    theme_css = """<style>
-/* רקע שרטוט אדריכלי (Blueprint) עדין ויוקרתי */
-[data-testid="stAppViewContainer"] {
-    background-color: #f8fafc;
-    background-image: 
-        linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
-    background-size: 30px 30px;
-}
-/* כרטיסיות תלת-ממדיות מזכוכית (Glassmorphism) */
-[data-testid="stFileUploader"], [data-testid="stMetric"], .stAlert {
-    background: rgba(255, 255, 255, 0.85) !important;
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.6) !important;
-    border-left: 6px solid #2563eb !important;
-    border-radius: 16px !important;
-    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08) !important;
-    padding: 15px;
-}
-/* כפתור הרצה - כחול הייטק */
-div.stButton > button:first-child {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-    color: white !important;
-    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3) !important;
-}
-div.stButton > button:first-child:hover {
-    box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4) !important;
-}
-</style>"""
+    css_string += """
+    <style>
+    div[data-testid="stAppViewContainer"] {
+        background-color: #f8fafc;
+        background-image: 
+            linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+        background-size: 30px 30px;
+    }
+    div[data-testid="stFileUploader"], div[data-testid="stMetric"], div.stAlert {
+        background: rgba(255, 255, 255, 0.95) !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+        border-left: 6px solid #2563eb !important;
+        border-radius: 16px !important;
+        box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08) !important;
+        padding: 15px;
+    }
+    div.stButton > button:first-child {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+        color: white !important;
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3) !important;
+    }
+    div.stButton > button:first-child:hover {
+        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4) !important;
+    }
+    </style>
+    """
 elif app_mode in ["Renovation", "קבלני שיפוצים"]:
-    theme_css = """<style>
-/* רקע תעשייתי נקי (Dot Matrix) מתאים לשטח */
-[data-testid="stAppViewContainer"] {
-    background-color: #fdfdfc;
-    background-image: radial-gradient(#cbd5e1 1.5px, transparent 0);
-    background-size: 25px 25px;
-}
-/* כרטיסיות חדות ופרקטיות עם הדגשות כתומות */
-[data-testid="stFileUploader"], [data-testid="stMetric"], .stAlert {
-    background: #ffffff !important;
-    border: 1px solid #e2e8f0 !important;
-    border-top: 5px solid #f59e0b !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important;
-    padding: 15px;
-}
-/* כפתור הרצה - כתום בניה/שטח */
-div.stButton > button:first-child {
-    background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
-    color: white !important;
-    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important;
-}
-div.stButton > button:first-child:hover {
-    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4) !important;
-}
-</style>"""
-else:
-    theme_css = ""
+    css_string += """
+    <style>
+    div[data-testid="stAppViewContainer"] {
+        background-color: #fdfdfc;
+        background-image: radial-gradient(#cbd5e1 1.5px, transparent 0);
+        background-size: 25px 25px;
+    }
+    div[data-testid="stFileUploader"], div[data-testid="stMetric"], div.stAlert {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        border-top: 5px solid #f59e0b !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important;
+        padding: 15px;
+    }
+    div.stButton > button:first-child {
+        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
+        color: white !important;
+        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important;
+    }
+    div.stButton > button:first-child:hover {
+        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4) !important;
+    }
+    </style>
+    """
 
-st.markdown(base_css + theme_css, unsafe_allow_html=True)
+st.markdown(css_string, unsafe_allow_html=True)
 
 
 def load_ai_memory():
@@ -305,11 +302,11 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
             plumbing_fixtures += 1
 
     if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols (No circular fixtures detected). Did you upload a blank architecture plan?" 
+        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols. Did you upload a blank architecture plan?" 
                if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
         return False, msg
         
-    elif expected_disc == "cons" and lines < 3:
+    elif expected_disc == "cons" and lines < 5:
         msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
                if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
         return False, msg
@@ -343,25 +340,27 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS (מניעת קריסות הדפדפן)
+# 🚀 אנימציית פתיחה CSS טהור (ללא השהיות פייתון - 0 קריסות)
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
-  st.markdown("""<style>
+  st.markdown(
+      """
+    <style>
     .fullscreen-splash {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-        z-index: 999999;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center;
         overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
-        animation: hideSplash 4.2s forwards ease-in-out;
+        animation: hideSplash 4.5s forwards ease-in-out;
+        pointer-events: none;
     }
 
     @keyframes hideSplash {
         0% { opacity: 1; visibility: visible; }
         85% { opacity: 1; visibility: visible; }
         99% { opacity: 0; visibility: visible; }
-        100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; }
+        100% { opacity: 0; visibility: hidden; z-index: -10; display: none; }
     }
 
     .morning-sun {
@@ -396,12 +395,12 @@ if "splash_shown" not in st.session_state:
     
     .crane-cable {
         width: 3px; height: 0; background: #333;
-        animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
+        animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
     }
     
     .glass-floor {
         position: absolute; bottom: -30px; left: -82px;
-        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5);
+        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.8);
         border: 1px solid rgba(255, 255, 255, 0.9);
         box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
     }
@@ -410,8 +409,7 @@ if "splash_shown" not in st.session_state:
 
     .dust {
         position: absolute; background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%; width: 3px; height: 3px;
-        box-shadow: 0 0 6px rgba(255, 255, 255, 1);
+        border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1);
         animation: float 2.5s infinite ease-in-out alternate;
     }
     @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
@@ -455,11 +453,9 @@ if "splash_shown" not in st.session_state:
             <div class="css-progress-fill"></div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
-
-  time.sleep(4)
-  st.session_state["app_initialized"] = True
-  st.rerun()
+    """,
+      unsafe_allow_html=True,
+  )
 
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
@@ -1063,7 +1059,7 @@ div[data-testid="stSelectbox"] {
 div[data-testid="stSelectbox"] > div { margin-bottom: 0 !important; }
 
 /* עיצוב משופר לכפתורי המודלים הראשיים */
-div[data-testid="column"] .stButton > button {
+div[data-testid="column"] div.stButton > button {
     height: 420px !important; min-height: 420px !important; width: 100%;
     border-radius: 20px !important; font-weight: bold; padding: 30px 20px; font-size: 19px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -1071,17 +1067,17 @@ div[data-testid="column"] .stButton > button {
     display: flex; flex-direction: column; justify-content: center; align-items: center;
 }
 /* מודל דיירים - כחול הייטק */
-div[data-testid="column"]:nth-of-type(1) .stButton > button {
+div[data-testid="column"]:nth-of-type(1) div.stButton > button {
     background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
 }
-div[data-testid="column"]:nth-of-type(1) .stButton > button:hover {
+div[data-testid="column"]:nth-of-type(1) div.stButton > button:hover {
     transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4) !important;
 }
 /* מודל שיפוצים - כתום הנדסי */
-div[data-testid="column"]:nth-of-type(2) .stButton > button {
+div[data-testid="column"]:nth-of-type(2) div.stButton > button {
     background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important;
 }
-div[data-testid="column"]:nth-of-type(2) .stButton > button:hover {
+div[data-testid="column"]:nth-of-type(2) div.stButton > button:hover {
     transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(245, 158, 11, 0.4) !important;
 }
 </style>""", unsafe_allow_html=True)
@@ -1173,13 +1169,13 @@ with st.sidebar:
     st.image(LOGO_PATH, use_container_width=True)
 
   st.markdown("""<style>
-[data-testid="stSidebar"] div.stButton > button {
+section[data-testid="stSidebar"] div.stButton > button {
     background: transparent !important;
     border: 1px solid #475569 !important;
     box-shadow: none !important;
     color: #f8fafc !important;
 }
-[data-testid="stSidebar"] div.stButton > button:hover {
+section[data-testid="stSidebar"] div.stButton > button:hover {
     background: rgba(255,255,255,0.1) !important;
     border-color: #cbd5e1 !important;
 }
@@ -1706,3 +1702,4 @@ elif "📄" in file_type:
     for i, d_target in enumerate(rem_keys):
       if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
         set_discipline_programmatically(d_target)
+        
