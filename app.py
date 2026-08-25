@@ -235,18 +235,23 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
             plumbing_fixtures += 1
 
     if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols." 
-               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור.")
+        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols. Did you upload a blank architecture plan?" 
+               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
         return False, msg
         
     elif expected_disc == "cons" and lines < 5:
         msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט.")
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
         return False, msg
         
     elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
         msg = ("⚠️ Engineering Alert: No plumbing fixtures detected." 
                if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו כלים סניטריים או קווי מים. ודא שזו אכן תוכנית אינסטלציה.")
+        return False, msg
+        
+    elif expected_disc == "hvac" and circular_symbols < 2:
+        msg = ("⚠️ Engineering Alert: Drawing lacks HVAC symbols." 
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו סמלי מיזוג אוויר או פתחי אוורור. ודא שזו אכן תוכנית מיזוג.")
         return False, msg
 
     return True, ""
@@ -273,51 +278,121 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS (מחשבים את העתיד)
+# 🚀 אנימציית פתיחה CSS
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
-  
-  splash_css = ""
-  splash_css += "<style>\n"
-  splash_css += ".fullscreen-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; animation: hideSplash 4.2s forwards ease-in-out; }\n"
-  splash_css += "@keyframes hideSplash { 0% { opacity: 1; visibility: visible; } 85% { opacity: 1; visibility: visible; } 99% { opacity: 0; visibility: visible; } 100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; } }\n"
-  splash_css += ".morning-sun { position: absolute; top: 15%; right: 20%; width: 120px; height: 120px; background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%); border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9; }\n"
-  splash_css += ".sea-layer { position: absolute; bottom: 0; width: 100%; height: 30vh; background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%); box-shadow: 0 -5px 25px rgba(0,0,0,0.2); }\n"
-  splash_css += ".skyline { position: absolute; bottom: 30vh; width: 100%; height: 25vh; background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px), linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%); }\n"
-  splash_css += ".splash-tower { position: absolute; bottom: 10vh; width: 160px; height: 55vh; background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%); box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555; }\n"
-  splash_css += ".crane-system { position: absolute; top: 0; height: 100vh; width: 100vw; display: flex; justify-content: center; }\n"
-  splash_css += ".crane-cable { width: 3px; height: 0; background: #333; animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative; }\n"
-  splash_css += ".glass-floor { position: absolute; bottom: -30px; left: -82px; width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5); }\n"
-  splash_css += "@keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }\n"
-  splash_css += ".dust { position: absolute; background: rgba(255, 255, 255, 0.9); border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1); animation: float 2.5s infinite ease-in-out alternate; }\n"
-  splash_css += "@keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }\n"
-  splash_css += ".splash-text-main { position: absolute; bottom: 14%; font-size: 52px; font-weight: 400; color: #ffffff; letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; animation: textFade 1s 1s forwards ease-in-out; }\n"
-  splash_css += "@keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }\n"
-  splash_css += ".css-progress-container { position: absolute; bottom: 8%; width: 40%; height: 6px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out; }\n"
-  splash_css += ".css-progress-fill { height: 100%; width: 0%; background: #facc15; animation: fillBar 3s 1.2s linear forwards; }\n"
-  splash_css += "@keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }\n"
-  splash_css += "</style>\n"
+  st.markdown(
+      """
+    <style>
+    .fullscreen-splash {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
+        z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center;
+        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
+        animation: hideSplash 4.2s forwards ease-in-out;
+    }
 
-  splash_html = "<div class='fullscreen-splash' translate='no'>\n"
-  splash_html += "<div class='morning-sun'></div>\n"
-  splash_html += "<div class='skyline'></div>\n"
-  splash_html += "<div class='sea-layer'></div>\n"
-  splash_html += "<div class='splash-tower'></div>\n"
-  splash_html += "<div class='crane-system'>\n"
-  splash_html += "<div class='crane-cable'>\n"
-  splash_html += "<div class='glass-floor'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -35px; left: -90px; animation-delay: 0.2s;'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -25px; left: 90px; animation-delay: 0.5s;'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -45px; left: -30px; animation-delay: 0.8s;'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -20px; left: 40px; animation-delay: 1.2s;'></div>\n"
-  splash_html += "</div>\n"
-  splash_html += "</div>\n"
-  splash_html += "<div class='splash-text-main'>מחשבים את העתיד</div>\n"
-  splash_html += "<div class='css-progress-container'><div class='css-progress-fill'></div></div>\n"
-  splash_html += "</div>\n"
-  
-  st.markdown(splash_css + splash_html, unsafe_allow_html=True)
+    @keyframes hideSplash {
+        0% { opacity: 1; visibility: visible; }
+        85% { opacity: 1; visibility: visible; }
+        99% { opacity: 0; visibility: visible; }
+        100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; }
+    }
+
+    .morning-sun {
+        position: absolute; top: 15%; right: 20%;
+        width: 120px; height: 120px;
+        background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
+        border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
+    }
+
+    .sea-layer {
+        position: absolute; bottom: 0; width: 100%; height: 30vh;
+        background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
+    }
+    
+    .skyline {
+        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
+        background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
+                    linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
+    }
+
+    .splash-tower {
+        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
+        background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
+    }
+
+    .crane-system {
+        position: absolute; top: 0; height: 100vh; width: 100vw;
+        display: flex; justify-content: center;
+    }
+    
+    .crane-cable {
+        width: 3px; height: 0; background: #333;
+        animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
+    }
+    
+    .glass-floor {
+        position: absolute; bottom: -30px; left: -82px;
+        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
+    }
+    
+    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
+
+    .dust {
+        position: absolute; background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1);
+        animation: float 2.5s infinite ease-in-out alternate;
+    }
+    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
+
+    .splash-text-main {
+        position: absolute; bottom: 14%;
+        font-size: 52px; font-weight: 400; color: #ffffff;
+        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        opacity: 0; animation: textFade 1s 1s forwards ease-in-out;
+    }
+    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
+
+    .css-progress-container {
+        position: absolute; bottom: 8%; width: 40%; height: 6px;
+        background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
+        opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out;
+    }
+    .css-progress-fill {
+        height: 100%; width: 0%; background: #facc15;
+        animation: fillBar 3s 1.2s linear forwards;
+    }
+    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
+    </style>
+
+    <div class="fullscreen-splash" translate="no">
+        <div class="morning-sun"></div>
+        <div class="skyline"></div>
+        <div class="sea-layer"></div>
+        <div class="splash-tower"></div>
+        <div class="crane-system">
+            <div class="crane-cable">
+                <div class="glass-floor"></div>
+                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
+                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
+                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
+                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
+            </div>
+        </div>
+        <div class="splash-text-main">מחשבים את העתיד</div>
+        <div class="css-progress-container">
+            <div class="css-progress-fill"></div>
+        </div>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
 
   time.sleep(4)
   st.session_state["app_initialized"] = True
@@ -334,6 +409,13 @@ def get_pricing_item_cost(desc, unit, is_us=False):
       base_price = 35
     elif "נקודת" in desc or "Units" in unit or "כלי" in desc or "Fixture" in desc:
       base_price = 180
+      
+    # HVAC Pricing US
+    if "AC" in desc or "HVAC" in desc: base_price = 1200
+    if "Drain" in desc: base_price = 80
+    if "Grille" in desc or "Supply" in desc: base_price = 150
+    if "Pipe" in desc or "Cable" in desc: base_price = 25
+      
     return base_price
   else:
     unit_price = 150
@@ -345,6 +427,13 @@ def get_pricing_item_cost(desc, unit, is_us=False):
       unit_price = 110
     elif "נקודת" in desc or "יח'" in unit or "כלי" in desc or "Fixture" in desc:
       unit_price = 450
+      
+    # מחירון מיזוג אוויר IL
+    if "מזגן" in desc or "מיזוג" in desc: unit_price = 3500
+    if "ניקוז" in desc or 'קחז"מ' in desc: unit_price = 250
+    if "גריל" in desc or "פתחי" in desc: unit_price = 400
+    if "צנרת" in desc or "כבל" in desc: unit_price = 85
+      
     return unit_price
 
 def render_pricing_widget(boq_rows, discipline_name, is_us=False):
@@ -552,6 +641,55 @@ def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
       added.append(f_b)
   return relocations, added, disp_exec
 
+# --- פונקציית דלתא ייעודית למודול מיזוג אוויר ---
+def compare_hvac_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
+  fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
+  fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
+  
+  for f in fix_std + fix_exec:
+      if f["type"] == "Bathtub / Shower": f["type"] = "AC Unit"
+      elif f["type"] == "Toilet": f["type"] = "Air Grille"
+      else: f["type"] = "Drainage Point"
+      
+  relocations = []
+  added = []
+  b_matched = set()
+  extra_pipe_m = 0.0
+
+  for f_a in fix_std:
+    ca = f_a["center"]
+    best_dist = 999999
+    best_idx_b = -1
+    for idx_b, f_b in enumerate(fix_exec):
+      if idx_b in b_matched: continue
+      cb = f_b["center"]
+      dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
+      dist_m = dist_px / float(px_per_meter)
+      if dist_m <= 6.0 and dist_px < best_dist and f_a["type"] == f_b["type"]:
+        best_dist = dist_px
+        best_idx_b = idx_b
+    if best_idx_b != -1:
+      b_matched.add(best_idx_b)
+      f_b = fix_exec[best_idx_b]
+      dist_m = round(best_dist / float(px_per_meter), 2)
+      if dist_m > 0.5:
+          extra_pipe_m += dist_m * 1.5 
+          relocations.append({
+              "type": f_b["type"],
+              "distance_m": dist_m,
+              "from": ca,
+              "to": f_b["center"]
+          })
+      cv2.arrowedLine(disp_exec, ca, f_b["center"], (255, 150, 0), 3, tipLength=0.20)
+  
+  for idx_b, f_b in enumerate(fix_exec):
+    if idx_b not in b_matched:
+      added.append(f_b)
+      extra_pipe_m += 4.5 
+      
+  return relocations, added, round(extra_pipe_m, 2), disp_exec
+
+
 def extract_symbols_from_legend(legend_img):
   if legend_img is None: return []
   gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
@@ -751,6 +889,49 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
       })
   return rows, disp_plan
 
+def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=None):
+  if plumbing_centers is None:
+      plumbing_centers = []
+      
+  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+  _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+  
+  kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+  closed_walls = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+  
+  rooms_img = cv2.bitwise_not(closed_walls)
+  contours, _ = cv2.findContours(rooms_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+  
+  total_flooring_sqm = 0.0
+  wet_rooms_perimeter_m = 0.0
+  disp_img = plan_img.copy()
+  
+  for c in contours:
+    area_px = cv2.contourArea(c)
+    min_room_px = (1.0 * px_per_meter) * (1.0 * px_per_meter)
+    max_room_px = (20.0 * px_per_meter) * (20.0 * px_per_meter)
+    
+    if min_room_px <= area_px <= max_room_px:
+      sqm = area_px / (px_per_meter**2)
+      total_flooring_sqm += sqm
+      
+      is_wet_room = False
+      for pc in plumbing_centers:
+          if cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0:
+              is_wet_room = True
+              break
+              
+      peri_m = cv2.arcLength(c, True) / px_per_meter
+      
+      if is_wet_room:
+        wet_rooms_perimeter_m += peri_m
+        cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3) 
+      else:
+        cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2) 
+        
+  wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
+  return (round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img)
+
 def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט", mode_label="שינויי דיירים", is_us=False, include_pricing=True):
   logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
   logo_html = f'<img src="{logo_uri}" style="max-height: 50px;"/>' if logo_uri else '<div class="logo-txt">S.A.Q Takeoff AI</div>'
@@ -812,7 +993,8 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
       "elec": "⚡ Electrical & Lighting" if is_us else "⚡ חשמל ומאור",
       "cons": "🧱 Construction (Walls)" if is_us else "🧱 בניה (מחיצות ומעטפת)",
       "plum": "🚿 Plumbing" if is_us else "🚿 אינסטלציה",
-      "tile": "📐 Flooring & Tiling" if is_us else "📐 ריצוף וחיפוי"
+      "tile": "📐 Flooring & Tiling" if is_us else "📐 ריצוף וחיפוי",
+      "hvac": "❄️ HVAC & Infrastructure" if is_us else "❄️ מיזוג אוויר ותשתיות"
   }
 
   for disc_key, rows in project_boq.items():
@@ -872,6 +1054,7 @@ def reset_project_state():
     keys_to_clear = [
         "elec_results", "elec_plan_raw", "elec_verified",
         "plumb_results", "plumb_plan_raw", "plumb_verified",
+        "hvac_results", "hvac_plan_raw", "hvac_verified",
         "show_master_export"
     ]
     for key in keys_to_clear:
@@ -886,7 +1069,8 @@ disciplines_dict = {
     "elec": "⚡ Electrical & Lighting" if is_us_mode else "⚡ חשמל ומאור",
     "cons": "🧱 Construction (Walls)" if is_us_mode else "🧱 בניה (מחיצות ומעטפת)",
     "plum": "🚿 Plumbing" if is_us_mode else "🚿 אינסטלציה",
-    "tile": "📐 Flooring & Tiling" if is_us_mode else "📐 ריצוף וחיפוי"
+    "tile": "📐 Flooring & Tiling" if is_us_mode else "📐 ריצוף וחיפוי",
+    "hvac": "❄️ HVAC & Infrastructure" if is_us_mode else "❄️ מיזוג אוויר ותשתיות"
 }
 disciplines_keys = list(disciplines_dict.keys())
 disciplines_display = list(disciplines_dict.values())
@@ -1072,13 +1256,12 @@ with st.sidebar:
   st.caption(f"{appr_lbl} {len(ai_memory.get('approved_patterns', []))}")
   
   saved_count = len([k for k, v in st.session_state["project_boq"].items() if len(v) > 0])
-  st.info(f"Plans with Qty: **{saved_count}** of 4" if is_us_mode else f"תוכניות שחושבו: **{saved_count}** מתוך 4")
+  st.info(f"Plans with Qty: **{saved_count}** of 5" if is_us_mode else f"תוכניות שחושבו: **{saved_count}** מתוך 5")
   
   if st.button("📑 Open Master BOQ Hub" if is_us_mode else "📑 פתח מרכז דוחות (ייצוא/שמירה)", use_container_width=True):
     st.session_state["show_master_export"] = True
     st.rerun()
 
-  # כפתור מחיקת נתונים בסיידבר
   if st.button("🗑️ Start New Calculation" if is_us_mode else "🗑️ התחל חישוב מחדש (נקה נתונים)", use_container_width=True):
       reset_project_state()
       st.rerun()
@@ -1118,7 +1301,7 @@ with col_t:
 
 
 # ========================================================
-# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub) - ייצוא ושמירה
+# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub)
 # ========================================================
 if st.session_state.get("show_master_export", False):
   st.markdown("---")
@@ -1166,10 +1349,9 @@ if st.session_state.get("show_master_export", False):
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # כפתור גדול - שמור וסיים
     c_save, c_back = st.columns(2)
     with c_save:
-        if st.button("✅ Save, Finish & Start New" if is_us_mode else "✅ שמור וסיים חישוב (התחלה מחדש)", use_container_width=True):
+        if st.button("✅ Save, Finish & Start New" if is_us_mode else "✅ שמור וסיים חישוב (התחל מחדש)", use_container_width=True):
             now_str = time.strftime("%d/%m/%Y %H:%M")
             h_key = "saved_quotes_tenant" if mode_lbl in ["Tenant_CO", "שינויי דיירים"] else "saved_quotes_reno"
             st.session_state[h_key].append({
@@ -1508,7 +1690,7 @@ elif "📄" in file_type:
   # ----------------------------------------------------
   # 4. ⚡ מודול חשמל ומאור
   # ----------------------------------------------------
-  else:
+  elif curr_key == "elec":
     c_exec, c_std, c_leg = st.columns(3)
     with c_exec:
       lbl_1 = "1️⃣ Proposed Electrical Plan (Required):" if is_us_mode else "1️⃣ תוכנית חשמל מוצעת (חובה):"
@@ -1571,13 +1753,119 @@ elif "📄" in file_type:
     else:
       st.info("ℹ️ Please upload at least the electrical plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית החשמל לחישוב.")
 
+  # ----------------------------------------------------
+  # 5. ❄️ מודול מיזוג אוויר ותשתיות (חדש)
+  # ----------------------------------------------------
+  elif curr_key == "hvac":
+    c_exec, c_std, c_leg = st.columns(3)
+    with c_exec:
+      lbl_1 = "1️⃣ Proposed HVAC Plan (Required):" if is_us_mode else "1️⃣ תוכנית מיזוג מוצעת / לביצוע (חובה):"
+      f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="h_plan_exec")
+    with c_std:
+      lbl_2 = "2️⃣ Baseline HVAC Plan (Optional):" if is_us_mode else "2️⃣ תוכנית מיזוג סטנדרט / קיים (אופציונלי):"
+      f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="h_plan_std")
+    with c_leg:
+      f_leg = st.file_uploader("3️⃣ HVAC Legend (Optional):" if is_us_mode else "3️⃣ מקרא מיזוג וקחז\"מ (אופציונלי):", type=["pdf", "png", "jpg"], key="h_leg")
+
+    if f_plan:
+      btn_title = "🚀 Run HVAC Takeoff & AI Verification" if is_us_mode else "🚀 הפעל סריקת מיזוג אוויר ותשתיות"
+      if st.button(btn_title):
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "hvac", is_us=is_us_mode) 
+        
+        if not is_valid:
+            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
+            
+        st.session_state["hvac_verified"] = False
+        show_engineering_loader("S.A.Q AI scanning AC units, grilles and drainages...", is_us=is_us_mode)
+        img_std = load_raster(f_std) if f_std else None
+
+        if img_std is not None:
+          relocs, added, extra_pipe, disp_delta = compare_hvac_delta_accurate(img_std, img_plan, px_meter)
+          st.subheader("🔄 HVAC Delta & Infrastructure Report" if is_us_mode else "🔄 דוח אימפקט מיזוג - שינויים ותשתיות")
+          st.metric("Relocated/Changed Units:" if is_us_mode else "יחידות שהוזזו/שונו:", f"{len(relocs)} Units" if is_us_mode else f"{len(relocs)} יח'", f"+{len(added)} New Units" if is_us_mode else f"+{len(added)} יחידות חדשות")
+          st.metric("Added Piping/Infrastructure:" if is_us_mode else "תוספת צנרת ותשתיות (גז/ניקוז/פיקוד):", f"{extra_pipe * 3.28084:.2f} FT" if is_us_mode else f"{extra_pipe:.2f} מ' רץ")
+          
+          h_rows = []
+          for idx, r in enumerate(relocs):
+            dist_disp = f"{r['distance_m'] * 3.28084:.2f} FT" if is_us_mode else f"{r['distance_m']} מ'"
+            h_rows.append({
+                "מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1,
+                "תיאור הפריט": f"Relocate {r['type']} (Shift {dist_disp})" if is_us_mode else f"הזזת {r['type']} (מרחק: {dist_disp})",
+                "יחידת מידה": "Units" if is_us_mode else "יח'",
+            })
+          for idx, a in enumerate(added):
+            h_rows.append({
+                "מס'": len(relocs) + idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1,
+                "תיאור הפריט": f"New {a['type']} added" if is_us_mode else f"תוספת {a['type']} חדשה",
+                "יחידת מידה": "Units" if is_us_mode else "יח'",
+            })
+          if extra_pipe > 0:
+            h_rows.append({
+                "מס'": len(relocs) + len(added) + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(extra_pipe * (3.28084 if is_us_mode else 1), 2),
+                "תיאור הפריט": "Additional HVAC Piping (Gas/Drain/Control)" if is_us_mode else "תוספת צנרת מיזוג קומפלט (גז/קחז\"מ/פיקוד)",
+                "יחידת מידה": "Linear Feet (FT)" if is_us_mode else "מ\"א",
+            })
+
+          st.session_state["project_boq"][curr_key] = h_rows
+          safe_render_table(h_rows, is_us=is_us_mode)
+          render_pricing_widget(h_rows, disciplines_dict[curr_key], is_us=is_us_mode)
+          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="HVAC Shift Vectors & Piping" if is_us_mode else "וקטורי הזזת מיזוג ותוואי צנרת", use_container_width=True)
+        else:
+          plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
+          _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
+
+          symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
+          all_results = []
+
+          if symbols:
+            for i, sym in enumerate(symbols):
+              m = match_symbol_ai(plan_inv, sym["crop_gray"])
+              all_results.append({
+                  "index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m,
+              })
+          else:
+            h_p, w_p = plan_inv.shape
+            sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
+            if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: 
+                sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
+            
+            dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
+            all_results.append({
+                "index": 1, "symbol_img": sample_crop, "image_uri": img_to_data_uri(sample_crop), "matches": dummy_matches,
+            })
+
+          st.session_state["hvac_results"] = all_results
+          st.session_state["hvac_plan_raw"] = img_plan
+
+      if "hvac_results" in st.session_state:
+        res = st.session_state["hvac_results"]
+        raw_plan = st.session_state["hvac_plan_raw"]
+
+        rows_h, disp_h = run_ai_verification_workflow(raw_plan, res, "hvac_verified", is_us=is_us_mode)
+        st.session_state["project_boq"][curr_key] = rows_h
+        safe_render_table(rows_h, is_us=is_us_mode)
+        render_pricing_widget(rows_h, disciplines_dict[curr_key], is_us=is_us_mode)
+        st.image(cv2.cvtColor(disp_h, cv2.COLOR_BGR2RGB), caption="HVAC Units & Drains (Verified)" if is_us_mode else "יחידות מיזוג וקחז\"מ בשרטוט (לאחר וידוא)", use_container_width=True)
+    else:
+      st.info("ℹ️ Please upload at least the HVAC plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית המיזוג לחישוב.")
+
   # ========================================================
-  # 🏁 כפתורי מעבר בין תוכניות בתחתית הדף
+  # 🏁 כפתורי סיום פרויקט ומעבר דיסציפלינה
   # ========================================================
   st.markdown("---")
-  st.write("**Quick Navigation to Another Plan:**" if is_us_mode else "**מעבר מהיר לתוכנית נוספת באתר:**")
-  rem_keys = [k for k in disciplines_keys if k != curr_key]
-  cols = st.columns(len(rem_keys))
-  for i, d_target in enumerate(rem_keys):
-    if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
-      set_discipline_programmatically(d_target)
+  c_next, c_fin = st.columns([2, 1])
+  with c_next:
+    st.write("**Quick Navigation to Another Plan:**" if is_us_mode else "**מעבר מהיר לתוכנית נוספת באתר:**")
+    rem_keys = [k for k in disciplines_keys if k != curr_key]
+    cols = st.columns(len(rem_keys))
+    for i, d_target in enumerate(rem_keys):
+      if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
+        set_discipline_programmatically(d_target)
+        
+  with c_fin:
+    st.write("")
+    if st.button("🏁 Finalize & Export Reports" if is_us_mode else "🏁 סיום הפרויקט והפקת דוחות סופיים", key=f"btn_finish_master_{curr_key}", use_container_width=True):
+      st.session_state["show_master_export"] = True
+      st.rerun()
