@@ -32,11 +32,124 @@ st.set_page_config(
     page_icon=app_icon,
 )
 
+# עיצוב בסיסי ואנימציית פתיחה 100% מבוססת CSS (מונעת קריסות שרת ודפדפן)
 st.markdown("""
     <style>
         body { top: 0px !important; }
         .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
+        
+        /* CSS-Only Splash Screen Animation */
+        .fullscreen-splash {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
+            z-index: 999999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            overflow: hidden; 
+            animation: hideSplash 4.5s forwards ease-in-out; /* Fades out after 4.5s */
+        }
+        
+        @keyframes hideSplash {
+            0% { opacity: 1; visibility: visible; }
+            85% { opacity: 1; visibility: visible; }
+            99% { opacity: 0; visibility: visible; }
+            100% { opacity: 0; visibility: hidden; pointer-events: none; display: none; z-index: -10; }
+        }
+
+        .morning-sun {
+            position: absolute; top: 15%; right: 20%;
+            width: 120px; height: 120px;
+            background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
+            border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
+        }
+
+        .sea-layer {
+            position: absolute; bottom: 0; width: 100%; height: 30vh;
+            background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
+            box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
+        }
+        
+        .skyline {
+            position: absolute; bottom: 30vh; width: 100%; height: 25vh;
+            background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
+                        linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
+        }
+
+        .splash-tower {
+            position: absolute; bottom: 10vh; width: 160px; height: 55vh;
+            background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
+        }
+
+        .crane-system {
+            position: absolute; top: 0; height: 100vh; width: 100vw;
+            display: flex; justify-content: center;
+        }
+        .crane-cable {
+            width: 3px; height: 0; background: #333;
+            animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
+        }
+        
+        .glass-floor {
+            position: absolute; bottom: -30px; left: -82px;
+            width: 167px; height: 30px; background: rgba(255, 255, 255, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
+            backdrop-filter: blur(8px);
+        }
+        
+        @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
+
+        .dust {
+            position: absolute; background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%; width: 3px; height: 3px;
+            box-shadow: 0 0 6px rgba(255, 255, 255, 1);
+            animation: float 2.5s infinite ease-in-out alternate;
+        }
+        @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
+
+        .splash-text-main {
+            position: absolute; bottom: 12%;
+            font-size: 52px; font-weight: 400; color: #ffffff;
+            letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+            opacity: 0; animation: textFade 2s 1.5s forwards ease-in-out;
+        }
+        @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
+
+        /* Pure CSS Progress Bar */
+        .css-progress-container {
+            position: absolute; bottom: 6%; width: 40%; height: 6px;
+            background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
+            opacity: 0; animation: textFade 2s 1.5s forwards ease-in-out;
+        }
+        .css-progress-fill {
+            height: 100%; width: 0%; background: #facc15;
+            animation: fillBar 3.5s linear forwards;
+        }
+        @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
     </style>
+
+    <!-- The Splash Screen DOM -->
+    <div class="fullscreen-splash">
+        <div class="morning-sun"></div>
+        <div class="skyline"></div>
+        <div class="sea-layer"></div>
+        <div class="splash-tower"></div>
+        <div class="crane-system">
+            <div class="crane-cable">
+                <div class="glass-floor"></div>
+                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
+                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
+                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
+                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
+                <div class="dust" style="bottom: -40px; left: 10px; animation-delay: 1.7s;"></div>
+                <div class="dust" style="bottom: -50px; left: -60px; animation-delay: 2.1s;"></div>
+            </div>
+        </div>
+        <div class="splash-text-main">בונים את העתיד</div>
+        <div class="css-progress-container">
+            <div class="css-progress-fill"></div>
+        </div>
+    </div>
 """, unsafe_allow_html=True)
 
 def load_ai_memory():
@@ -61,6 +174,12 @@ def img_to_data_uri(cv2_img):
   if cv2_img is None or not hasattr(cv2_img, "size") or cv2_img.size == 0:
     return ""
   try:
+    # Resize before base64 to prevent DOM memory crashes on huge images
+    h, w = cv2_img.shape[:2]
+    if h > 200 or w > 200:
+        scale = 200 / max(h, w)
+        cv2_img = cv2.resize(cv2_img, (int(w * scale), int(h * scale)))
+        
     _, buf = cv2.imencode(".png", cv2_img)
     return f"data:image/png;base64,{base64.b64encode(buf).decode()}"
   except Exception:
@@ -71,7 +190,7 @@ def load_raster(file, scale=1.4):
     return None
   try:
     file.seek(0)
-    # הגבלת זיכרון הרמטית למניעת קריסות שרת (OOM)
+    # הגנה קשיחה על הזיכרון - מניעת קריסות שרת (OOM)
     max_pixels = 2000 * 2000 
     
     if file.name.lower().endswith(".pdf"):
@@ -79,7 +198,7 @@ def load_raster(file, scale=1.4):
       page = pdf.get_page(0)
       w, h = page.get_size()
       
-      calc_scale = math.sqrt(max_pixels / (w * h + 1))
+      calc_scale = math.sqrt(max_pixels / (max(w * h, 1)))
       final_scale = min(scale, calc_scale)
       
       bitmap = page.render(scale=final_scale)
@@ -153,16 +272,15 @@ def safe_render_table(rows, is_us=False):
   )
 
 # ========================================================
-# 🏗️ בקרת אימות לסוג שרטוט (חסינה מתקיעות)
+# 🏗️ בקרת אימות לסוג שרטוט (Validation Shield)
 # ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
-      msg = "⚠️ Invalid file." if is_us else "⚠️ קובץ לא תקין או פגום."
+      msg = "⚠️ Invalid or corrupted file." if is_us else "⚠️ קובץ לא תקין או פגום. לא ניתן לקרוא את השרטוט."
       return False, msg
       
   try:
     h, w = img.shape[:2]
-    # הקטנה משמעותית של התמונה וטשטוש כדי להסיר "לכלוכים" שגורמים לזיכרון לקרוס ולתקוע את התוכנה
     max_dim = 600
     if max(h, w) > max_dim:
         scale = max_dim / max(h, w)
@@ -175,7 +293,6 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
     _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
     contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    # הגנה מפני תקיעות: מגבילים את הבדיקה
     if len(contours) > 1500:
         contours = sorted(contours, key=cv2.contourArea, reverse=True)[:1500]
         
@@ -189,27 +306,27 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        if max(w_c, h_c) > 35 and ratio > 3.5:
+        if max(w_c, h_c) > 40 and ratio > 3.5:
             lines += 1
-        elif 8 <= w_c <= 65 and 8 <= h_c <= 65 and ratio <= 2.5:
+        elif 8 <= w_c <= 60 and 8 <= h_c <= 60 and ratio <= 2.5:
             symbols += 1
             
     if expected_disc == "elec" and symbols < 4:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
+        msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan (missing symbols)." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו סמלי מערכות). הפעולה הופסקה.")
         return False, msg
     elif expected_disc == "cons" and lines < 3:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
+        msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan (missing walls)." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו קווי מחיצות). הפעולה הופסקה.")
         return False, msg
     elif expected_disc == "plum" and symbols < 2:
         msg = ("⚠️ Validation Error: Drawing does not appear to be a Plumbing plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית אינסטלציה (חסרים כלים סניטריים). הפעולה הופסקה.")
         return False, msg
         
     return True, ""
   except Exception as e:
-    return False, (f"⚠️ Parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט.")
+    return False, (f"⚠️ Drawing parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט לבדיקה.")
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
@@ -217,7 +334,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   
   steps = 15
   for i in range(steps):
-    time.sleep(0.15)
+    time.sleep(0.1)
     percent = int((i + 1) * (100 / steps))
     progress_bar.progress(percent)
     if percent < 40:
@@ -230,124 +347,6 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   progress_bar.empty()
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
-# ========================================================
-# 🚀 אנימציית פתיחה - בטוחה ב-100% ללא קריסות SVG
-# ========================================================
-if "app_initialized" not in st.session_state:
-  st.session_state["app_initialized"] = False
-
-if not st.session_state["app_initialized"]:
-  st.markdown(
-      """
-    <style>
-    .fullscreen-splash {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-        z-index: 999999;
-        display: flex; flex-direction: column; justify-content: center; align-items: center;
-        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
-    }
-
-    .morning-sun {
-        position: absolute; top: 15%; right: 20%;
-        width: 120px; height: 120px;
-        background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
-        border-radius: 50%;
-        box-shadow: 0 0 60px rgba(255, 223, 112, 0.8);
-        opacity: 0.9;
-    }
-
-    .sea-layer {
-        position: absolute; bottom: 0; width: 100%; height: 30vh;
-        background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
-    }
-    
-    .skyline {
-        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
-        /* שימוש בגריד נקי לחלוטין ללא SVG מונע התרסקות כרום (Aw Snap) */
-        background: 
-            repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
-            linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
-    }
-
-    .splash-tower {
-        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
-        background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        border-top: 2px solid #555;
-    }
-
-    .crane-system {
-        position: absolute; top: 0; height: 100vh; width: 100vw;
-        display: flex; justify-content: center;
-    }
-    .crane-cable {
-        width: 3px; height: 0; background: #333;
-        animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-        position: relative;
-    }
-    
-    .glass-floor {
-        position: absolute; bottom: -30px; left: -82px;
-        width: 167px; height: 30px;
-        background: rgba(255, 255, 255, 0.35);
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
-        backdrop-filter: blur(8px);
-    }
-    
-    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
-
-    .dust {
-        position: absolute; background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%; width: 3px; height: 3px;
-        box-shadow: 0 0 6px rgba(255, 255, 255, 1);
-        animation: float 2.5s infinite ease-in-out alternate;
-    }
-    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
-
-    .splash-text-main {
-        position: absolute; bottom: 8%;
-        font-size: 52px; font-weight: 400; color: #ffffff;
-        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        opacity: 0;
-        animation: textFade 2s 1.5s forwards ease-in-out;
-    }
-    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-    </style>
-
-    <div class="fullscreen-splash">
-        <div class="morning-sun"></div>
-        <div class="skyline"></div>
-        <div class="sea-layer"></div>
-        <div class="splash-tower"></div>
-        <div class="crane-system">
-            <div class="crane-cable">
-                <div class="glass-floor"></div>
-                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
-                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
-                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
-                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
-                <div class="dust" style="bottom: -40px; left: 10px; animation-delay: 1.7s;"></div>
-                <div class="dust" style="bottom: -50px; left: -60px; animation-delay: 2.1s;"></div>
-            </div>
-        </div>
-        <div class="splash-text-main">בונים את העתיד</div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
-
-  bar_box = st.empty()
-  prog_bar = bar_box.progress(0)
-  steps = 25
-  for t in range(steps):
-    time.sleep(0.15)
-    prog_bar.progress(min(100, int((t + 1) * (100 / steps))))
-
-  st.session_state["app_initialized"] = True
-  st.rerun()
 
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
@@ -947,45 +946,25 @@ if st.session_state["app_mode"] is None:
       """
     <style>
     div[data-testid="stSelectbox"] {
-        background: white;
-        padding: 15px 25px;
-        border-radius: 14px;
-        border: 2px solid #cbd5e1;
-        max-width: 850px;
-        margin: 0 auto 30px auto;
+        background: white; padding: 15px 25px; border-radius: 14px;
+        border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
-    div[data-testid="stSelectbox"] > div {
-        margin-bottom: 0 !important;
-    }
+    div[data-testid="stSelectbox"] > div { margin-bottom: 0 !important; }
     div[data-testid="column"] .stButton > button {
-        height: 420px !important;
-        min-height: 420px !important;
-        width: 100%;
-        border-radius: 14px;
-        font-weight: bold;
-        padding: 30px 20px;
-        font-size: 18px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        transition: all 0.2s ease-in-out;
-        border: 3px solid #1F4E78;
-        background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-        color: #1F4E78;
-        text-align: center;
-        white-space: pre-wrap;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        height: 420px !important; min-height: 420px !important; width: 100%;
+        border-radius: 14px; font-weight: bold; padding: 30px 20px; font-size: 18px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: all 0.2s ease-in-out;
+        border: 3px solid #1F4E78; background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
+        color: #1F4E78; text-align: center; white-space: pre-wrap;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
     }
     div[data-testid="column"] .stButton > button:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 25px rgba(31,78,120,0.25);
+        transform: translateY(-4px); box-shadow: 0 8px 25px rgba(31,78,120,0.25);
         background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
     }
     div[data-testid="column"]:nth-of-type(2) .stButton > button {
-        border: 3px solid #137333 !important;
-        background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
+        border: 3px solid #137333 !important; background: linear-gradient(135deg, #e6f4ea 0%, #ceead6 100%) !important;
         color: #137333 !important;
     }
     div[data-testid="column"]:nth-of-type(2) .stButton > button:hover {
@@ -993,9 +972,7 @@ if st.session_state["app_mode"] is None:
         box-shadow: 0 8px 25px rgba(19,115,51,0.25) !important;
     }
     </style>
-    """,
-      unsafe_allow_html=True,
-  )
+    """, unsafe_allow_html=True)
 
   if has_logo:
     col_logo_cent = st.columns([3, 1, 3])
@@ -1267,9 +1244,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Partition Takeoff" if is_us_mode else ("🚀 הפעל חישוב בניה" if is_tenant else "🚀 הפעל חישוב כמויות בניה ושיפוץ")
       if st.button(btn_title):
-        img_exec = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_exec = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         
-        is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1373,9 +1351,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Plumbing Takeoff & AI Verification" if is_us_mode else "🚀 הפעל ספירת כלים סניטריים ואימות"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
         
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
         if not is_valid:
             st.error(v_msg)
             st.stop()
@@ -1426,7 +1405,7 @@ elif "📄" in file_type:
                  x_c = max(0, min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0)))
                  y_c = max(0, min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0)))
                  sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
-                 if sample_c.shape[0] > 5 and sample_c.shape[1] > 5:
+                 if sample_c.shape[0] >= 10 and sample_c.shape[1] >= 10:
                      formatted_results.append({
                          "index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c),
                          "matches": [{"bbox": (x_c, y_c, 40, 40), "center": (x_c+20, y_c+20), "score": 0.65+i*0.02, "status": "Yellow"}]
@@ -1461,7 +1440,8 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Flooring & Tiling Takeoff" if is_us_mode else "🚀 הפעל חישוב שטחי ריצוף וחיפוי קירות"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading blueprint..." if is_us_mode else "⏳ קורא שרטוט..."):
+            img_plan = load_raster(f_plan)
             
         show_engineering_loader("S.A.Q AI computing net flooring...", is_us=is_us_mode)
         img_std = load_raster(f_std) if f_std else None
@@ -1536,9 +1516,10 @@ elif "📄" in file_type:
     if f_plan:
       btn_title = "🚀 Run Electrical Takeoff & AI Verification" if is_us_mode else "🚀 הפעל פענוח חשמל וספירת נקודות קצה"
       if st.button(btn_title):
-        img_plan = load_raster(f_plan)
+        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
+            img_plan = load_raster(f_plan)
+            is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         
-        is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
         if not is_valid:
             st.error(v_msg)
             st.stop()
