@@ -235,23 +235,20 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
             plumbing_fixtures += 1
 
     if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols. Did you upload a blank architecture plan?" 
-               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
+        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
         return False, msg
-        
-    elif expected_disc == "cons" and lines < 5:
+    elif expected_disc == "cons" and lines < 3:
         msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
         return False, msg
-        
     elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
         msg = ("⚠️ Engineering Alert: No plumbing fixtures detected." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו כלים סניטריים או קווי מים. ודא שזו אכן תוכנית אינסטלציה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
         return False, msg
-        
     elif expected_disc == "hvac" and circular_symbols < 2:
         msg = ("⚠️ Engineering Alert: Drawing lacks HVAC symbols." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו סמלי מיזוג אוויר או פתחי אוורור. ודא שזו אכן תוכנית מיזוג.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית מיזוג. הפעולה הופסקה.")
         return False, msg
 
     return True, ""
@@ -278,7 +275,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS
+# 🚀 אנימציית פתיחה CSS (מחשבים את העתיד)
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
@@ -731,9 +728,9 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
         "### 🧠 Active Learning & AI Verification (Inspect 6 ambiguous symbols)"
         if is_us else "### 🧠 מנגנון למידה אקטיבית של S.A.Q AI (בדיקת 6 סמלים בספק)"
     )
-    st.info(
-        "System detected ambiguous symbols. Please approve or reject so AI updates pattern memory!"
-        if is_us else "המערכת זיהתה 6 סמלים באזור האפור. אנא אשר או דחה אותם כדי שה-AI יעדכן את תבניות הזיכרון לפרויקטים הבאים!"
+    st.warning(
+        "Please complete symbol verification to view final takeoff report."
+        if is_us else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי."
     )
     with st.expander("🔍 Symbol Verification Control Center (Click to open)" if is_us else "🔍 מרכז בקרת סמלים - הדרכת AI (לחץ לפתיחה)", expanded=True):
       cols = st.columns(min(len(yellow_items), 3))
@@ -782,12 +779,15 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
         save_ai_memory(ai_memory)
 
       if st.button(
-          "✨ Finished Verification - Lock Quantities & Proceed"
-          if is_us else "✨ סיימתי את בקרת 6 הסמלים - נעל כמויות והמשך",
+          "✨ Finished Verification - Proceed to Report"
+          if is_us else "✨ סיימתי את בקרת 6 הסמלים - הצג דוח כמויות",
           key=f"btn_lock_{session_key_verified}",
       ):
         st.session_state[session_key_verified] = True
         st.rerun()
+        
+    # עוצר את הצגת הטבלאות עד שיאשרו
+    st.stop()
 
   rows = []
   for s_idx, item in enumerate(results_list):
@@ -1282,13 +1282,20 @@ elif "📄" in file_type:
   
   is_tenant = mode_lbl in ["Tenant_CO", "שינויי דיירים"]
 
-  # הוסר רדיו באטון והכותרות המיותרות כדי לנקות את הממשק כמו שביקשת
+  # הוסר רדיו באטון של תזמון הריסה/שינויים מתוך הכותרת
   st.markdown("<br>", unsafe_allow_html=True)
 
   # ----------------------------------------------------
   # 1. 🧱 מודול בניה
   # ----------------------------------------------------
   if curr_key == "cons":
+    if is_tenant:
+        tenant_timing = st.radio(
+            "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
+            ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
+            horizontal=True,
+        )
+    
     c_exec, c_std, c_leg = st.columns(3)
     with c_exec:
       lbl_1 = "1️⃣ Proposed Change Plan (Required):" if is_us_mode else ("1️⃣ שרטוט שינויים מבוקש (חובה):" if is_tenant else "1️⃣ שרטוט מוצע / ביצוע (חובה):")
@@ -1402,6 +1409,13 @@ elif "📄" in file_type:
   # 2. 🚿 מודול אינסטלציה
   # ----------------------------------------------------
   elif curr_key == "plum":
+    if is_tenant:
+        tenant_timing = st.radio(
+            "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
+            ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
+            horizontal=True,
+        )
+        
     c_exec, c_std, c_leg = st.columns(3)
     with c_exec:
       lbl_1 = "1️⃣ Plumbing Change Plan (Required):" if is_us_mode else "1️⃣ תוכנית אינסטלציה לביצוע (חובה):"
@@ -1447,9 +1461,10 @@ elif "📄" in file_type:
                 "יחידת מידה": "Units" if is_us_mode else "יח'",
             })
           st.session_state["project_boq"][curr_key] = p_rows
-          safe_render_table(p_rows, is_us=is_us_mode)
-          render_pricing_widget(p_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="Fixture Shift Vectors" if is_us_mode else "וקטורי הזזת סניטריה", use_container_width=True)
+          
+          # H-I-T-L
+          st.warning("Please complete symbol verification to view final takeoff report." if is_us_mode else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי.")
+          st.stop()
         else:
           fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
           formatted_results = []
@@ -1492,6 +1507,13 @@ elif "📄" in file_type:
   # 3. 📐 מודול ריצוף וחיפוי קירות
   # ----------------------------------------------------
   elif curr_key == "tile":
+    if is_tenant:
+        tenant_timing = st.radio(
+            "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
+            ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
+            horizontal=True,
+        )
+        
     c_exec, c_std = st.columns(2)
     with c_exec:
       lbl_1 = "1️⃣ Proposed Flooring Plan (Required):" if is_us_mode else "1️⃣ תוכנית ריצוף מוצעת (חובה):"
@@ -1566,6 +1588,13 @@ elif "📄" in file_type:
   # 4. ⚡ מודול חשמל ומאור
   # ----------------------------------------------------
   elif curr_key == "elec":
+    if is_tenant:
+        tenant_timing = st.radio(
+            "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
+            ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
+            horizontal=True,
+        )
+        
     c_exec, c_std, c_leg = st.columns(3)
     with c_exec:
       lbl_1 = "1️⃣ Proposed Electrical Plan (Required):" if is_us_mode else "1️⃣ תוכנית חשמל מוצעת (חובה):"
@@ -1629,9 +1658,16 @@ elif "📄" in file_type:
       st.info("ℹ️ Please input the electrical plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית החשמל.")
 
   # ----------------------------------------------------
-  # 5. ❄️ מודול מיזוג אוויר ותשתיות (חדש)
+  # 5. ❄️ מודול מיזוג אוויר ותשתיות
   # ----------------------------------------------------
   elif curr_key == "hvac":
+    if is_tenant:
+        tenant_timing = st.radio(
+            "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
+            ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
+            horizontal=True,
+        )
+        
     c_exec, c_std, c_leg = st.columns(3)
     with c_exec:
       lbl_1 = "1️⃣ Proposed HVAC Plan (Required):" if is_us_mode else "1️⃣ תוכנית מיזוג מוצעת / לביצוע (חובה):"
@@ -1684,9 +1720,10 @@ elif "📄" in file_type:
             })
 
           st.session_state["project_boq"][curr_key] = h_rows
-          safe_render_table(h_rows, is_us=is_us_mode)
-          render_pricing_widget(h_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-          st.image(cv2.cvtColor(disp_delta, cv2.COLOR_BGR2RGB), caption="HVAC Shift Vectors & Piping" if is_us_mode else "וקטורי הזזת מיזוג ותוואי צנרת", use_container_width=True)
+          
+          # עוצר את ההדפסה של הדלתא במיזוג עד וידוא (H-I-T-L)
+          st.warning("Please complete symbol verification to view final takeoff report." if is_us_mode else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי.")
+          st.stop()
         else:
           plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
           _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
