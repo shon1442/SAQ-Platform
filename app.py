@@ -38,106 +38,41 @@ st.set_page_config(
 )
 
 # ========================================================
-# 🎨 מנוע עיצוב מרכזי - CSS דינמי לממשק משתמש מקצועי
+# 🎨 מנוע עיצוב מרכזי - CSS חסין מפני דליפת טקסט למסך
 # ========================================================
 app_mode = st.session_state.get("app_mode")
 
-# שימוש בתגיות HTML תקניות כדי למנוע את דליפת הטקסט (Markdown Bug Fix)
-css_string = """
-<meta name="google" content="notranslate">
-<style>
-    body { top: 0px !important; }
-    .stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .block-container { padding-top: 2rem !important; max-width: 95% !important; }
-    
-    /* תפריט צד (Sidebar) - לוח בקרה הנדסי כהה ואלגנטי */
-    section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
-        border-right: 1px solid #334155;
-        box-shadow: 2px 0 15px rgba(0,0,0,0.1);
-    }
-    section[data-testid="stSidebar"] * {
-        color: #f8fafc !important;
-    }
-    section[data-testid="stSidebar"] div[data-baseweb="select"] > div, 
-    section[data-testid="stSidebar"] input {
-        background-color: #334155 !important;
-        border: 1px solid #475569 !important;
-        border-radius: 8px !important;
-        color: white !important;
-    }
-    
-    h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }
-    
-    /* כפתורים משודרגים */
-    div.stButton > button {
-        border-radius: 12px !important;
-        font-weight: 600 !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        border: none !important;
-    }
-    div.stButton > button:hover {
-        transform: translateY(-2px) !important;
-    }
-</style>
-"""
+# יצירת מחרוזות CSS ללא רווחים בתחילת שורה כדי ש-Streamlit לא יהפוך אותן לטקסט
+css_code = ""
+css_code += "<meta name='google' content='notranslate'>\n"
+css_code += "<style>\n"
+css_code += "body { top: 0px !important; }\n"
+css_code += ".stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }\n"
+css_code += ".block-container { padding-top: 2rem !important; max-width: 95% !important; }\n"
+css_code += "section[data-testid='stSidebar'] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important; border-right: 1px solid #334155; box-shadow: 2px 0 15px rgba(0,0,0,0.1); }\n"
+css_code += "section[data-testid='stSidebar'] * { color: #f8fafc !important; }\n"
+css_code += "section[data-testid='stSidebar'] div[data-baseweb='select'] > div, section[data-testid='stSidebar'] input { background-color: #334155 !important; border: 1px solid #475569 !important; border-radius: 8px !important; color: white !important; }\n"
+css_code += "h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }\n"
+css_code += "div.stButton > button { border-radius: 12px !important; font-weight: 600 !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; border: none !important; }\n"
+css_code += "div.stButton > button:hover { transform: translateY(-2px) !important; }\n"
+css_code += "</style>\n"
 
 if app_mode in ["Tenant_CO", "שינויי דיירים"]:
-    css_string += """
-    <style>
-    div[data-testid="stAppViewContainer"] {
-        background-color: #f8fafc;
-        background-image: 
-            linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
-        background-size: 30px 30px;
-    }
-    div[data-testid="stFileUploader"], div[data-testid="stMetric"], div.stAlert {
-        background: rgba(255, 255, 255, 0.95) !important;
-        border: 1px solid rgba(59, 130, 246, 0.2) !important;
-        border-left: 6px solid #2563eb !important;
-        border-radius: 16px !important;
-        box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08) !important;
-        padding: 15px;
-    }
-    div.stButton > button:first-child {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
-        color: white !important;
-        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3) !important;
-    }
-    div.stButton > button:first-child:hover {
-        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4) !important;
-    }
-    </style>
-    """
+    css_code += "<style>\n"
+    css_code += "div[data-testid='stAppViewContainer'] { background-color: #f8fafc; background-image: linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px); background-size: 30px 30px; }\n"
+    css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(59, 130, 246, 0.2) !important; border-left: 6px solid #2563eb !important; border-radius: 16px !important; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08) !important; padding: 15px; }\n"
+    css_code += "div.stButton > button:first-child { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; color: white !important; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3) !important; }\n"
+    css_code += "div.stButton > button:first-child:hover { box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4) !important; }\n"
+    css_code += "</style>\n"
 elif app_mode in ["Renovation", "קבלני שיפוצים"]:
-    css_string += """
-    <style>
-    div[data-testid="stAppViewContainer"] {
-        background-color: #fdfdfc;
-        background-image: radial-gradient(#cbd5e1 1.5px, transparent 0);
-        background-size: 25px 25px;
-    }
-    div[data-testid="stFileUploader"], div[data-testid="stMetric"], div.stAlert {
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-top: 5px solid #f59e0b !important;
-        border-radius: 12px !important;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important;
-        padding: 15px;
-    }
-    div.stButton > button:first-child {
-        background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important;
-        color: white !important;
-        box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important;
-    }
-    div.stButton > button:first-child:hover {
-        box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4) !important;
-    }
-    </style>
-    """
+    css_code += "<style>\n"
+    css_code += "div[data-testid='stAppViewContainer'] { background-color: #fdfdfc; background-image: radial-gradient(#cbd5e1 1.5px, transparent 0); background-size: 25px 25px; }\n"
+    css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-top: 5px solid #f59e0b !important; border-radius: 12px !important; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important; padding: 15px; }\n"
+    css_code += "div.stButton > button:first-child { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important; color: white !important; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important; }\n"
+    css_code += "div.stButton > button:first-child:hover { box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4) !important; }\n"
+    css_code += "</style>\n"
 
-st.markdown(css_string, unsafe_allow_html=True)
+st.markdown(css_code, unsafe_allow_html=True)
 
 
 def load_ai_memory():
@@ -258,7 +193,7 @@ def safe_render_table(rows, is_us=False):
   )
 
 # ========================================================
-# 🏗️ מנוע זיהוי תוכניות חכם ומהיר (Geometric AI Shield)
+# 🏗️ מנוע זיהוי תוכניות חכם
 # ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
@@ -340,122 +275,55 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS טהור (ללא השהיות פייתון - 0 קריסות)
+# 🚀 אנימציית פתיחה CSS טהור ללא השהיות או קריסות
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
-  st.markdown(
-      """
-    <style>
-    .fullscreen-splash {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-        z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center;
-        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
-        animation: hideSplash 4.5s forwards ease-in-out;
-        pointer-events: none;
-    }
+  
+  splash_css = ""
+  splash_css += "<style>\n"
+  splash_css += ".fullscreen-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; animation: hideSplash 4.2s forwards ease-in-out; }\n"
+  splash_css += "@keyframes hideSplash { 0% { opacity: 1; visibility: visible; } 85% { opacity: 1; visibility: visible; } 99% { opacity: 0; visibility: visible; } 100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; } }\n"
+  splash_css += ".morning-sun { position: absolute; top: 15%; right: 20%; width: 120px; height: 120px; background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%); border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9; }\n"
+  splash_css += ".sea-layer { position: absolute; bottom: 0; width: 100%; height: 30vh; background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%); box-shadow: 0 -5px 25px rgba(0,0,0,0.2); }\n"
+  splash_css += ".skyline { position: absolute; bottom: 30vh; width: 100%; height: 25vh; background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px), linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%); }\n"
+  splash_css += ".splash-tower { position: absolute; bottom: 10vh; width: 160px; height: 55vh; background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%); box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555; }\n"
+  splash_css += ".crane-system { position: absolute; top: 0; height: 100vh; width: 100vw; display: flex; justify-content: center; }\n"
+  splash_css += ".crane-cable { width: 3px; height: 0; background: #333; animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative; }\n"
+  splash_css += ".glass-floor { position: absolute; bottom: -30px; left: -82px; width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5); }\n"
+  splash_css += "@keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }\n"
+  splash_css += ".dust { position: absolute; background: rgba(255, 255, 255, 0.9); border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1); animation: float 2.5s infinite ease-in-out alternate; }\n"
+  splash_css += "@keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }\n"
+  splash_css += ".splash-text-main { position: absolute; bottom: 14%; font-size: 52px; font-weight: 400; color: #ffffff; letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; animation: textFade 1s 1s forwards ease-in-out; }\n"
+  splash_css += "@keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }\n"
+  splash_css += ".css-progress-container { position: absolute; bottom: 8%; width: 40%; height: 6px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out; }\n"
+  splash_css += ".css-progress-fill { height: 100%; width: 0%; background: #facc15; animation: fillBar 3s 1.2s linear forwards; }\n"
+  splash_css += "@keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }\n"
+  splash_css += "</style>\n"
 
-    @keyframes hideSplash {
-        0% { opacity: 1; visibility: visible; }
-        85% { opacity: 1; visibility: visible; }
-        99% { opacity: 0; visibility: visible; }
-        100% { opacity: 0; visibility: hidden; z-index: -10; display: none; }
-    }
+  splash_html = "<div class='fullscreen-splash' translate='no'>\n"
+  splash_html += "<div class='morning-sun'></div>\n"
+  splash_html += "<div class='skyline'></div>\n"
+  splash_html += "<div class='sea-layer'></div>\n"
+  splash_html += "<div class='splash-tower'></div>\n"
+  splash_html += "<div class='crane-system'>\n"
+  splash_html += "<div class='crane-cable'>\n"
+  splash_html += "<div class='glass-floor'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -35px; left: -90px; animation-delay: 0.2s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -25px; left: 90px; animation-delay: 0.5s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -45px; left: -30px; animation-delay: 0.8s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -20px; left: 40px; animation-delay: 1.2s;'></div>\n"
+  splash_html += "</div>\n"
+  splash_html += "</div>\n"
+  splash_html += "<div class='splash-text-main'>מחשבים את העתיד</div>\n"
+  splash_html += "<div class='css-progress-container'><div class='css-progress-fill'></div></div>\n"
+  splash_html += "</div>\n"
+  
+  st.markdown(splash_css + splash_html, unsafe_allow_html=True)
 
-    .morning-sun {
-        position: absolute; top: 15%; right: 20%;
-        width: 120px; height: 120px;
-        background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
-        border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
-    }
-
-    .sea-layer {
-        position: absolute; bottom: 0; width: 100%; height: 30vh;
-        background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
-    }
-    
-    .skyline {
-        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
-        background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
-                    linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
-    }
-
-    .splash-tower {
-        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
-        background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
-    }
-
-    .crane-system {
-        position: absolute; top: 0; height: 100vh; width: 100vw;
-        display: flex; justify-content: center;
-    }
-    
-    .crane-cable {
-        width: 3px; height: 0; background: #333;
-        animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
-    }
-    
-    .glass-floor {
-        position: absolute; bottom: -30px; left: -82px;
-        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
-    }
-    
-    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
-
-    .dust {
-        position: absolute; background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1);
-        animation: float 2.5s infinite ease-in-out alternate;
-    }
-    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
-
-    .splash-text-main {
-        position: absolute; bottom: 14%;
-        font-size: 52px; font-weight: 400; color: #ffffff;
-        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        opacity: 0; animation: textFade 1s 1s forwards ease-in-out;
-    }
-    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-
-    .css-progress-container {
-        position: absolute; bottom: 8%; width: 40%; height: 6px;
-        background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
-        opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out;
-    }
-    .css-progress-fill {
-        height: 100%; width: 0%; background: #facc15;
-        animation: fillBar 3s 1.2s linear forwards;
-    }
-    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
-    </style>
-
-    <div class="fullscreen-splash" translate="no">
-        <div class="morning-sun"></div>
-        <div class="skyline"></div>
-        <div class="sea-layer"></div>
-        <div class="splash-tower"></div>
-        <div class="crane-system">
-            <div class="crane-cable">
-                <div class="glass-floor"></div>
-                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
-                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
-                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
-                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
-            </div>
-        </div>
-        <div class="splash-text-main">מחשבים את העתיד</div>
-        <div class="css-progress-container">
-            <div class="css-progress-fill"></div>
-        </div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
+  time.sleep(4)
+  st.session_state["app_initialized"] = True
+  st.rerun()
 
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
@@ -1050,37 +918,19 @@ if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
 
 if st.session_state["app_mode"] is None:
-  st.markdown("""<style>
-div[data-testid="stSelectbox"] {
-    background: white; padding: 15px 25px; border-radius: 14px;
-    border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-div[data-testid="stSelectbox"] > div { margin-bottom: 0 !important; }
-
-/* עיצוב משופר לכפתורי המודלים הראשיים */
-div[data-testid="column"] div.stButton > button {
-    height: 420px !important; min-height: 420px !important; width: 100%;
-    border-radius: 20px !important; font-weight: bold; padding: 30px 20px; font-size: 19px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    border: none !important; color: white !important; text-align: center; white-space: pre-wrap;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-}
-/* מודל דיירים - כחול הייטק */
-div[data-testid="column"]:nth-of-type(1) div.stButton > button {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important;
-}
-div[data-testid="column"]:nth-of-type(1) div.stButton > button:hover {
-    transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4) !important;
-}
-/* מודל שיפוצים - כתום הנדסי */
-div[data-testid="column"]:nth-of-type(2) div.stButton > button {
-    background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important;
-}
-div[data-testid="column"]:nth-of-type(2) div.stButton > button:hover {
-    transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(245, 158, 11, 0.4) !important;
-}
-</style>""", unsafe_allow_html=True)
+  
+  home_css = ""
+  home_css += "<style>\n"
+  home_css += "div[data-testid='stSelectbox'] { background: white; padding: 15px 25px; border-radius: 14px; border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }\n"
+  home_css += "div[data-testid='stSelectbox'] > div { margin-bottom: 0 !important; }\n"
+  home_css += "div[data-testid='column'] div.stButton > button { height: 420px !important; min-height: 420px !important; width: 100%; border-radius: 20px !important; font-weight: bold; padding: 30px 20px; font-size: 19px; box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; border: none !important; color: white !important; text-align: center; white-space: pre-wrap; display: flex; flex-direction: column; justify-content: center; align-items: center; }\n"
+  home_css += "div[data-testid='column']:nth-of-type(1) div.stButton > button { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important; }\n"
+  home_css += "div[data-testid='column']:nth-of-type(1) div.stButton > button:hover { transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4) !important; }\n"
+  home_css += "div[data-testid='column']:nth-of-type(2) div.stButton > button { background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important; }\n"
+  home_css += "div[data-testid='column']:nth-of-type(2) div.stButton > button:hover { transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(245, 158, 11, 0.4) !important; }\n"
+  home_css += "</style>\n"
+  
+  st.markdown(home_css, unsafe_allow_html=True)
 
   if has_logo:
     col_logo_cent = st.columns([3, 1, 3])
@@ -1168,18 +1018,12 @@ with st.sidebar:
   if has_logo:
     st.image(LOGO_PATH, use_container_width=True)
 
-  st.markdown("""<style>
-section[data-testid="stSidebar"] div.stButton > button {
-    background: transparent !important;
-    border: 1px solid #475569 !important;
-    box-shadow: none !important;
-    color: #f8fafc !important;
-}
-section[data-testid="stSidebar"] div.stButton > button:hover {
-    background: rgba(255,255,255,0.1) !important;
-    border-color: #cbd5e1 !important;
-}
-</style>""", unsafe_allow_html=True)
+  sb_css = ""
+  sb_css += "<style>\n"
+  sb_css += "section[data-testid='stSidebar'] div.stButton > button { background: transparent !important; border: 1px solid #475569 !important; box-shadow: none !important; color: #f8fafc !important; }\n"
+  sb_css += "section[data-testid='stSidebar'] div.stButton > button:hover { background: rgba(255,255,255,0.1) !important; border-color: #cbd5e1 !important; }\n"
+  sb_css += "</style>\n"
+  st.markdown(sb_css, unsafe_allow_html=True)
 
   if st.button("🏠 Back to Home" if is_us_mode else "🏠 חזרה למסך הבית (בחירת מודל)", use_container_width=True):
     st.session_state["app_mode"] = None
@@ -1702,4 +1546,3 @@ elif "📄" in file_type:
     for i, d_target in enumerate(rem_keys):
       if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
         set_discipline_programmatically(d_target)
-        
