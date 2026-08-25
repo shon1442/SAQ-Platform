@@ -183,7 +183,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה עתידנית: מגדל יוקרה נבנה ומנוף (3 שניות)
+# 🚀 אנימציית פתיחה עתידנית וריאליסטית: מנוף מסתובב ושלד בניין (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -198,7 +198,7 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: linear-gradient(135deg, #090d16 0%, #1e1b4b 100%);
+        background: linear-gradient(135deg, #050b14 0%, #0f172a 50%, #1e1b4b 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
@@ -207,78 +207,80 @@ if not st.session_state["app_initialized"]:
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .tower-site {
+    .realistic-site {
         position: relative;
-        width: 300px;
-        height: 260px;
-        border-bottom: 4px solid #38bdf8;
-        margin-bottom: 20px;
+        width: 340px;
+        height: 240px;
+        border-bottom: 5px solid #38bdf8;
+        margin-bottom: 25px;
         display: flex;
         justify-content: center;
         align-items: flex-end;
     }
-    @keyframes craneMotion {
-        0% { transform: rotate(-15deg); }
-        50% { transform: rotate(20deg); }
-        100% { transform: rotate(-15deg); }
+    @keyframes realisticCrane {
+        0% { transform: rotate(-18deg) scaleX(1); }
+        50% { transform: rotate(22deg) scaleX(1); }
+        100% { transform: rotate(-18deg) scaleX(1); }
     }
-    @keyframes growFuturisticTower {
-        0% { height: 15px; opacity: 0.2; transform: scaleY(0.2); }
-        100% { height: 220px; opacity: 1; transform: scaleY(1); }
+    @keyframes structuralRise {
+        0% { height: 10px; opacity: 0.1; }
+        100% { height: 200px; opacity: 1; }
     }
-    .splash-cyber-crane {
+    .splash-real-crane {
         position: absolute;
-        top: 0;
-        right: 20px;
-        font-size: 65px;
+        top: -5px;
+        right: 10px;
+        font-size: 75px;
         transform-origin: bottom center;
-        animation: craneMotion 1s infinite ease-in-out;
-        filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.8));
+        animation: realisticCrane 0.9s infinite ease-in-out;
+        filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.9));
     }
-    .splash-cyber-tower {
-        width: 100px;
-        background: linear-gradient(to top, #1e3a8a, #2563eb, #60a5fa);
-        border-radius: 8px 8px 0 0;
-        animation: growFuturisticTower 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
-        box-shadow: 0 0 40px rgba(37, 99, 235, 0.7);
-        border: 2px solid #93c5fd;
+    .splash-real-structure {
+        width: 110px;
+        background: linear-gradient(to top, #1e293b, #3b82f6, #93c5fd);
+        border-radius: 6px 6px 0 0;
+        animation: structuralRise 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
+        box-shadow: 0 0 45px rgba(59, 130, 246, 0.8);
+        border: 2px solid #bfdbfe;
         display: flex;
         flex-direction: column;
         justify-content: space-around;
         align-items: center;
-        padding: 8px 0;
+        padding: 6px 0;
     }
-    .cyber-floor {
-        width: 80px;
-        height: 10px;
-        background-color: #fde047;
-        box-shadow: 0 0 10px #facc15;
+    .glass-pane {
+        width: 90px;
+        height: 12px;
+        background-color: #fef08a;
+        box-shadow: 0 0 12px #fde047;
         border-radius: 2px;
     }
     .splash-title {
-        font-size: 38px;
+        font-size: 40px;
         font-weight: bold;
         color: #facc15;
         letter-spacing: 1px;
+        text-shadow: 0 0 15px rgba(250, 204, 21, 0.4);
     }
     .splash-subtitle {
-        font-size: 20px;
-        font-weight: 600;
+        font-size: 22px;
+        font-weight: bold;
         color: #38bdf8;
-        margin-top: 6px;
+        margin-top: 8px;
+        text-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="tower-site">
-            <div class="splash-cyber-crane">🏗️</div>
-            <div class="splash-cyber-tower">
-                <div class="cyber-floor"></div>
-                <div class="cyber-floor"></div>
-                <div class="cyber-floor"></div>
-                <div class="cyber-floor"></div>
-                <div class="cyber-floor"></div>
-                <div class="cyber-floor"></div>
-                <div class="cyber-floor"></div>
+        <div class="realistic-site">
+            <div class="splash-real-crane">🏗️</div>
+            <div class="splash-real-structure">
+                <div class="glass-pane"></div>
+                <div class="glass-pane"></div>
+                <div class="glass-pane"></div>
+                <div class="glass-pane"></div>
+                <div class="glass-pane"></div>
+                <div class="glass-pane"></div>
+                <div class="glass-pane"></div>
             </div>
         </div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
@@ -496,7 +498,7 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
     min_dim = min(w_m, h_m)
     if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
       fixtures.append({
-          "type": "Bathtub / Shower" if "us" else "אמבטיה / מקלחון",
+          "type": "Bathtub / Shower",
           "center": (x + w // 2, y + h // 2),
           "bbox": (x, y, w, h),
           "crop": plan_img[
@@ -512,7 +514,7 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         and 250 < area < 4000
     ):
       fixtures.append({
-          "type": "Toilet" if "us" else "אסלה",
+          "type": "Toilet",
           "center": (x + w // 2, y + h // 2),
           "bbox": (x, y, w, h),
           "crop": plan_img[
@@ -528,7 +530,7 @@ def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
         and 300 < area < 5500
     ):
       fixtures.append({
-          "type": "Sink / Vanity" if "us" else "כיור / ארון רחצה",
+          "type": "Sink / Vanity",
           "center": (x + w // 2, y + h // 2),
           "bbox": (x, y, w, h),
           "crop": plan_img[
@@ -1003,7 +1005,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה ובורר מיקום גלובלי
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (בורר שפה מובנה במלבן העליון)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -1036,14 +1038,14 @@ if st.session_state["app_mode"] is None:
         box-shadow: 0 8px 25px rgba(31,78,120,0.25);
         background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
     }
-    .geo-selector-box {
+    .top-header-box {
         background: white;
-        padding: 15px;
-        border-radius: 10px;
+        padding: 20px 25px;
+        border-radius: 14px;
         border: 2px solid #cbd5e1;
-        max-width: 500px;
-        margin: 0 auto 25px auto;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        max-width: 750px;
+        margin: 0 auto 30px auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
     </style>
     """,
@@ -1065,28 +1067,30 @@ if st.session_state["app_mode"] is None:
       " מתקדם לפענוח שרטוטים וכתבי כמויות</h3>",
       unsafe_allow_html=True,
   )
-
-  # בורר שפה ומיקום גלובלי בעמוד הבית הראשי
   st.markdown("<br>", unsafe_allow_html=True)
-  col_g1, col_g2, col_g3 = st.columns([1, 2, 1])
-  with col_g2:
-    st.markdown(
-        "<div class='geo-selector-box'>", unsafe_allow_html=True
-    )
-    home_geo = st.selectbox(
-        "🌍 Choose Region & Language / בחר אזור גיאוגרפי ושפה:",
-        [
-            "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית)",
-            "🇺🇸 United States (Imperial - Feet & Inches | RSMeans | English)",
-        ],
-        key="home_geo_selector",
-    )
-    st.markdown("</div>", unsafe_allow_html=True)
+
+  # מלבן עליון המרכז את בחירת המיקום והשפה הגלובלית
+  st.markdown("<div class='top-header-box'>", unsafe_allow_html=True)
+  home_geo = st.selectbox(
+      "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
+      [
+          "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית)",
+          "🇺🇸 United States (Imperial - Feet & Inches | RSMeans | English)",
+      ],
+      key="home_geo_selector",
+  )
+  st.markdown("</div>", unsafe_allow_html=True)
 
   is_us_home = "🇺🇸 United States" in home_geo
   st.session_state["global_is_us"] = is_us_home
 
+  st.markdown(
+      "<p style='text-align: center; color: #555; font-size: 16px;'>בחר את מודל"
+      " הפעילות המבוקש לפרויקט:</p>",
+      unsafe_allow_html=True,
+  )
   st.markdown("<br>", unsafe_allow_html=True)
+
   col_m1, col_m2 = st.columns(2, gap="large")
 
   with col_m1:
@@ -1172,7 +1176,7 @@ curr_idx = (
 )
 
 # ========================================================
-# 🎛️ תפריט צד (Sidebar) הכולל לחצן חזרה למסך הבית
+# 🎛️ תפריט צד (Sidebar)
 # ========================================================
 with st.sidebar:
   if has_logo:
@@ -1411,42 +1415,31 @@ if st.session_state.get("show_master_export", False):
 elif file_type == "📄 PDF / תמונה (Raster)":
 
   if mode_lbl == "שינויי דיירים":
-    header_t = (
-        "### 👷‍♂️ Tenant Modifications (COs): Requested Changes vs. Baseline"
-        " Standard"
+    header_tenant_lbl = (
+        "### 👷‍♂️ Change Orders (COs): השוואת שרטוט שינויים מול שרטוט מכר"
         if is_us_mode
         else (
             "### 👷‍♂️ מודל שינויי דיירים: השוואת שרטוט שינויים מול סטנדרט מכר"
         )
     )
-    st.markdown(header_t)
+    st.markdown(header_tenant_lbl)
     tenant_timing = st.radio(
-        "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
+        "⏱️ שלב ביצוע עבור שינויי הדיירים:",
         [
-            "Pre-Execution (Planning, Pricing & Client Approval)"
-            if is_us_mode
-            else "לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)",
-            "Post-Execution (As-Built Field Verification & Audit)"
-            if is_us_mode
-            else "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)",
+            "לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)",
+            "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)",
         ],
         horizontal=True,
     )
   else:
     st.markdown(
-        "### 🔨 Renovation Contractors: Takeoff Takeoff (As-Is vs Proposed)"
-        if is_us_mode
-        else "### 🔨 מודל קבלני שיפוצים: חישוב כתב כמויות (עצמאי או לאחר הריסה)"
+        "### 🔨 מודל קבלני שיפוצים: חישוב כתב כמויות (עצמאי או לאחר הריסה)"
     )
     reno_timing = st.radio(
-        "⏱️ Renovation Mode:" if is_us_mode else "⏱️ מצב עבודה לשיפוץ:",
+        "⏱️ מצב עבודה לשיפוץ:",
         [
-            "Independent Takeoff (Proposed Plan Only)"
-            if is_us_mode
-            else "חישוב עצמאי ללא הריסה (תוכנית מוצעת בלבד)",
-            "Post-Demolition Takeoff (Proposed vs. As-Is Demolition)"
-            if is_us_mode
-            else "חישוב לאחר הריסה (תוכנית מוצעת מול מצב קיים / הריסות)",
+            "חישוב עצמאי ללא הריסה (תוכנית מוצעת בלבד)",
+            "חישוב לאחר הריסה (תוכנית מוצעת מול מצב קיים / הריסות)",
         ],
         horizontal=True,
     )
@@ -1833,7 +1826,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
 
         st.image(
             cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB),
-            caption="Sanitary Fixtures (with V/X Active Verification)",
+            caption="Sanitary Fixtures (με V/X Verification)",
         )
     else:
       st.info("ℹ️ Please upload at least the plumbing plan.")
@@ -1866,7 +1859,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
       btn_title = (
           "🚀 Run Flooring & Tiling Takeoff"
           if is_us_mode
-          else "🚀 הפעל חישוב ריצוף וחיפוי קירות"
+          else "🚀 הפעל חישוב שטחי ריצוף נטו וחיפוי קירות"
       )
       if st.button(btn_title):
         show_engineering_loader(
@@ -2101,7 +2094,7 @@ elif file_type == "📄 PDF / תמונה (Raster)":
 
         st.image(
             cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB),
-            caption="Electrical Outlets & Lighting (with V/X Verification)",
+            caption="Electrical Outlets & Lighting (με V/X Verification)",
         )
     else:
       st.info("ℹ️ Please upload at least the electrical plan.")
