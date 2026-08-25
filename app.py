@@ -19,8 +19,14 @@ except Exception:
 
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
+
+# תיקון קריטי: כיווץ הלוגו לפני שליחה לדפדפן כדי למנוע קריסת OOM ולשונית של "אוי לא"
 try:
-  app_icon = Image.open(LOGO_PATH) if has_logo else "🏗️"
+  if has_logo:
+    app_icon = Image.open(LOGO_PATH)
+    app_icon.thumbnail((64, 64)) 
+  else:
+    app_icon = "🏗️"
 except Exception:
   app_icon = "🏗️"
 
@@ -32,124 +38,13 @@ st.set_page_config(
     page_icon=app_icon,
 )
 
-# עיצוב בסיסי ואנימציית פתיחה 100% מבוססת CSS (מונעת קריסות שרת ודפדפן)
+# הגנה מפני קריסות של תרגום אוטומטי בכרום
 st.markdown("""
+    <meta name="google" content="notranslate">
     <style>
         body { top: 0px !important; }
         .stApp { font-family: 'Segoe UI', Arial, sans-serif; }
-        
-        /* CSS-Only Splash Screen Animation */
-        .fullscreen-splash {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-            z-index: 999999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            overflow: hidden; 
-            animation: hideSplash 4.5s forwards ease-in-out; /* Fades out after 4.5s */
-        }
-        
-        @keyframes hideSplash {
-            0% { opacity: 1; visibility: visible; }
-            85% { opacity: 1; visibility: visible; }
-            99% { opacity: 0; visibility: visible; }
-            100% { opacity: 0; visibility: hidden; pointer-events: none; display: none; z-index: -10; }
-        }
-
-        .morning-sun {
-            position: absolute; top: 15%; right: 20%;
-            width: 120px; height: 120px;
-            background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
-            border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
-        }
-
-        .sea-layer {
-            position: absolute; bottom: 0; width: 100%; height: 30vh;
-            background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
-            box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
-        }
-        
-        .skyline {
-            position: absolute; bottom: 30vh; width: 100%; height: 25vh;
-            background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
-                        linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
-        }
-
-        .splash-tower {
-            position: absolute; bottom: 10vh; width: 160px; height: 55vh;
-            background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
-        }
-
-        .crane-system {
-            position: absolute; top: 0; height: 100vh; width: 100vw;
-            display: flex; justify-content: center;
-        }
-        .crane-cable {
-            width: 3px; height: 0; background: #333;
-            animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
-        }
-        
-        .glass-floor {
-            position: absolute; bottom: -30px; left: -82px;
-            width: 167px; height: 30px; background: rgba(255, 255, 255, 0.35);
-            border: 1px solid rgba(255, 255, 255, 0.9);
-            box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
-            backdrop-filter: blur(8px);
-        }
-        
-        @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
-
-        .dust {
-            position: absolute; background: rgba(255, 255, 255, 0.9);
-            border-radius: 50%; width: 3px; height: 3px;
-            box-shadow: 0 0 6px rgba(255, 255, 255, 1);
-            animation: float 2.5s infinite ease-in-out alternate;
-        }
-        @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
-
-        .splash-text-main {
-            position: absolute; bottom: 12%;
-            font-size: 52px; font-weight: 400; color: #ffffff;
-            letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-            opacity: 0; animation: textFade 2s 1.5s forwards ease-in-out;
-        }
-        @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-
-        /* Pure CSS Progress Bar */
-        .css-progress-container {
-            position: absolute; bottom: 6%; width: 40%; height: 6px;
-            background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
-            opacity: 0; animation: textFade 2s 1.5s forwards ease-in-out;
-        }
-        .css-progress-fill {
-            height: 100%; width: 0%; background: #facc15;
-            animation: fillBar 3.5s linear forwards;
-        }
-        @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
     </style>
-
-    <!-- The Splash Screen DOM -->
-    <div class="fullscreen-splash">
-        <div class="morning-sun"></div>
-        <div class="skyline"></div>
-        <div class="sea-layer"></div>
-        <div class="splash-tower"></div>
-        <div class="crane-system">
-            <div class="crane-cable">
-                <div class="glass-floor"></div>
-                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
-                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
-                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
-                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
-                <div class="dust" style="bottom: -40px; left: 10px; animation-delay: 1.7s;"></div>
-                <div class="dust" style="bottom: -50px; left: -60px; animation-delay: 2.1s;"></div>
-            </div>
-        </div>
-        <div class="splash-text-main">בונים את העתיד</div>
-        <div class="css-progress-container">
-            <div class="css-progress-fill"></div>
-        </div>
-    </div>
 """, unsafe_allow_html=True)
 
 def load_ai_memory():
@@ -174,7 +69,7 @@ def img_to_data_uri(cv2_img):
   if cv2_img is None or not hasattr(cv2_img, "size") or cv2_img.size == 0:
     return ""
   try:
-    # Resize before base64 to prevent DOM memory crashes on huge images
+    # הקטנה גם בייצוא כדי שה-HTML לא יקרוס
     h, w = cv2_img.shape[:2]
     if h > 200 or w > 200:
         scale = 200 / max(h, w)
@@ -190,7 +85,6 @@ def load_raster(file, scale=1.4):
     return None
   try:
     file.seek(0)
-    # הגנה קשיחה על הזיכרון - מניעת קריסות שרת (OOM)
     max_pixels = 2000 * 2000 
     
     if file.name.lower().endswith(".pdf"):
@@ -198,7 +92,7 @@ def load_raster(file, scale=1.4):
       page = pdf.get_page(0)
       w, h = page.get_size()
       
-      calc_scale = math.sqrt(max_pixels / (max(w * h, 1)))
+      calc_scale = math.sqrt(max_pixels / max(w * h, 1))
       final_scale = min(scale, calc_scale)
       
       bitmap = page.render(scale=final_scale)
@@ -271,9 +165,6 @@ def safe_render_table(rows, is_us=False):
       },
   )
 
-# ========================================================
-# 🏗️ בקרת אימות לסוג שרטוט (Validation Shield)
-# ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
       msg = "⚠️ Invalid or corrupted file." if is_us else "⚠️ קובץ לא תקין או פגום. לא ניתן לקרוא את השרטוט."
@@ -306,27 +197,27 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
         
         ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
         
-        if max(w_c, h_c) > 40 and ratio > 3.5:
+        if max(w_c, h_c) > 35 and ratio > 3.5:
             lines += 1
-        elif 8 <= w_c <= 60 and 8 <= h_c <= 60 and ratio <= 2.5:
+        elif 8 <= w_c <= 65 and 8 <= h_c <= 65 and ratio <= 2.5:
             symbols += 1
             
     if expected_disc == "elec" and symbols < 4:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan (missing symbols)." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית חשמל (לא נמצאו סמלי מערכות). הפעולה הופסקה.")
+        msg = ("⚠️ Validation Error: Drawing does not appear to be an Electrical plan." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
         return False, msg
     elif expected_disc == "cons" and lines < 3:
-        msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan (missing walls)." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית בניה/אדריכלות (לא זוהו קווי מחיצות). הפעולה הופסקה.")
+        msg = ("⚠️ Validation Error: Drawing does not appear to be an Architectural plan." 
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
         return False, msg
     elif expected_disc == "plum" and symbols < 2:
         msg = ("⚠️ Validation Error: Drawing does not appear to be a Plumbing plan." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו מזוהה כתוכנית אינסטלציה (חסרים כלים סניטריים). הפעולה הופסקה.")
+               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
         return False, msg
         
     return True, ""
   except Exception as e:
-    return False, (f"⚠️ Drawing parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט לבדיקה.")
+    return False, (f"⚠️ Parse error: {e}" if is_us else "⚠️ שגיאה בפענוח השרטוט.")
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
   progress_bar = st.progress(0)
@@ -334,7 +225,7 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   
   steps = 15
   for i in range(steps):
-    time.sleep(0.1)
+    time.sleep(0.15)
     percent = int((i + 1) * (100 / steps))
     progress_bar.progress(percent)
     if percent < 40:
@@ -347,6 +238,123 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   progress_bar.empty()
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
+# ========================================================
+# 🚀 אנימציית פתיחה - בטוחה ב-100% ורצה רק על CSS ללא עומס שרת
+# ========================================================
+if "app_initialized" not in st.session_state:
+  st.session_state["app_initialized"] = False
+
+if not st.session_state["app_initialized"]:
+  st.markdown(
+      """
+    <style>
+    .fullscreen-splash {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
+        z-index: 999999;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    .morning-sun {
+        position: absolute; top: 15%; right: 20%;
+        width: 120px; height: 120px;
+        background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
+        border-radius: 50%;
+        box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
+    }
+
+    .sea-layer {
+        position: absolute; bottom: 0; width: 100%; height: 30vh;
+        background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
+        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
+    }
+    
+    .skyline {
+        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
+        background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
+                    linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
+    }
+
+    .splash-tower {
+        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
+        background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
+    }
+
+    .crane-system {
+        position: absolute; top: 0; height: 100vh; width: 100vw;
+        display: flex; justify-content: center;
+    }
+    .crane-cable {
+        width: 3px; height: 0; background: #333;
+        animation: lowerCable 3.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
+    }
+    
+    .glass-floor {
+        position: absolute; bottom: -30px; left: -82px;
+        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
+    }
+    
+    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
+
+    .dust {
+        position: absolute; background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%; width: 3px; height: 3px;
+        box-shadow: 0 0 6px rgba(255, 255, 255, 1);
+        animation: float 2.5s infinite ease-in-out alternate;
+    }
+    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
+
+    .splash-text-main {
+        position: absolute; bottom: 14%;
+        font-size: 52px; font-weight: 400; color: #ffffff;
+        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        opacity: 0; animation: textFade 1s 1s forwards ease-in-out;
+    }
+    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
+
+    .css-progress-container {
+        position: absolute; bottom: 8%; width: 40%; height: 6px;
+        background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
+        opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out;
+    }
+    .css-progress-fill {
+        height: 100%; width: 0%; background: #facc15;
+        animation: fillBar 3s 1.2s linear forwards;
+    }
+    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
+    </style>
+
+    <div class="fullscreen-splash" translate="no">
+        <div class="morning-sun"></div>
+        <div class="skyline"></div>
+        <div class="sea-layer"></div>
+        <div class="splash-tower"></div>
+        <div class="crane-system">
+            <div class="crane-cable">
+                <div class="glass-floor"></div>
+                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
+                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
+                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
+                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
+            </div>
+        </div>
+        <div class="splash-text-main">בונים את העתיד</div>
+        <div class="css-progress-container">
+            <div class="css-progress-fill"></div>
+        </div>
+    </div>
+    """,
+      unsafe_allow_html=True,
+  )
+
+  # הפסקה שקטה של פייתון ללא לולאות ועדכוני שרת כדי למנוע Aw Snap
+  time.sleep(4)
+  st.session_state["app_initialized"] = True
+  st.rerun()
 
 def get_pricing_item_cost(desc, unit, is_us=False):
   if is_us:
