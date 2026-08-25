@@ -51,6 +51,8 @@ css_code += ".stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-se
 css_code += ".block-container { padding-top: 2rem !important; max-width: 95% !important; }\n"
 css_code += "section[data-testid='stSidebar'] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important; border-right: 1px solid #334155; box-shadow: 2px 0 15px rgba(0,0,0,0.1); }\n"
 css_code += "section[data-testid='stSidebar'] * { color: #f8fafc !important; }\n"
+# התיקון הקריטי לצבע הטקסט בתוך ההתראות בסיידבר
+css_code += "section[data-testid='stSidebar'] div[data-testid='stAlert'] * { color: #0f172a !important; font-weight: 600 !important; }\n"
 css_code += "section[data-testid='stSidebar'] div[data-baseweb='select'] > div, section[data-testid='stSidebar'] input { background-color: #334155 !important; border: 1px solid #475569 !important; border-radius: 8px !important; color: white !important; }\n"
 css_code += "h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }\n"
 css_code += "div.stButton > button { border-radius: 12px !important; font-weight: 600 !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; border: none !important; }\n"
@@ -192,9 +194,6 @@ def safe_render_table(rows, is_us=False):
       },
   )
 
-# ========================================================
-# 🏗️ מנוע זיהוי תוכניות חכם
-# ========================================================
 def validate_drawing_discipline(img, expected_disc, is_us=False):
   if img is None:
       msg = "⚠️ Invalid file." if is_us else "⚠️ קובץ לא קריא."
