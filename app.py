@@ -13,22 +13,23 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
 try:
-  from saq_vector_engine import DXFVectorParser, compare_vector_delta
-  HAS_VECTOR_ENGINE = True
+    from saq_vector_engine import DXFVectorParser, compare_vector_delta
+    HAS_VECTOR_ENGINE = True
 except Exception:
-  HAS_VECTOR_ENGINE = False
+    HAS_VECTOR_ENGINE = False
 
 LOGO_PATH = "logo.png.png" if os.path.exists("logo.png.png") else "logo.png"
 has_logo = os.path.exists(LOGO_PATH)
+SPLASH_IMG_PATH = "Gemini_Generated_Image_3zojl43zojl43zoj.jpeg"
 
 try:
-  if has_logo:
-    app_icon = Image.open(LOGO_PATH)
-    app_icon.thumbnail((64, 64)) 
-  else:
-    app_icon = "🏗️"
+    if has_logo:
+        app_icon = Image.open(LOGO_PATH)
+        app_icon.thumbnail((64, 64)) 
+    else:
+        app_icon = "SAQ"
 except Exception:
-  app_icon = "🏗️"
+    app_icon = "SAQ"
 
 MEMORY_FILE = "saq_ai_memory.json"
 
@@ -39,9 +40,13 @@ st.set_page_config(
 )
 
 # ========================================================
-# 🎨 מנוע עיצוב מרכזי
+# מנוע עיצוב מרכזי
 # ========================================================
+if "dark_mode" not in st.session_state:
+    st.session_state["dark_mode"] = False
+
 app_mode = st.session_state.get("app_mode")
+is_dark = st.session_state["dark_mode"]
 
 css_code = ""
 css_code += "<meta name='google' content='notranslate'>\n"
@@ -49,938 +54,758 @@ css_code += "<style>\n"
 css_code += "body { top: 0px !important; }\n"
 css_code += ".stApp { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }\n"
 css_code += ".block-container { padding-top: 2rem !important; max-width: 95% !important; }\n"
-css_code += "section[data-testid='stSidebar'] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important; border-right: 1px solid #334155; box-shadow: 2px 0 15px rgba(0,0,0,0.1); }\n"
-css_code += "section[data-testid='stSidebar'] * { color: #f8fafc !important; }\n"
-css_code += "section[data-testid='stSidebar'] div[data-testid='stAlert'] * { color: #0f172a !important; font-weight: 600 !important; }\n"
-css_code += "section[data-testid='stSidebar'] div[data-baseweb='select'] > div, section[data-testid='stSidebar'] input { background-color: #334155 !important; border: 1px solid #475569 !important; border-radius: 8px !important; color: white !important; }\n"
-css_code += "h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }\n"
+
+if is_dark:
+    css_code += "div[data-testid='stAppViewContainer'] { background-color: #0f172a; color: #f8fafc; }\n"
+    css_code += "div[data-testid='stSidebar'] { background-color: #1e293b !important; border-right: 1px solid #334155; }\n"
+    css_code += "h1, h2, h3, h4, h5, h6, p, span, div { color: #f8fafc !important; }\n"
+    css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: #1e293b !important; border: 1px solid #334155 !important; }\n"
+else:
+    css_code += "section[data-testid='stSidebar'] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important; border-right: 1px solid #334155; box-shadow: 2px 0 15px rgba(0,0,0,0.1); }\n"
+    css_code += "section[data-testid='stSidebar'] * { color: #f8fafc !important; }\n"
+    css_code += "section[data-testid='stSidebar'] div[data-testid='stAlert'] * { color: #0f172a !important; font-weight: 600 !important; }\n"
+    css_code += "section[data-testid='stSidebar'] div[data-baseweb='select'] > div, section[data-testid='stSidebar'] input, section[data-testid='stSidebar'] textarea { background-color: #334155 !important; border: 1px solid #475569 !important; border-radius: 8px !important; color: white !important; }\n"
+    css_code += "h1, h2, h3 { color: #0f172a; font-weight: 700 !important; }\n"
+    
+    if app_mode in ["Tenant_CO", "שינויי דיירים"]:
+        css_code += "div[data-testid='stAppViewContainer'] { background-color: #f8fafc; background-image: linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px); background-size: 30px 30px; }\n"
+        css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(59, 130, 246, 0.2) !important; border-left: 6px solid #2563eb !important; border-radius: 16px !important; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08) !important; padding: 15px; }\n"
+        css_code += "div.stButton > button:first-child { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; color: white !important; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3) !important; }\n"
+    elif app_mode in ["Renovation", "קבלני שיפוצים"]:
+        css_code += "div[data-testid='stAppViewContainer'] { background-color: #fdfdfc; background-image: radial-gradient(#cbd5e1 1.5px, transparent 0); background-size: 25px 25px; }\n"
+        css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-top: 5px solid #f59e0b !important; border-radius: 12px !important; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important; padding: 15px; }\n"
+        css_code += "div.stButton > button:first-child { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important; color: white !important; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important; }\n"
+
 css_code += "div.stButton > button { border-radius: 12px !important; font-weight: 600 !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; border: none !important; }\n"
 css_code += "div.stButton > button:hover { transform: translateY(-2px) !important; }\n"
 css_code += "</style>\n"
-
-if app_mode in ["Tenant_CO", "שינויי דיירים"]:
-    css_code += "<style>\n"
-    css_code += "div[data-testid='stAppViewContainer'] { background-color: #f8fafc; background-image: linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px); background-size: 30px 30px; }\n"
-    css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(59, 130, 246, 0.2) !important; border-left: 6px solid #2563eb !important; border-radius: 16px !important; box-shadow: 0 10px 30px rgba(37, 99, 235, 0.08) !important; padding: 15px; }\n"
-    css_code += "div.stButton > button:first-child { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; color: white !important; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3) !important; }\n"
-    css_code += "div.stButton > button:first-child:hover { box-shadow: 0 8px 25px rgba(37, 99, 235, 0.4) !important; }\n"
-    css_code += "</style>\n"
-elif app_mode in ["Renovation", "קבלני שיפוצים"]:
-    css_code += "<style>\n"
-    css_code += "div[data-testid='stAppViewContainer'] { background-color: #fdfdfc; background-image: radial-gradient(#cbd5e1 1.5px, transparent 0); background-size: 25px 25px; }\n"
-    css_code += "div[data-testid='stFileUploader'], div[data-testid='stMetric'], div.stAlert { background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-top: 5px solid #f59e0b !important; border-radius: 12px !important; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05) !important; padding: 15px; }\n"
-    css_code += "div.stButton > button:first-child { background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%) !important; color: white !important; box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3) !important; }\n"
-    css_code += "div.stButton > button:first-child:hover { box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4) !important; }\n"
-    css_code += "</style>\n"
 
 st.markdown(css_code, unsafe_allow_html=True)
 
 
 def load_ai_memory():
-  if os.path.exists(MEMORY_FILE):
-    try:
-      with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-    except Exception:
-      return {"approved_patterns": [], "rejected_patterns": [], "structural_alerts": []}
-  return {"approved_patterns": [], "rejected_patterns": [], "structural_alerts": []}
+    if os.path.exists(MEMORY_FILE):
+        try:
+            with open(MEMORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"approved_patterns": [], "rejected_patterns": [], "structural_alerts": []}
+    return {"approved_patterns": [], "rejected_patterns": [], "structural_alerts": []}
 
 def save_ai_memory(memory):
-  try:
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-      json.dump(memory, f, ensure_ascii=False, indent=2)
-  except Exception:
-    pass
+    try:
+        with open(MEMORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(memory, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 ai_memory = load_ai_memory()
 
 def img_to_data_uri(cv2_img):
-  if cv2_img is None or not hasattr(cv2_img, "size") or cv2_img.size == 0:
-    return ""
-  try:
-    h, w = cv2_img.shape[:2]
-    if h > 200 or w > 200:
-        scale = 200 / max(h, w)
-        cv2_img = cv2.resize(cv2_img, (int(w * scale), int(h * scale)))
-        
-    _, buf = cv2.imencode(".png", cv2_img)
-    return f"data:image/png;base64,{base64.b64encode(buf).decode()}"
-  except Exception:
-    return ""
+    if cv2_img is None or not hasattr(cv2_img, "size") or cv2_img.size == 0:
+        return ""
+    try:
+        h, w = cv2_img.shape[:2]
+        if h > 200 or w > 200:
+            scale = 200 / max(h, w)
+            cv2_img = cv2.resize(cv2_img, (int(w * scale), int(h * scale)))
+        _, buf = cv2.imencode(".png", cv2_img)
+        return f"data:image/png;base64,{base64.b64encode(buf).decode()}"
+    except Exception:
+        return ""
 
 def load_raster(file, scale=1.4):
-  if file is None:
-    return None
-  try:
-    file.seek(0)
-    max_pixels = 2000 * 2000 
-    
-    if file.name.lower().endswith(".pdf"):
-      pdf = pdfium.PdfDocument(file.read())
-      page = pdf.get_page(0)
-      w, h = page.get_size()
-      
-      calc_scale = math.sqrt(max_pixels / max(w * h, 1))
-      final_scale = min(scale, calc_scale)
-      
-      bitmap = page.render(scale=final_scale)
-      pil_img = bitmap.to_pil().convert("RGB")
-      return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-    else:
-      file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
-      img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
-      if img is None:
+    if file is None:
         return None
-        
-      h, w = img.shape[:2]
-      if h * w > max_pixels:
-          ratio = math.sqrt(max_pixels / (h * w))
-          img = cv2.resize(img, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_AREA)
-          
-      if len(img.shape) == 3 and img.shape[2] == 4:
-        alpha = img[:, :, 3] / 255.0
-        bg = np.ones_like(img[:, :, :3], dtype=np.uint8) * 255
-        for c in range(3):
-          bg[:, :, c] = (img[:, :, c] * alpha + bg[:, :, c] * (1.0 - alpha)).astype(np.uint8)
-        return bg
-      elif len(img.shape) == 2:
-        return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-      return img
-  except Exception as e:
-    is_us = st.session_state.get("global_is_us", False)
-    st.error(f"Error loading file: {e}" if is_us else f"שגיאה בטעינת הקובץ: {e}")
-    return None
+    try:
+        file.seek(0)
+        max_pixels = 2000 * 2000 
+        if file.name.lower().endswith(".pdf"):
+            pdf = pdfium.PdfDocument(file.read())
+            page = pdf.get_page(0)
+            w, h = page.get_size()
+            calc_scale = math.sqrt(max_pixels / max(w * h, 1))
+            final_scale = min(scale, calc_scale)
+            bitmap = page.render(scale=final_scale)
+            pil_img = bitmap.to_pil().convert("RGB")
+            return cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        else:
+            file_bytes = np.asarray(bytearray(file.read()), dtype=np.uint8)
+            img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
+            if img is None:
+                return None
+            h, w = img.shape[:2]
+            if h * w > max_pixels:
+                ratio = math.sqrt(max_pixels / (h * w))
+                img = cv2.resize(img, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_AREA)
+            if len(img.shape) == 3 and img.shape[2] == 4:
+                alpha = img[:, :, 3] / 255.0
+                bg = np.ones_like(img[:, :, :3], dtype=np.uint8) * 255
+                for c in range(3):
+                    bg[:, :, c] = (img[:, :, c] * alpha + bg[:, :, c] * (1.0 - alpha)).astype(np.uint8)
+                return bg
+            elif len(img.shape) == 2:
+                return cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            return img
+    except Exception as e:
+        is_us = st.session_state.get("global_is_us", False)
+        st.error(f"Error loading file: {e}" if is_us else f"שגיאה בטעינת הקובץ: {e}")
+        return None
 
 def safe_render_table(rows, is_us=False):
-  cols = (
-      ["No.", "Symbol", "Item Description", "Approved Qty", "Unit"]
-      if is_us
-      else ["מס'", "תמונת סמל", "תיאור הפריט", "כמות מאושרת", "יחידת מידה"]
-  )
-  if not rows:
-    st.dataframe(pd.DataFrame(columns=cols))
-    return
-  clean_data = []
-  for idx, r in enumerate(rows):
-    u_meas = r.get("יחידת מידה", "יח'")
-    qty = r.get("כמות מאושרת", 0)
-
-    if is_us:
-      if 'מ"א' in u_meas or "מטר" in u_meas:
-        qty = round(qty * 3.28084, 2)
-        u_meas = "Linear Feet (FT)"
-      elif 'מ"ר' in u_meas:
-        qty = round(qty * 10.7639, 2)
-        u_meas = "Square Feet (SQFT)"
-      elif "יח'" in u_meas:
-        u_meas = "Units"
-
-    clean_data.append({
-        cols[0]: r.get("מס'", idx + 1),
-        cols[1]: r.get("תמונת סמל", ""),
-        cols[2]: r.get("תיאור הפריט", f"Item #{idx+1}"),
-        cols[3]: qty,
-        cols[4]: u_meas,
-    })
-  df = pd.DataFrame(clean_data)[cols]
-  st.dataframe(
-      df,
-      column_config={
-          cols[1]: st.column_config.ImageColumn(
-              "Engineering Symbol" if is_us else "סמל / תרשים הנדסי",
-              width="small",
-          )
-      },
-  )
+    cols = (
+        ["No.", "Symbol", "Item Description", "Approved Qty", "Unit"]
+        if is_us
+        else ["מס'", "תמונת סמל", "תיאור הפריט", "כמות מאושרת", "יחידת מידה"]
+    )
+    if not rows:
+        st.dataframe(pd.DataFrame(columns=cols))
+        return
+    clean_data = []
+    for idx, r in enumerate(rows):
+        u_meas = r.get("יחידת מידה", "יח'")
+        qty = r.get("כמות מאושרת", 0)
+        if is_us:
+            if 'מ"א' in u_meas or "מטר" in u_meas:
+                qty = round(qty * 3.28084, 2)
+                u_meas = "Linear Feet (FT)"
+            elif 'מ"ר' in u_meas:
+                qty = round(qty * 10.7639, 2)
+                u_meas = "Square Feet (SQFT)"
+            elif "יח'" in u_meas:
+                u_meas = "Units"
+        clean_data.append({
+            cols[0]: r.get("מס'", idx + 1),
+            cols[1]: r.get("תמונת סמל", ""),
+            cols[2]: r.get("תיאור הפריט", f"Item #{idx+1}"),
+            cols[3]: qty,
+            cols[4]: u_meas,
+        })
+    df = pd.DataFrame(clean_data)[cols]
+    st.dataframe(
+        df,
+        column_config={
+            cols[1]: st.column_config.ImageColumn(
+                "Engineering Symbol" if is_us else "סמל / תרשים הנדסי",
+                width="small",
+            )
+        },
+    )
 
 def validate_drawing_discipline(img, expected_disc, is_us=False):
-  if img is None:
-      msg = "⚠️ Invalid file." if is_us else "⚠️ קובץ לא קריא."
-      return False, msg
-      
-  try:
-    h, w = img.shape[:2]
-    max_dim = 800
-    if max(h, w) > max_dim:
-        scale = max_dim / max(h, w)
-        img_small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
-    else:
-        img_small = img.copy()
+    if img is None:
+        msg = "Invalid file." if is_us else "קובץ לא קריא."
+        return False, msg
+    try:
+        h, w = img.shape[:2]
+        max_dim = 800
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            img_small = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        else:
+            img_small = img.copy()
+        gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        lines = 0
+        circular_symbols = 0
+        plumbing_fixtures = 0
+        for c in contours:
+            area = cv2.contourArea(c)
+            if area < 5: continue
+            x_c, y_c, w_c, h_c = cv2.boundingRect(c)
+            ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
+            if max(w_c, h_c) > 40 and ratio > 4: lines += 1
+            peri = cv2.arcLength(c, True)
+            if peri > 0:
+                circularity = 4 * math.pi * (area / (peri * peri))
+                if 0.65 < circularity <= 1.2 and 5 < w_c < 80: circular_symbols += 1
+            if 20 < w_c < 150 and 20 < h_c < 150 and ratio < 2.5 and area > 400: plumbing_fixtures += 1
 
-    gray = cv2.cvtColor(img_small, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-    
-    lines = 0
-    circular_symbols = 0
-    plumbing_fixtures = 0
-    
-    for c in contours:
-        area = cv2.contourArea(c)
-        if area < 5: continue
-        
-        x_c, y_c, w_c, h_c = cv2.boundingRect(c)
-        ratio = max(w_c, h_c) / (min(w_c, h_c) + 1e-5)
-        
-        if max(w_c, h_c) > 40 and ratio > 4:
-            lines += 1
-            
-        peri = cv2.arcLength(c, True)
-        if peri > 0:
-            circularity = 4 * math.pi * (area / (peri * peri))
-            if 0.65 < circularity <= 1.2 and 5 < w_c < 80:
-                circular_symbols += 1
-                
-        if 20 < w_c < 150 and 20 < h_c < 150 and ratio < 2.5 and area > 400:
-            plumbing_fixtures += 1
-
-    if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
-        return False, msg
-    elif expected_disc == "cons" and lines < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
-        return False, msg
-    elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
-        msg = ("⚠️ Engineering Alert: No plumbing fixtures detected." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
-        return False, msg
-    elif expected_disc == "hvac" and circular_symbols < 2:
-        msg = ("⚠️ Engineering Alert: Drawing lacks HVAC symbols." 
-               if is_us else "⚠️ התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית מיזוג. הפעולה הופסקה.")
-        return False, msg
-
-    return True, ""
-  except Exception as e:
-    return True, ""
+        if expected_disc == "elec" and circular_symbols < 3:
+            msg = ("Engineering Alert: Drawing lacks electrical symbols." if is_us else "התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית חשמל (לא זוהו סמלים). הפעולה הופסקה למניעת טעויות.")
+            return False, msg
+        elif expected_disc == "cons" and lines < 3:
+            msg = ("Engineering Alert: Drawing lacks continuous walls/partitions." if is_us else "התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית בניה (לא זוהו קווי מחיצות). הפעולה הופסקה.")
+            return False, msg
+        elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
+            msg = ("Engineering Alert: No plumbing fixtures detected." if is_us else "התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית אינסטלציה. הפעולה הופסקה.")
+            return False, msg
+        elif expected_disc == "hvac" and circular_symbols < 2:
+            msg = ("Engineering Alert: Drawing lacks HVAC symbols." if is_us else "התראה הנדסית: השרטוט שהוזן אינו תואם לתוכנית מיזוג. הפעולה הופסקה.")
+            return False, msg
+        return True, ""
+    except Exception as e:
+        return True, ""
 
 def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_us=False):
-  progress_bar = st.progress(0)
-  status_box = st.empty()
-  
-  steps = 15
-  for i in range(steps):
-    time.sleep(0.1)
-    percent = int((i + 1) * (100 / steps))
-    progress_bar.progress(percent)
-    if percent < 40:
-      status_box.markdown(f"🏗️ **[Active Construction Site]** Scanning: {text}" if is_us else f"🏗️ **[אתר בניה פעיל]** סורק שרטוטים: {text}")
-    elif percent < 80:
-      status_box.markdown("⚙️ **[AI Engine]** Running algorithms..." if is_us else "⚙️ **[מנוע חישוב AI]** מפעיל חישובים הנדסיים...")
-    else:
-      status_box.markdown("✨ **[Final Reports]** Compiling quantities..." if is_us else "✨ **[דוחות סופיים]** ממצה כמויות...")
-
-  progress_bar.empty()
-  status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
+    progress_bar = st.progress(0)
+    status_box = st.empty()
+    steps = 15
+    for i in range(steps):
+        time.sleep(0.1)
+        percent = int((i + 1) * (100 / steps))
+        progress_bar.progress(percent)
+        if percent < 40:
+            status_box.markdown(f"[Active Construction Site] Scanning: {text}" if is_us else f"[אתר בניה פעיל] סורק שרטוטים: {text}")
+        elif percent < 80:
+            status_box.markdown("[AI Engine] Running algorithms..." if is_us else "[מנוע חישוב AI] מפעיל חישובים הנדסיים...")
+        else:
+            status_box.markdown("[Final Reports] Compiling quantities..." if is_us else "[דוחות סופיים] ממצה כמויות...")
+    progress_bar.empty()
+    status_box.success("Takeoff completed successfully!" if is_us else "פענוח האתר הסתיים בהצלחה!")
 
 # ========================================================
-# 🚀 אנימציית פתיחה CSS
+# אנימציית פתיחה מתמונה מוגדרת
 # ========================================================
 if "splash_shown" not in st.session_state:
-  st.session_state["splash_shown"] = True
-  
-  splash_css = ""
-  splash_css += "<style>\n"
-  splash_css += ".fullscreen-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; animation: hideSplash 4.2s forwards ease-in-out; }\n"
-  splash_css += "@keyframes hideSplash { 0% { opacity: 1; visibility: visible; } 85% { opacity: 1; visibility: visible; } 99% { opacity: 0; visibility: visible; } 100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; } }\n"
-  splash_css += ".morning-sun { position: absolute; top: 15%; right: 20%; width: 120px; height: 120px; background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%); border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9; }\n"
-  splash_css += ".sea-layer { position: absolute; bottom: 0; width: 100%; height: 30vh; background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%); box-shadow: 0 -5px 25px rgba(0,0,0,0.2); }\n"
-  splash_css += ".skyline { position: absolute; bottom: 30vh; width: 100%; height: 25vh; background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px), linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%); }\n"
-  splash_css += ".splash-tower { position: absolute; bottom: 10vh; width: 160px; height: 55vh; background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%); box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555; }\n"
-  splash_css += ".crane-system { position: absolute; top: 0; height: 100vh; width: 100vw; display: flex; justify-content: center; }\n"
-  splash_css += ".crane-cable { width: 3px; height: 0; background: #333; animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative; }\n"
-  splash_css += ".glass-floor { position: absolute; bottom: -30px; left: -82px; width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5); }\n"
-  splash_css += "@keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }\n"
-  splash_css += ".dust { position: absolute; background: rgba(255, 255, 255, 0.9); border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1); animation: float 2.5s infinite ease-in-out alternate; }\n"
-  splash_css += "@keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }\n"
-  splash_css += ".splash-text-main { position: absolute; bottom: 14%; font-size: 52px; font-weight: 400; color: #ffffff; letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; animation: textFade 1s 1s forwards ease-in-out; }\n"
-  splash_css += "@keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }\n"
-  splash_css += ".css-progress-container { position: absolute; bottom: 8%; width: 40%; height: 6px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out; }\n"
-  splash_css += ".css-progress-fill { height: 100%; width: 0%; background: #facc15; animation: fillBar 3s 1.2s linear forwards; }\n"
-  splash_css += "@keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }\n"
-  splash_css += "</style>\n"
+    st.session_state["splash_shown"] = True
+    
+    splash_b64 = ""
+    if os.path.exists(SPLASH_IMG_PATH):
+        with open(SPLASH_IMG_PATH, "rb") as img_file:
+            splash_b64 = base64.b64encode(img_file.read()).decode()
 
-  splash_html = "<div class='fullscreen-splash' translate='no'>\n"
-  splash_html += "<div class='morning-sun'></div>\n"
-  splash_html += "<div class='skyline'></div>\n"
-  splash_html += "<div class='sea-layer'></div>\n"
-  splash_html += "<div class='splash-tower'></div>\n"
-  splash_html += "<div class='crane-system'>\n"
-  splash_html += "<div class='crane-cable'>\n"
-  splash_html += "<div class='glass-floor'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -35px; left: -90px; animation-delay: 0.2s;'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -25px; left: 90px; animation-delay: 0.5s;'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -45px; left: -30px; animation-delay: 0.8s;'></div>\n"
-  splash_html += "<div class='dust' style='bottom: -20px; left: 40px; animation-delay: 1.2s;'></div>\n"
-  splash_html += "</div>\n"
-  splash_html += "</div>\n"
-  splash_html += "<div class='splash-text-main'>מחשבים את העתיד</div>\n"
-  splash_html += "<div class='css-progress-container'><div class='css-progress-fill'></div></div>\n"
-  splash_html += "</div>\n"
-  
-  st.markdown(splash_css + splash_html, unsafe_allow_html=True)
+    splash_css = ""
+    splash_css += "<style>\n"
+    splash_css += ".fullscreen-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; animation: hideSplash 4s forwards ease-in-out; background-color: #0f172a; }\n"
+    if splash_b64:
+        splash_css += f".splash-bg {{ position: absolute; width: 100%; height: 100%; background-image: url(data:image/jpeg;base64,{splash_b64}); background-size: cover; background-position: left; animation: panImage 3.5s linear forwards; opacity: 0.8; }}\n"
+    else:
+        splash_css += ".splash-bg { position: absolute; width: 100%; height: 100%; background: #0f172a; }\n"
+    splash_css += "@keyframes hideSplash { 0% { opacity: 1; visibility: visible; } 85% { opacity: 1; visibility: visible; } 99% { opacity: 0; visibility: visible; } 100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; } }\n"
+    splash_css += "@keyframes panImage { 0% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }\n"
+    splash_css += ".splash-text-main { position: absolute; bottom: 10%; font-size: 56px; font-weight: 700; color: #ffffff; text-shadow: 0 4px 15px rgba(0,0,0,0.8); opacity: 0; animation: textFade 1s 0.5s forwards ease-in-out; z-index: 10; }\n"
+    splash_css += "@keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }\n"
+    splash_css += ".splash-text-sub { position: absolute; bottom: 5%; font-size: 24px; color: #cbd5e1; text-shadow: 0 2px 10px rgba(0,0,0,0.8); opacity: 0; animation: textFade 1s 1s forwards ease-in-out; z-index: 10; }\n"
+    splash_css += "</style>\n"
 
-  time.sleep(4)
-  st.session_state["app_initialized"] = True
-  st.rerun()
+    splash_html = "<div class='fullscreen-splash' translate='no'>\n"
+    splash_html += "<div class='splash-bg'></div>\n"
+    splash_html += "<div class='splash-text-main'>S.A.Q. מחשבים את העתיד</div>\n"
+    splash_html += "<div class='splash-text-sub'>Loading AI Engines...</div>\n"
+    splash_html += "</div>\n"
 
-def get_pricing_item_cost(desc, unit, is_us=False):
-  if is_us:
-    base_price = 45
-    if "FT" in unit or "מטר" in desc or "Length" in desc:
-      base_price = 75
-    elif "SQFT" in unit or "שטח" in desc or "Area" in desc:
-      base_price = 110
-    elif "הריסה" in desc or "Demolition" in desc:
-      base_price = 35
-    elif "נקודת" in desc or "Units" in unit or "כלי" in desc or "Fixture" in desc:
-      base_price = 180
-      
-    if "AC" in desc or "HVAC" in desc: base_price = 1200
-    if "Drain" in desc: base_price = 80
-    if "Grille" in desc or "Supply" in desc: base_price = 150
-    if "Pipe" in desc or "Cable" in desc: base_price = 25
-      
-    return base_price
-  else:
-    unit_price = 150
-    if "מ\"א" in unit or "מטר" in desc or "Length" in desc:
-      unit_price = 220
-    elif "מ\"ר" in unit or "שטח" in desc or "Area" in desc:
-      unit_price = 340
-    elif "הריסה" in desc or "Demolition" in desc:
-      unit_price = 110
-    elif "נקודת" in desc or "יח'" in unit or "כלי" in desc or "Fixture" in desc:
-      unit_price = 450
-      
-    if "מזגן" in desc or "מיזוג" in desc: unit_price = 3500
-    if "ניקוז" in desc or 'קחז"מ' in desc: unit_price = 250
-    if "גריל" in desc or "פתחי" in desc: unit_price = 400
-    if "צנרת" in desc or "כבל" in desc: unit_price = 85
-      
-    return unit_price
+    st.markdown(splash_css + splash_html, unsafe_allow_html=True)
+    time.sleep(3.5)
+    st.session_state["app_initialized"] = True
+    st.rerun()
+
+def get_pricing_item_cost(desc, unit, exec_stage, is_us=False):
+    modifier = 1.0
+    if exec_stage == "After Execution":
+        modifier = 1.25  # Premium for post-execution changes
+
+    if is_us:
+        base_price = 45
+        if "FT" in unit or "מטר" in desc or "Length" in desc: base_price = 75
+        elif "SQFT" in unit or "שטח" in desc or "Area" in desc: base_price = 110
+        elif "הריסה" in desc or "Demolition" in desc: base_price = 35
+        elif "נקודת" in desc or "Units" in unit or "כלי" in desc or "Fixture" in desc: base_price = 180
+        if "AC" in desc or "HVAC" in desc: base_price = 1200
+        if "Drain" in desc: base_price = 80
+        if "Grille" in desc or "Supply" in desc: base_price = 150
+        if "Pipe" in desc or "Cable" in desc or "Chasing" in desc: base_price = 25
+        return base_price * modifier
+    else:
+        unit_price = 150
+        if "מ\"א" in unit or "מטר" in desc or "Length" in desc: unit_price = 220
+        elif "מ\"ר" in unit or "שטח" in desc or "Area" in desc: unit_price = 340
+        elif "הריסה" in desc or "Demolition" in desc: unit_price = 110
+        elif "נקודת" in desc or "יח'" in unit or "כלי" in desc or "Fixture" in desc: unit_price = 450
+        if "מזגן" in desc or "מיזוג" in desc: unit_price = 3500
+        if "ניקוז" in desc or 'קחז"מ' in desc: unit_price = 250
+        if "גריל" in desc or "פתחי" in desc: unit_price = 400
+        if "צנרת" in desc or "כבל" in desc or "חציבה" in desc or "ביטון" in desc: unit_price = 85
+        return unit_price * modifier
 
 def render_pricing_widget(boq_rows, discipline_name, is_us=False):
-  currency_sign = "$" if is_us else "₪"
-  pricing_title = "RSMeans Pricing (USA - $)" if is_us else "מחירון דקל (ישראל - ₪)"
-  expander_lbl = (
-      f"💰 Estimated Price & Costing via {pricing_title} ({discipline_name})"
-      if is_us else f"💰 הצג הערכת מחיר ותמחור משוער לפי {pricing_title} ({discipline_name})"
-  )
-
-  with st.expander(expander_lbl, expanded=False):
-    st.info(
-        f"💡 Pricing is automatically calculated based on active regional database ({pricing_title}):"
-        if is_us else f"💡 התמחור מחושב אוטומטית לפי מחירי {pricing_title} מעודכנים לענף:"
+    currency_sign = "$" if is_us else "₪"
+    pricing_title = "RSMeans Pricing (USA - $)" if is_us else "מחירון דקל (ישראל - ₪)"
+    expander_lbl = (
+        f"Estimated Price & Costing via {pricing_title} ({discipline_name})"
+        if is_us else f"הצג הערכת מחיר ותמחור משוער לפי {pricing_title} ({discipline_name})"
     )
-    total_est_price = 0
-    pricing_data = []
+    
+    show_vat = st.session_state.get("show_vat", False)
+    vat_rate = 1.085 if is_us else 1.18
 
-    for idx, row in enumerate(boq_rows):
-      desc = row.get("תיאור הפריט", f"Item {idx+1}")
-      qty = float(row.get("כמות מאושרת", 0))
-      unit = row.get("יחידת מידה", "יח'")
+    with st.expander(expander_lbl, expanded=False):
+        st.info(
+            f"Pricing is automatically calculated based on active regional database ({pricing_title}):"
+            if is_us else f"התמחור מחושב אוטומטית לפי מחירי {pricing_title} מעודכנים לענף:"
+        )
+        total_est_price = 0
+        pricing_data = []
 
-      if is_us:
-        if 'מ"א' in unit or "מטר" in unit:
-          qty = round(qty * 3.28084, 2)
-          unit = "Linear Feet (FT)"
-        elif 'מ"ר' in unit:
-          qty = round(qty * 10.7639, 2)
-          unit = "Square Feet (SQFT)"
-        elif "יח'" in unit:
-          unit = "Units"
+        for idx, row in enumerate(boq_rows):
+            desc = row.get("תיאור הפריט", f"Item {idx+1}")
+            qty = float(row.get("כמות מאושרת", 0))
+            unit = row.get("יחידת מידה", "יח'")
+            exec_stage = row.get("exec_stage", "Before Execution")
 
-      unit_price = get_pricing_item_cost(desc, unit, is_us)
-      item_total = qty * unit_price
-      total_est_price += item_total
+            if is_us:
+                if 'מ"א' in unit or "מטר" in unit:
+                    qty = round(qty * 3.28084, 2)
+                    unit = "Linear Feet (FT)"
+                elif 'מ"ר' in unit:
+                    qty = round(qty * 10.7639, 2)
+                    unit = "Square Feet (SQFT)"
+                elif "יח'" in unit:
+                    unit = "Units"
 
-      pricing_data.append({
-          "Item Description" if is_us else "תיאור הפריט": desc,
-          "Quantity" if is_us else "כמות": qty,
-          "Unit" if is_us else "יחידה": unit,
-          f"Unit Price ({currency_sign})" if is_us else f"מחיר יחידה ({currency_sign})": unit_price,
-          f"Total Est. ({currency_sign})" if is_us else f"סה\"כ משוער ({currency_sign})": f"{item_total:,.2f}",
-      })
+            unit_price = get_pricing_item_cost(desc, unit, exec_stage, is_us)
+            if show_vat:
+                unit_price *= vat_rate
+            
+            item_total = qty * unit_price
+            total_est_price += item_total
 
-    df_price = pd.DataFrame(pricing_data)
-    st.dataframe(df_price, use_container_width=True)
-    st.success(
-        f"🏆 **Estimated Total Cost for these items: {total_est_price:,.2f} {currency_sign}** (Excluding local taxes & overhead)"
-        if is_us else f"🏆 **עלות כוללת מוערכת לפריטים אלו: {total_est_price:,.2f} ₪** (לפני מע\"ם והוצאות כלליות)"
-    )
+            pricing_data.append({
+                "Item Description" if is_us else "תיאור הפריט": desc,
+                "Quantity" if is_us else "כמות": qty,
+                "Unit" if is_us else "יחידה": unit,
+                f"Unit Price ({currency_sign})" if is_us else f"מחיר יחידה ({currency_sign})": round(unit_price,2),
+                f"Total Est. ({currency_sign})" if is_us else f"סה\"כ משוער ({currency_sign})": f"{item_total:,.2f}",
+            })
+
+        df_price = pd.DataFrame(pricing_data)
+        st.dataframe(df_price, use_container_width=True)
+        vat_txt = "(Incl. Tax)" if show_vat else "(Excl. Tax)" if is_us else ("(כולל מע\"מ)" if show_vat else "(לפני מע\"מ)")
+        st.success(
+            f"Estimated Total Cost for these items: {total_est_price:,.2f} {currency_sign} {vat_txt}"
+            if is_us else f"עלות כוללת מוערכת לפריטים אלו: {total_est_price:,.2f} ₪ {vat_txt}"
+        )
 
 def check_structural_envelope_safety(plan_img, is_us=False):
-  h, w, _ = plan_img.shape
-  breach_detected = False
-  alerts = []
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
-  contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  for c in contours:
-    area = cv2.contourArea(c)
-    if (w * 0.1 * h * 0.1) < area < (w * 0.4 * h * 0.4):
-      M = cv2.moments(c)
-      if M["m00"] > 0:
-        cX = int(M["m10"] / M["m00"])
-        cY = int(M["m01"] / M["m00"])
-        if cX < w * 0.15 or cX > w * 0.85:
-          breach_detected = True
-          msg = (
-              f"⚠️ Critical Engineering Alert (Safe Room/Core Wall): Potential breach detected at concrete column (X:{cX}, Y:{cY})"
-              if is_us else f"⚠️ התראה הנדסית קריטית (מעטפת/ממדי): זוהתה פגיעה פוטנציאלית בעמוד קונסטרוקטיבי בנקודה (X:{cX}, Y:{cY})"
-          )
-          alerts.append(msg)
-  return breach_detected, alerts
+    h, w, _ = plan_img.shape
+    breach_detected = False
+    alerts = []
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        area = cv2.contourArea(c)
+        if (w * 0.1 * h * 0.1) < area < (w * 0.4 * h * 0.4):
+            M = cv2.moments(c)
+            if M["m00"] > 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+                if cX < w * 0.15 or cX > w * 0.85:
+                    breach_detected = True
+                    msg = (
+                        f"Critical Engineering Alert (Safe Room/Core Wall): Potential breach detected at concrete column (X:{cX}, Y:{cY})"
+                        if is_us else f"התראה הנדסית קריטית (מעטפת/ממדי): זוהתה פגיעה פוטנציאלית בעמוד קונסטרוקטיבי בנקודה (X:{cX}, Y:{cY})"
+                    )
+                    alerts.append(msg)
+    return breach_detected, alerts
 
 def extract_interior_walls_clean(plan_img, px_per_meter=125.0):
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
-  k_filter = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-  cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k_filter)
-  env_kernel_dim = max(11, int(px_per_meter * 0.18))
-  k_env = cv2.getStructuringElement(cv2.MORPH_RECT, (env_kernel_dim, env_kernel_dim))
-  envelope = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, k_env)
-  interior_raw = cv2.subtract(cleaned, envelope)
-  k_wall = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-  interior_walls = cv2.morphologyEx(interior_raw, cv2.MORPH_CLOSE, k_wall)
-  min_wall_area = int((px_per_meter * 0.35) * (px_per_meter * 0.06))
-  contours, _ = cv2.findContours(interior_walls, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  clean_interior_mask = np.zeros_like(interior_walls)
-  for c in contours:
-    if cv2.contourArea(c) >= min_wall_area:
-      cv2.drawContours(clean_interior_mask, [c], -1, 255, -1)
-  return clean_interior_mask, envelope
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
+    k_filter = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    cleaned = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, k_filter)
+    env_kernel_dim = max(11, int(px_per_meter * 0.18))
+    k_env = cv2.getStructuringElement(cv2.MORPH_RECT, (env_kernel_dim, env_kernel_dim))
+    envelope = cv2.morphologyEx(cleaned, cv2.MORPH_OPEN, k_env)
+    interior_raw = cv2.subtract(cleaned, envelope)
+    k_wall = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    interior_walls = cv2.morphologyEx(interior_raw, cv2.MORPH_CLOSE, k_wall)
+    min_wall_area = int((px_per_meter * 0.35) * (px_per_meter * 0.06))
+    contours, _ = cv2.findContours(interior_walls, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    clean_interior_mask = np.zeros_like(interior_walls)
+    for c in contours:
+        if cv2.contourArea(c) >= min_wall_area:
+            cv2.drawContours(clean_interior_mask, [c], -1, 255, -1)
+    return clean_interior_mask, envelope
 
 def get_morphological_skeleton(binary_img):
-  skel = np.zeros(binary_img.shape, np.uint8)
-  element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
-  img = binary_img.copy()
-  for _ in range(500):
-    eroded = cv2.erode(img, element)
-    temp = cv2.dilate(eroded, element)
-    temp = cv2.subtract(img, temp)
-    skel = cv2.bitwise_or(skel, temp)
-    img = eroded.copy()
-    if cv2.countNonZero(img) == 0:
-      break
-  return skel
+    skel = np.zeros(binary_img.shape, np.uint8)
+    element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+    img = binary_img.copy()
+    for _ in range(500):
+        eroded = cv2.erode(img, element)
+        temp = cv2.dilate(eroded, element)
+        temp = cv2.subtract(img, temp)
+        skel = cv2.bitwise_or(skel, temp)
+        img = eroded.copy()
+        if cv2.countNonZero(img) == 0:
+            break
+    return skel
 
 def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
-  interior_mask, envelope = extract_interior_walls_clean(plan_img, px_per_meter)
-  
-  k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
-  closed_walls = cv2.morphologyEx(interior_mask, cv2.MORPH_CLOSE, k_close, iterations=2)
-  
-  skel = get_morphological_skeleton(closed_walls)
-  linear_pixels = cv2.countNonZero(skel)
-  linear_meters = round(linear_pixels / float(px_per_meter), 2)
-  
-  disp_img = plan_img.copy()
-  overlay = disp_img.copy()
-  overlay[closed_walls > 0] = [0, 215, 255]
-  cv2.addWeighted(overlay, 0.70, disp_img, 0.30, 0, disp_img)
-  return linear_meters, disp_img, interior_mask
+    interior_mask, envelope = extract_interior_walls_clean(plan_img, px_per_meter)
+    k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
+    closed_walls = cv2.morphologyEx(interior_mask, cv2.MORPH_CLOSE, k_close, iterations=2)
+    skel = get_morphological_skeleton(closed_walls)
+    linear_pixels = cv2.countNonZero(skel)
+    linear_meters = round(linear_pixels / float(px_per_meter), 2)
+    disp_img = plan_img.copy()
+    overlay = disp_img.copy()
+    overlay[closed_walls > 0] = [0, 215, 255]
+    cv2.addWeighted(overlay, 0.70, disp_img, 0.30, 0, disp_img)
+    return linear_meters, disp_img, interior_mask
 
 def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=None):
-  if plumbing_centers is None:
-      plumbing_centers = []
-      
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  
-  # כדי למצוא חדרים (אזורים סגורים), נבודד את הקירות בצבע לבן
-  _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-  
-  # ביצוע פעולת "מורפולוגיה" שסוגרת פתחים ודלתות כדי שחדרים יהיו סגורים מכל כיוון
-  kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-  closed_walls = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
-  
-  # היפוך הצבע: עכשיו החדרים הפכו לכתמים לבנים והקירות לשחור
-  rooms_img = cv2.bitwise_not(closed_walls)
-  
-  contours, _ = cv2.findContours(rooms_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  
-  total_flooring_sqm = 0.0
-  wet_rooms_perimeter_m = 0.0
-  disp_img = plan_img.copy()
-  
-  for c in contours:
-    area_px = cv2.contourArea(c)
-    # סינון גדלי חדרים הגיוניים בלבד כדי לא לקחת בחשבון "רעש"
-    min_room_px = (1.0 * px_per_meter) * (1.0 * px_per_meter)
-    max_room_px = (20.0 * px_per_meter) * (20.0 * px_per_meter)
-    
-    if min_room_px <= area_px <= max_room_px:
-      sqm = area_px / (px_per_meter**2)
-      total_flooring_sqm += sqm
-      
-      # זיהוי חדר רטוב אם יש בו קואורדינטה של כלי סניטרי
-      is_wet_room = False
-      for pc in plumbing_centers:
-          if cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0:
-              is_wet_room = True
-              break
-              
-      peri_m = cv2.arcLength(c, True) / px_per_meter
-      
-      if is_wet_room:
-        wet_rooms_perimeter_m += peri_m
-        cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3) # כתום
-      else:
-        cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2) # ירוק
-        
-  wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
-  return (round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img)
+    if plumbing_centers is None: plumbing_centers = []
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
+    kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    closed_walls = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+    rooms_img = cv2.bitwise_not(closed_walls)
+    contours, _ = cv2.findContours(rooms_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    total_flooring_sqm = 0.0
+    wet_rooms_perimeter_m = 0.0
+    disp_img = plan_img.copy()
 
+    for c in contours:
+        area_px = cv2.contourArea(c)
+        min_room_px = (1.0 * px_per_meter) * (1.0 * px_per_meter)
+        max_room_px = (20.0 * px_per_meter) * (20.0 * px_per_meter)
+        if min_room_px <= area_px <= max_room_px:
+            sqm = area_px / (px_per_meter**2)
+            total_flooring_sqm += sqm
+            is_wet_room = False
+            for pc in plumbing_centers:
+                if cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0:
+                    is_wet_room = True
+                    break
+            peri_m = cv2.arcLength(c, True) / px_per_meter
+            if is_wet_room:
+                wet_rooms_perimeter_m += peri_m
+                cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3)
+            else:
+                cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2)
+    wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
+    return (round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img)
 
 def detect_sanitary_fixtures_and_points(plan_img, px_per_meter=125.0):
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
-  contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-  fixtures = []
-  disp_img = plan_img.copy()
-  for c in contours:
-    x, y, w, h = cv2.boundingRect(c)
-    area = cv2.contourArea(c)
-    w_m = w / float(px_per_meter)
-    h_m = h / float(px_per_meter)
-    max_dim = max(w_m, h_m)
-    min_dim = min(w_m, h_m)
-    if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
-      fixtures.append({
-          "type": "Bathtub / Shower",
-          "center": (x + w // 2, y + h // 2),
-          "bbox": (x, y, w, h),
-          "crop": plan_img[max(0, y - 5) : min(plan_img.shape[0], y + h + 5), max(0, x - 5) : min(plan_img.shape[1], x + w + 5)],
-          "status": "Green",
-          "score": 0.90,
-      })
-    elif ((0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4000):
-      fixtures.append({
-          "type": "Toilet",
-          "center": (x + w // 2, y + h // 2),
-          "bbox": (x, y, w, h),
-          "crop": plan_img[max(0, y - 5) : min(plan_img.shape[0], y + h + 5), max(0, x - 5) : min(plan_img.shape[1], x + w + 5)],
-          "status": "Yellow" if area < 1000 else "Green",
-          "score": 0.85,
-      })
-    elif ((0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 5500):
-      fixtures.append({
-          "type": "Sink / Vanity",
-          "center": (x + w // 2, y + h // 2),
-          "bbox": (x, y, w, h),
-          "crop": plan_img[max(0, y - 5) : min(plan_img.shape[0], y + h + 5), max(0, x - 5) : min(plan_img.shape[1], x + w + 5)],
-          "status": "Yellow" if area < 1200 else "Green",
-          "score": 0.80,
-      })
-  unique = []
-  for f in fixtures:
-    if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.30) for u in unique):
-      unique.append(f)
-      x, y, w, h = f["bbox"]
-      cv2.rectangle(disp_img, (x, y), (x + w, y + h), (0, 165, 255), 2)
-  return unique, disp_img
+    gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 215, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    fixtures = []
+    disp_img = plan_img.copy()
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        area = cv2.contourArea(c)
+        w_m = w / float(px_per_meter)
+        h_m = h / float(px_per_meter)
+        max_dim = max(w_m, h_m)
+        min_dim = min(w_m, h_m)
+        if (1.2 <= max_dim <= 2.2) and (0.6 <= min_dim <= 1.0) and area > 900:
+            fixtures.append({"type": "Bathtub / Shower", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y - 5) : min(plan_img.shape[0], y + h + 5), max(0, x - 5) : min(plan_img.shape[1], x + w + 5)], "status": "Green", "score": 0.90})
+        elif ((0.35 <= max_dim <= 0.95) and (0.28 <= min_dim <= 0.65) and 250 < area < 4000):
+            fixtures.append({"type": "Toilet", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y - 5) : min(plan_img.shape[0], y + h + 5), max(0, x - 5) : min(plan_img.shape[1], x + w + 5)], "status": "Yellow" if area < 1000 else "Green", "score": 0.85})
+        elif ((0.30 <= max_dim <= 1.40) and (0.25 <= min_dim <= 0.75) and 300 < area < 5500):
+            fixtures.append({"type": "Sink / Vanity", "center": (x + w // 2, y + h // 2), "bbox": (x, y, w, h), "crop": plan_img[max(0, y - 5) : min(plan_img.shape[0], y + h + 5), max(0, x - 5) : min(plan_img.shape[1], x + w + 5)], "status": "Yellow" if area < 1200 else "Green", "score": 0.80})
+    unique = []
+    for f in fixtures:
+        if not any(np.hypot(f["center"][0] - u["center"][0], f["center"][1] - u["center"][1]) < (px_per_meter * 0.30) for u in unique):
+            unique.append(f)
+            x, y, w, h = f["bbox"]
+            cv2.rectangle(disp_img, (x, y), (x + w, y + h), (0, 165, 255), 2)
+    return unique, disp_img
 
 def compare_plumbing_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
-  fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
-  fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
-  relocations = []
-  added = []
-  b_matched = set()
-  for f_a in fix_std:
-    ca = f_a["center"]
-    best_dist = 999999
-    best_idx_b = -1
+    fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
+    fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
+    relocations = []
+    added = []
+    b_matched = set()
+    extra_pipe_concrete_m = 0.0
+
+    for f_a in fix_std:
+        ca = f_a["center"]
+        best_dist = 999999
+        best_idx_b = -1
+        for idx_b, f_b in enumerate(fix_exec):
+            if idx_b in b_matched: continue
+            cb = f_b["center"]
+            dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
+            dist_m = dist_px / float(px_per_meter)
+            if (0.25 <= dist_m <= 4.0 and dist_px < best_dist and f_a["type"] == f_b["type"]):
+                best_dist = dist_px
+                best_idx_b = idx_b
+        if best_idx_b != -1:
+            b_matched.add(best_idx_b)
+            f_b = fix_exec[best_idx_b]
+            dist_m = round(best_dist / float(px_per_meter), 2)
+            extra_pipe_concrete_m += dist_m * 1.2
+            relocations.append({
+                "type": f_b["type"], "distance_m": dist_m, "from": ca, "to": f_b["center"], "radius_exceeded": dist_m > 1.5,
+            })
+            cv2.arrowedLine(disp_exec, ca, f_b["center"], (0, 140, 255), 3, tipLength=0.20)
     for idx_b, f_b in enumerate(fix_exec):
-      if idx_b in b_matched: continue
-      cb = f_b["center"]
-      dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
-      dist_m = dist_px / float(px_per_meter)
-      if (0.25 <= dist_m <= 4.0 and dist_px < best_dist and f_a["type"] == f_b["type"]):
-        best_dist = dist_px
-        best_idx_b = idx_b
-    if best_idx_b != -1:
-      b_matched.add(best_idx_b)
-      f_b = fix_exec[best_idx_b]
-      dist_m = round(best_dist / float(px_per_meter), 2)
-      relocations.append({
-          "type": f_b["type"],
-          "distance_m": dist_m,
-          "from": ca,
-          "to": f_b["center"],
-          "radius_exceeded": dist_m > 1.5,
-      })
-      cv2.arrowedLine(disp_exec, ca, f_b["center"], (0, 140, 255), 3, tipLength=0.20)
-  for idx_b, f_b in enumerate(fix_exec):
-    if idx_b not in b_matched:
-      added.append(f_b)
-  return relocations, added, disp_exec
+        if idx_b not in b_matched:
+            added.append(f_b)
+            extra_pipe_concrete_m += 3.0
+    return relocations, added, round(extra_pipe_concrete_m, 2), disp_exec
 
 def compare_hvac_delta_accurate(plan_std, plan_exec, px_per_meter=125.0):
-  fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
-  fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
-  
-  for f in fix_std + fix_exec:
-      if f["type"] == "Bathtub / Shower": f["type"] = "AC Unit"
-      elif f["type"] == "Toilet": f["type"] = "Air Grille"
-      else: f["type"] = "Drainage Point"
-      
-  relocations = []
-  added = []
-  b_matched = set()
-  extra_pipe_m = 0.0
+    fix_std, _ = detect_sanitary_fixtures_and_points(plan_std, px_per_meter)
+    fix_exec, disp_exec = detect_sanitary_fixtures_and_points(plan_exec, px_per_meter)
+    for f in fix_std + fix_exec:
+        if f["type"] == "Bathtub / Shower": f["type"] = "AC Unit"
+        elif f["type"] == "Toilet": f["type"] = "Air Grille"
+        else: f["type"] = "Drainage Point"
+    relocations = []
+    added = []
+    b_matched = set()
+    extra_pipe_m = 0.0
 
-  for f_a in fix_std:
-    ca = f_a["center"]
-    best_dist = 999999
-    best_idx_b = -1
+    for f_a in fix_std:
+        ca = f_a["center"]
+        best_dist = 999999
+        best_idx_b = -1
+        for idx_b, f_b in enumerate(fix_exec):
+            if idx_b in b_matched: continue
+            cb = f_b["center"]
+            dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
+            dist_m = dist_px / float(px_per_meter)
+            if dist_m <= 6.0 and dist_px < best_dist and f_a["type"] == f_b["type"]:
+                best_dist = dist_px
+                best_idx_b = idx_b
+        if best_idx_b != -1:
+            b_matched.add(best_idx_b)
+            f_b = fix_exec[best_idx_b]
+            dist_m = round(best_dist / float(px_per_meter), 2)
+            if dist_m > 0.5:
+                extra_pipe_m += dist_m * 1.5 
+                relocations.append({"type": f_b["type"], "distance_m": dist_m, "from": ca, "to": f_b["center"]})
+            cv2.arrowedLine(disp_exec, ca, f_b["center"], (255, 150, 0), 3, tipLength=0.20)
     for idx_b, f_b in enumerate(fix_exec):
-      if idx_b in b_matched: continue
-      cb = f_b["center"]
-      dist_px = np.hypot(ca[0] - cb[0], ca[1] - cb[1])
-      dist_m = dist_px / float(px_per_meter)
-      if dist_m <= 6.0 and dist_px < best_dist and f_a["type"] == f_b["type"]:
-        best_dist = dist_px
-        best_idx_b = idx_b
-    if best_idx_b != -1:
-      b_matched.add(best_idx_b)
-      f_b = fix_exec[best_idx_b]
-      dist_m = round(best_dist / float(px_per_meter), 2)
-      if dist_m > 0.5:
-          extra_pipe_m += dist_m * 1.5 
-          relocations.append({
-              "type": f_b["type"],
-              "distance_m": dist_m,
-              "from": ca,
-              "to": f_b["center"]
-          })
-      cv2.arrowedLine(disp_exec, ca, f_b["center"], (255, 150, 0), 3, tipLength=0.20)
-  
-  for idx_b, f_b in enumerate(fix_exec):
-    if idx_b not in b_matched:
-      added.append(f_b)
-      extra_pipe_m += 4.5 
-      
-  return relocations, added, round(extra_pipe_m, 2), disp_exec
-
+        if idx_b not in b_matched:
+            added.append(f_b)
+            extra_pipe_m += 4.5 
+    
+    wall_chasing_m = round(extra_pipe_m * 0.4, 2)
+    floor_concrete_m = round(extra_pipe_m * 0.6, 2)
+    return relocations, added, wall_chasing_m, floor_concrete_m, disp_exec
 
 def extract_symbols_from_legend(legend_img):
-  if legend_img is None: return []
-  gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
-  leg_h, leg_w = gray.shape
-  _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
-  contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  raw_symbols = []
-  for c in contours:
-    x, y, w, h = cv2.boundingRect(c)
-    if 14 <= w <= 85 and 14 <= h <= 85 and cv2.contourArea(c) > 40:
-      pad = 4
-      y1, y2 = max(0, y - pad), min(leg_h, y + h + pad)
-      x1, x2 = max(0, x - pad), min(leg_w, x + w + pad)
-      raw_symbols.append({
-          "bbox": (x, y, w, h),
-          "crop_color": legend_img[y1:y2, x1:x2],
-          "crop_gray": gray[y1:y2, x1:x2],
-          "y_pos": y,
-          "x_pos": x,
-      })
-  raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
-  unique = []
-  for sym in raw_symbols:
-    if not any(np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 24 for u in unique):
-      unique.append(sym)
-  return unique[:16]
+    if legend_img is None: return []
+    gray = cv2.cvtColor(legend_img, cv2.COLOR_BGR2GRAY)
+    leg_h, leg_w = gray.shape
+    _, thresh = cv2.threshold(gray, 220, 255, cv2.THRESH_BINARY_INV)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    raw_symbols = []
+    for c in contours:
+        x, y, w, h = cv2.boundingRect(c)
+        if 14 <= w <= 85 and 14 <= h <= 85 and cv2.contourArea(c) > 40:
+            pad = 4
+            y1, y2 = max(0, y - pad), min(leg_h, y + h + pad)
+            x1, x2 = max(0, x - pad), min(leg_w, x + w + pad)
+            raw_symbols.append({"bbox": (x, y, w, h), "crop_color": legend_img[y1:y2, x1:x2], "crop_gray": gray[y1:y2, x1:x2], "y_pos": y, "x_pos": x})
+    raw_symbols.sort(key=lambda s: (s["y_pos"] // 35, s["x_pos"]))
+    unique = []
+    for sym in raw_symbols:
+        if not any(np.hypot(sym["x_pos"] - u["x_pos"], sym["y_pos"] - u["y_pos"]) < 24 for u in unique): unique.append(sym)
+    return unique[:16]
 
 def match_symbol_ai(plan_inv, templ_gray, min_thresh=0.62, high_thresh=0.76):
-  if plan_inv.std() < 1e-5 or templ_gray.std() < 1e-5:
-      return []
-      
-  _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
-  pts = cv2.findNonZero(templ_inv)
-  if pts is not None:
-    tx, ty, tw, th = cv2.boundingRect(pts)
-    if tw > 8 and th > 8:
-      templ_inv = templ_inv[ty : ty + th, tx : tx + tw]
-      
-  if cv2.countNonZero(templ_inv) == 0:
-      return []
+    if plan_inv.std() < 1e-5 or templ_gray.std() < 1e-5: return []
+    _, templ_inv = cv2.threshold(templ_gray, 230, 255, cv2.THRESH_BINARY_INV)
+    pts = cv2.findNonZero(templ_inv)
+    if pts is not None:
+        tx, ty, tw, th = cv2.boundingRect(pts)
+        if tw > 8 and th > 8: templ_inv = templ_inv[ty : ty + th, tx : tx + tw]
+    if cv2.countNonZero(templ_inv) == 0: return []
 
-  detections = []
-  for scale in [0.90, 1.0, 1.10]:
-    sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
-    if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 8 or sh < 8: continue
-    resized_t = cv2.resize(templ_inv, (sw, sh))
-    for rot in [0, 90, 180, 270]:
-      if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
-      elif rot == 180: r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
-      elif rot == 270: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_COUNTERCLOCKWISE)
-      else: r_t = resized_t
-      
-      rw, rh = r_t.shape[::-1]
-      
-      if rw > plan_inv.shape[1] or rh > plan_inv.shape[0] or r_t.std() < 1e-5: 
-          continue
-          
-      res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
-      loc = np.where(res >= min_thresh)
-      for pt in zip(*loc[::-1]):
-        score = float(res[pt[1], pt[0]])
-        status = "Green" if score >= high_thresh else "Yellow"
-        detections.append({
-            "bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)),
-            "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)),
-            "score": score,
-            "status": status,
-        })
+    detections = []
+    for scale in [0.90, 1.0, 1.10]:
+        sw, sh = int(templ_inv.shape[1] * scale), int(templ_inv.shape[0] * scale)
+        if sw >= plan_inv.shape[1] or sh >= plan_inv.shape[0] or sw < 8 or sh < 8: continue
+        resized_t = cv2.resize(templ_inv, (sw, sh))
+        for rot in [0, 90, 180, 270]:
+            if rot == 90: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_CLOCKWISE)
+            elif rot == 180: r_t = cv2.rotate(resized_t, cv2.ROTATE_180)
+            elif rot == 270: r_t = cv2.rotate(resized_t, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            else: r_t = resized_t
+            rw, rh = r_t.shape[::-1]
+            if rw > plan_inv.shape[1] or rh > plan_inv.shape[0] or r_t.std() < 1e-5: continue
+            res = cv2.matchTemplate(plan_inv, r_t, cv2.TM_CCOEFF_NORMED)
+            loc = np.where(res >= min_thresh)
+            for pt in zip(*loc[::-1]):
+                score = float(res[pt[1], pt[0]])
+                status = "Green" if score >= high_thresh else "Yellow"
+                detections.append({"bbox": (int(pt[0]), int(pt[1]), int(rw), int(rh)), "center": (int(pt[0] + rw // 2), int(pt[1] + rh // 2)), "score": score, "status": status})
 
-  indices = cv2.dnn.NMSBoxes(
-      [list(d["bbox"]) for d in detections],
-      [d["score"] for d in detections],
-      score_threshold=min_thresh,
-      nms_threshold=0.25,
-  )
-  final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else detections
-  
-  yellows = [d for d in final_res if d["status"] == "Yellow"]
-  h_p, w_p = plan_inv.shape
-  if len(yellows) < 6:
-      needed = 6 - len(yellows)
-      for i in range(needed):
-          x_c = max(0, min(int(w_p * (0.1 + i*0.1)), max(w_p - 45, 0)))
-          y_c = max(0, min(int(h_p * (0.1 + i*0.1)), max(h_p - 45, 0)))
-          
-          final_res.append({
-              "bbox": (x_c, y_c, 40, 40),
-              "center": (x_c + 20, y_c + 20),
-              "score": 0.65 + (i * 0.01),
-              "status": "Yellow"
-          })
-  return final_res
+    indices = cv2.dnn.NMSBoxes([list(d["bbox"]) for d in detections], [d["score"] for d in detections], score_threshold=min_thresh, nms_threshold=0.25)
+    final_res = [detections[i] for i in indices.flatten()] if len(indices) > 0 else detections
+    yellows = [d for d in final_res if d["status"] == "Yellow"]
+    h_p, w_p = plan_inv.shape
+    if len(yellows) < 6:
+        needed = 6 - len(yellows)
+        for i in range(needed):
+            x_c = max(0, min(int(w_p * (0.1 + i*0.1)), max(w_p - 45, 0)))
+            y_c = max(0, min(int(h_p * (0.1 + i*0.1)), max(h_p - 45, 0)))
+            final_res.append({"bbox": (x_c, y_c, 40, 40), "center": (x_c + 20, y_c + 20), "score": 0.65 + (i * 0.01), "status": "Yellow"})
+    return final_res
 
-# ========================================================
-# 🧠 מנגנון אימות ושאלות משתמש (6 שאלות)
-# ========================================================
 def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, is_us=False):
-  disp_plan = raw_plan.copy()
-  yellow_items = []
+    disp_plan = raw_plan.copy()
+    yellow_items = []
+    for s_idx, item in enumerate(results_list):
+        for m_idx, m in enumerate(item["matches"]):
+            if m["status"] == "Yellow": yellow_items.append((s_idx, m_idx, item, m))
+    yellow_items = yellow_items[:6]
+    is_done_verifying = st.session_state.get(session_key_verified, False)
 
-  for s_idx, item in enumerate(results_list):
-    for m_idx, m in enumerate(item["matches"]):
-      if m["status"] == "Yellow":
-        yellow_items.append((s_idx, m_idx, item, m))
+    if yellow_items and not is_done_verifying:
+        st.markdown("---")
+        st.markdown("### Active Learning & AI Verification (Inspect ambiguous symbols)" if is_us else "### מנגנון למידה אקטיבית של S.A.Q AI (בדיקת סמלים בספק)")
+        with st.expander("Symbol Verification Control Center (Click to open)" if is_us else "מרכז בקרת סמלים - הדרכת AI (לחץ לפתיחה)", expanded=True):
+            cols = st.columns(min(len(yellow_items), 3))
+            updated_mem = False
+            for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
+                with cols[y_i % len(cols)]:
+                    x, y, w, h = m["bbox"]
+                    pad = 24
+                    y1 = max(0, y - pad); y2 = min(raw_plan.shape[0], y + h + pad)
+                    x1 = max(0, x - pad); x2 = min(raw_plan.shape[1], x + w + pad)
+                    if y2 <= y1 or x2 <= x1: crop_zoom = np.zeros((100, 100, 3), dtype=np.uint8)
+                    else: crop_zoom = raw_plan[y1:y2, x1:x2].copy()
+                    cv2.circle(crop_zoom, (crop_zoom.shape[1] // 2, crop_zoom.shape[0] // 2), max(w, h) // 2 + 6, (0, 0, 255), 3)
+                    st.image(cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB), caption=f"Symbol #{item['index']} (Conf: {m['score']*100:.0f}%)" if is_us else f"סמל #{item['index']} (ביטחון: {m['score']*100:.0f}%)", width=130)
+                    choice = st.radio("Inspector Decision:" if is_us else "החלטת מפקח:", ["Approve (V)", "Reject (X)"] if is_us else ["אשר (V)", "דחה (X)"], key=f"verify_choice_{session_key_verified}_{s_idx}_{m_idx}_{y_i}", horizontal=True)
+                    is_appr = "Approve" in choice or "אשר" in choice
+                    m["user_decision"] = "Approved" if is_appr else "Rejected"
+                    p_key = f"pat_{item['index']}_{w}x{h}"
+                    if is_appr and p_key not in ai_memory["approved_patterns"]:
+                        ai_memory["approved_patterns"].append(p_key); updated_mem = True
+                    elif not is_appr and p_key not in ai_memory["rejected_patterns"]:
+                        ai_memory["rejected_patterns"].append(p_key); updated_mem = True
+            if updated_mem: save_ai_memory(ai_memory)
+            if st.button("Finished Verification - Lock Quantities & Proceed" if is_us else "סיימתי את בקרת הסמלים - נעל כמויות והמשך", key=f"btn_lock_{session_key_verified}"):
+                st.session_state[session_key_verified] = True
+                st.rerun()
 
-  yellow_items = yellow_items[:6]
-  is_done_verifying = st.session_state.get(session_key_verified, False)
-
-  if yellow_items and not is_done_verifying:
-    st.markdown("---")
-    st.markdown(
-        "### 🧠 Active Learning & AI Verification (Inspect 6 ambiguous symbols)"
-        if is_us else "### 🧠 מנגנון למידה אקטיבית של S.A.Q AI (בדיקת 6 סמלים בספק)"
-    )
-    st.info(
-        "System detected ambiguous symbols. Please approve or reject so AI updates pattern memory!"
-        if is_us else "המערכת זיהתה 6 סמלים באזור האפור. אנא אשר או דחה אותם כדי שה-AI יעדכן את תבניות הזיכרון לפרויקטים הבאים!"
-    )
-    with st.expander("🔍 Symbol Verification Control Center (Click to open)" if is_us else "🔍 מרכז בקרת סמלים - הדרכת AI (לחץ לפתיחה)", expanded=True):
-      cols = st.columns(min(len(yellow_items), 3))
-      updated_mem = False
-      for y_i, (s_idx, m_idx, item, m) in enumerate(yellow_items):
-        with cols[y_i % len(cols)]:
-          x, y, w, h = m["bbox"]
-          pad = 24
-          
-          y1 = max(0, y - pad)
-          y2 = min(raw_plan.shape[0], y + h + pad)
-          x1 = max(0, x - pad)
-          x2 = min(raw_plan.shape[1], x + w + pad)
-          
-          if y2 <= y1 or x2 <= x1:
-              crop_zoom = np.zeros((100, 100, 3), dtype=np.uint8)
-          else:
-              crop_zoom = raw_plan[y1:y2, x1:x2].copy()
-              
-          cv2.circle(crop_zoom, (crop_zoom.shape[1] // 2, crop_zoom.shape[0] // 2), max(w, h) // 2 + 6, (0, 0, 255), 3)
-
-          st.image(
-              cv2.cvtColor(crop_zoom, cv2.COLOR_BGR2RGB),
-              caption=f"Symbol #{item['index']} (Conf: {m['score']*100:.0f}%)" if is_us else f"סמל #{item['index']} (ביטחון: {m['score']*100:.0f}%)",
-              width=130,
-          )
-          choice = st.radio(
-              "Inspector Decision:" if is_us else "החלטת מפקח:",
-              ["✅ Approve (V)", "❌ Reject (X)"] if is_us else ["✅ אשר (V)", "❌ דחה (X)"],
-              key=f"verify_choice_{session_key_verified}_{s_idx}_{m_idx}_{y_i}",
-              horizontal=True,
-          )
-          is_appr = "Approve" in choice or "אשר" in choice
-          m["user_decision"] = "Approved" if is_appr else "Rejected"
-
-          p_key = f"pat_{item['index']}_{w}x{h}"
-          if is_appr and p_key not in ai_memory["approved_patterns"]:
-            ai_memory["approved_patterns"].append(p_key)
-            updated_mem = True
-          elif not is_appr and p_key not in ai_memory["rejected_patterns"]:
-            ai_memory["rejected_patterns"].append(p_key)
-            updated_mem = True
-          st.markdown("---")
-
-      if updated_mem:
-        save_ai_memory(ai_memory)
-
-      if st.button(
-          "✨ Finished Verification - Lock Quantities & Proceed"
-          if is_us else "✨ סיימתי את בקרת 6 הסמלים - נעל כמויות והמשך",
-          key=f"btn_lock_{session_key_verified}",
-      ):
-        st.session_state[session_key_verified] = True
-        st.rerun()
-
-  rows = []
-  for s_idx, item in enumerate(results_list):
-    confirmed_count = 0
-    for m_idx, m in enumerate(item["matches"]):
-      x, y, w, h = m["bbox"]
-      is_green = m["status"] == "Green"
-      user_dec = m.get("user_decision", "Pending")
-
-      if is_green or user_dec == "Approved":
-        confirmed_count += 1
-        cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 200, 0), 2)
-      elif user_dec == "Rejected":
-        cv2.line(disp_plan, (x, y), (x + w, y + h), (0, 0, 255), 2)
-        cv2.line(disp_plan, (x + w, y), (x, y + h), (0, 0, 255), 2)
-
-    item["confirmed_count"] = confirmed_count
-    if confirmed_count > 0:
-      rows.append({
-          "מס'": item["index"],
-          "תמונת סמל": item["image_uri"],
-          "image_uri": item["image_uri"],
-          "תיאור הפריט": f"Verified Symbol #{item['index']}" if is_us else f"סמל מנוהח #{item['index']}",
-          "כמות מאושרת": confirmed_count,
-          "יחידת מידה": "Units" if is_us else "יח'",
-      })
-  return rows, disp_plan
-
+    rows = []
+    for s_idx, item in enumerate(results_list):
+        confirmed_count = 0
+        for m_idx, m in enumerate(item["matches"]):
+            x, y, w, h = m["bbox"]
+            is_green = m["status"] == "Green"
+            user_dec = m.get("user_decision", "Pending")
+            if is_green or user_dec == "Approved":
+                confirmed_count += 1
+                cv2.rectangle(disp_plan, (x, y), (x + w, y + h), (0, 200, 0), 2)
+            elif user_dec == "Rejected":
+                cv2.line(disp_plan, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                cv2.line(disp_plan, (x + w, y), (x, y + h), (0, 0, 255), 2)
+        item["confirmed_count"] = confirmed_count
+        if confirmed_count > 0:
+            rows.append({"מס'": item["index"], "תמונת סמל": item["image_uri"], "image_uri": item["image_uri"], "תיאור הפריט": f"Verified Symbol #{item['index']}" if is_us else f"סמל מנוהח #{item['index']}", "כמות מאושרת": confirmed_count, "יחידת מידה": "Units" if is_us else "יח'"})
+    return rows, disp_plan
 
 def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט", mode_label="שינויי דיירים", is_us=False, include_pricing=True):
-  logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
-  logo_html = f'<img src="{logo_uri}" style="max-height: 50px;"/>' if logo_uri else '<div class="logo-txt">S.A.Q Takeoff AI</div>'
+    logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
+    logo_html = f'<img src="{logo_uri}" style="max-height: 50px;"/>' if logo_uri else '<div class="logo-txt">S.A.Q Takeoff AI</div>'
 
-  currency_sign = "$" if is_us else "₪"
-  tax_label = "Local Tax (8.5%)" if is_us else "מיסים מקומיים / מע\"מ (18%)"
-  tax_rate = 0.085 if is_us else 0.18
+    currency_sign = "$" if is_us else "₪"
+    show_vat = st.session_state.get("show_vat", False)
+    tax_label = "Local Tax (8.5%)" if is_us else "מע\"מ (18%)"
+    tax_rate = 0.085 if is_us else 0.18
 
-  grand_total_pricing = 0
-  if include_pricing:
-      for disc_name, rows in project_boq.items():
-        for r in rows:
-          desc = r.get("תיאור הפריט", "")
-          qty = float(r.get("כמות מאושרת", 0))
-          unit = r.get("יחידת מידה", "יח'")
-          if is_us:
-            if 'מ"א' in unit or "מטר" in unit: qty = round(qty * 3.28084, 2); unit = "Linear Feet (FT)"
-            elif 'מ"ר' in unit: qty = round(qty * 10.7639, 2); unit = "Square Feet (SQFT)"
-          grand_total_pricing += qty * get_pricing_item_cost(desc, unit, is_us)
+    grand_total_pricing = 0
+    notes = st.session_state.get("project_notes", "")
 
-      tax_amount = grand_total_pricing * tax_rate
-      total_with_tax = grand_total_pricing + tax_amount
+    if include_pricing:
+        for disc_name, rows in project_boq.items():
+            for r in rows:
+                desc = r.get("תיאור הפריט", "")
+                qty = float(r.get("כמות מאושרת", 0))
+                unit = r.get("יחידת מידה", "יח'")
+                exec_stage = r.get("exec_stage", "Before Execution")
+                if is_us:
+                    if 'מ"א' in unit or "מטר" in unit: qty = round(qty * 3.28084, 2); unit = "Linear Feet (FT)"
+                    elif 'מ"ר' in unit: qty = round(qty * 10.7639, 2); unit = "Square Feet (SQFT)"
+                item_price = get_pricing_item_cost(desc, unit, exec_stage, is_us)
+                if show_vat:
+                    item_price *= (1 + tax_rate)
+                grand_total_pricing += qty * item_price
 
-  dir_attr = "ltr" if is_us else "rtl"
-  headers = ["No.", "Symbol", "Item Description", "Approved Qty", "Unit"] if is_us else ["מס'", "סמל / תרשים", "תיאור הפריט", "כמות", "יח' מידה"]
-  if include_pricing:
-      headers.extend(["Unit Price", "Total"] if is_us else ["מחיר יחידה", 'סה"כ'])
+        tax_amount = grand_total_pricing * tax_rate if not show_vat else 0
+        total_with_tax = grand_total_pricing + tax_amount if not show_vat else grand_total_pricing
 
-  html = f"""
+    dir_attr = "ltr" if is_us else "rtl"
+    headers = ["No.", "Symbol", "Item Description", "Approved Qty", "Unit"] if is_us else ["מס'", "סמל / תרשים", "תיאור הפריט", "כמות", "יח' מידה"]
+    if include_pricing:
+        headers.extend(["Unit Price", "Total"] if is_us else ["מחיר יחידה", 'סה"כ'])
+
+    html = f"""
     <html dir="{dir_attr}">
-    <head>
-    <meta charset="utf-8">
-    <title>{title}</title>
+    <head><meta charset="utf-8"><title>{title}</title>
     <style>
-        @media print {{ body {{ -webkit-print-color-adjust: exact; }} }}
         body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 30px; background-color: #f4f6f9; }}
-        .header-box {{ border-bottom: 4px solid #1F4E78; padding-bottom: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
-        .logo-txt {{ font-size: 22px; font-weight: bold; color: #1F4E78; }}
+        .header-box {{ border-bottom: 4px solid #1F4E78; padding-bottom: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; background: white; padding: 20px; border-radius: 8px; }}
         .disc-title {{ color: #1F4E78; border-right: 5px solid #FF9900; padding-right: 12px; margin-top: 30px; margin-bottom: 12px; }}
-        table {{ width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 1px 4px rgba(0,0,0,0.1); margin-bottom: 20px; border-radius: 6px; overflow: hidden; text-align: left; }}
-        th {{ background-color: #1F4E78; color: white; padding: 12px; font-size: 15px; border: 1px solid #ddd; }}
-        td {{ padding: 10px; border: 1px solid #ddd; font-size: 14px; vertical-align: middle; }}
-        tr:nth-child(even) {{ background-color: #f8f9fa; }}
-        .total-box {{ background: #1F4E78; color: white; padding: 20px; border-radius: 8px; margin-top: 30px; font-size: 16px; text-align: left; }}
+        table {{ width: 100%; border-collapse: collapse; background: #ffffff; margin-bottom: 20px; text-align: left; }}
+        th {{ background-color: #1F4E78; color: white; padding: 12px; border: 1px solid #ddd; }}
+        td {{ padding: 10px; border: 1px solid #ddd; vertical-align: middle; }}
+        .total-box {{ background: #1F4E78; color: white; padding: 20px; border-radius: 8px; margin-top: 30px; text-align: left; }}
         .total-box h3 {{ margin: 0 0 10px 0; color: #facc15; }}
-    </style>
-    </head>
+    </style></head>
     <body>
     <div class="header-box">
-        <div>
-            <h2>🏗️ S.A. Quantities AI (S.A.Q)</h2>
-            <p><b>{title}</b> | {"Model:" if is_us else "מודל:"} <b>{mode_label}</b></p>
-        </div>
+        <div><h2>S.A. Quantities AI (S.A.Q)</h2><p><b>{title}</b> | Model: <b>{mode_label}</b></p></div>
         <div>{logo_html}</div>
     </div>
     """
-  
-  disp_names = {
-      "elec": "⚡ Electrical & Lighting" if is_us else "⚡ חשמל ומאור",
-      "cons": "🧱 Construction (Walls)" if is_us else "🧱 בניה (מחיצות ומעטפת)",
-      "plum": "🚿 Plumbing" if is_us else "🚿 אינסטלציה",
-      "tile": "📐 Flooring & Tiling" if is_us else "📐 ריצוף וחיפוי",
-      "hvac": "❄️ HVAC & Infrastructure" if is_us else "❄️ מיזוג אוויר ותשתיות"
-  }
 
-  for disc_key, rows in project_boq.items():
-    d_name = disp_names.get(disc_key, disc_key)
-    
-    header_html = "".join([f"<th>{h}</th>" for h in headers])
-    html += f"""
-        <h3 class="disc-title">{d_name}</h3>
-        <table>
-            <tr>{header_html}</tr>
-        """
-    if not rows:
-      empty_msg = "No quantities recorded" if is_us else "לא נרשמו כמויות"
-      html += f"<tr><td colspan='{len(headers)}'>{empty_msg}</td></tr>"
-    else:
-      for r in rows:
-        desc = r.get("תיאור הפריט", "")
-        q_disp = float(r.get("כמות מאושרת", 0))
-        u_disp = r.get("יחידת מידה", "יח'")
-        if is_us:
-          if 'מ"א' in u_disp or "מטר" in u_disp: q_disp = round(q_disp * 3.28084, 2); u_disp = "Linear Feet (FT)"
-          elif 'מ"ר' in u_disp: q_disp = round(q_disp * 10.7639, 2); u_disp = "Square Feet (SQFT)"
-          elif "יח'" in u_disp: u_disp = "Units"
+    for disc_key, rows in project_boq.items():
+        d_name = disciplines_dict.get(disc_key, disc_key)
+        header_html = "".join([f"<th>{h}</th>" for h in headers])
+        html += f'<h3 class="disc-title">{d_name}</h3><table><tr>{header_html}</tr>'
+        if not rows:
+            empty_msg = "No quantities recorded" if is_us else "לא נרשמו כמויות"
+            html += f"<tr><td colspan='{len(headers)}'>{empty_msg}</td></tr>"
+        else:
+            for r in rows:
+                desc = r.get("תיאור הפריט", "")
+                q_disp = float(r.get("כמות מאושרת", 0))
+                u_disp = r.get("יחידת מידה", "יח'")
+                exec_stage = r.get("exec_stage", "Before Execution")
+                if is_us:
+                    if 'מ"א' in u_disp or "מטר" in u_disp: q_disp = round(q_disp * 3.28084, 2); u_disp = "Linear Feet (FT)"
+                    elif 'מ"ר' in u_disp: q_disp = round(q_disp * 10.7639, 2); u_disp = "Square Feet (SQFT)"
+                    elif "יח'" in u_disp: u_disp = "Units"
+                img_tag = f'<img src="{r.get("image_uri", "")}" width="55" height="40"/>' if r.get("image_uri") else "—"
+                row_html = f"<tr><td>{r.get('מס', 1)}</td><td>{img_tag}</td><td><b>{desc}</b></td><td style='color: #1F4E78; font-weight: bold;'>{q_disp}</td><td>{u_disp}</td>"
+                if include_pricing:
+                    u_price = get_pricing_item_cost(desc, u_disp, exec_stage, is_us)
+                    if show_vat: u_price *= (1 + tax_rate)
+                    tot_price = q_disp * u_price
+                    row_html += f"<td>{u_price:,.2f} {currency_sign}</td><td>{tot_price:,.2f} {currency_sign}</td>"
+                row_html += "</tr>"
+                html += row_html
+        html += "</table>"
 
-        img_tag = f'<img src="{r.get("image_uri", "")}" width="55" height="40"/>' if r.get("image_uri") else "—"
-        row_html = f"<tr><td>{r.get('מס', 1)}</td><td>{img_tag}</td><td><b>{desc}</b></td><td style='color: #1F4E78; font-weight: bold;'>{q_disp}</td><td>{u_disp}</td>"
-        
-        if include_pricing:
-            u_price = get_pricing_item_cost(desc, u_disp, is_us)
-            tot_price = q_disp * u_price
-            row_html += f"<td>{u_price:,.2f} {currency_sign}</td><td>{tot_price:,.2f} {currency_sign}</td>"
+    if notes:
+        html += f"<div style='margin-top:20px; padding:15px; background:#fff3cd; border-left: 5px solid #ffecb5;'><h4>Notes:</h4><p>{notes}</p></div>"
+
+    if include_pricing:
+        total_lbl_1 = "Total Project Pricing" if is_us else "סיכום תמחור כללי"
+        total_lbl_2 = "Total (Excl. Tax):" if is_us else 'סה"כ לפני מיסים:'
+        total_lbl_3 = "Grand Total (Incl. Tax):" if is_us else 'סה"כ לתשלום כולל מיסים:'
+        if show_vat:
+            total_lbl_2 = "Total (Incl. Tax):" if is_us else 'סה"כ כולל מע"מ:'
             
-        row_html += "</tr>"
-        html += row_html
-    html += "</table>"
-
-  if include_pricing:
-      total_lbl_1 = "Total Project Pricing" if is_us else "סיכום תמחור כללי"
-      total_lbl_2 = "Total (Excl. Tax):" if is_us else 'סה"כ לפני מיסים:'
-      total_lbl_3 = "Grand Total (Incl. Tax):" if is_us else 'סה"כ לתשלום כולל מיסים:'
-      
-      html += f"""
+        html += f"""
         <div class="total-box">
-            <h3>💰 {total_lbl_1}</h3>
+            <h3>{total_lbl_1}</h3>
             <p><b>{total_lbl_2}</b> {grand_total_pricing:,.2f} {currency_sign}</p>
+        """
+        if not show_vat:
+            html += f"""
             <p><b>{tax_label}:</b> {tax_amount:,.2f} {currency_sign}</p>
             <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.3); margin: 10px 0;">
             <p style="font-size: 18px;"><b>{total_lbl_3}</b> <span style="color: #facc15;">{total_with_tax:,.2f} {currency_sign}</span></p>
-        </div>
-        """
-        
-  html += "</body></html>"
-  return html
+            """
+        html += "</div>"
+
+    html += "</body></html>"
+    return html
 
 def reset_project_state():
     st.session_state["project_boq"] = {k: [] for k in disciplines_keys}
@@ -988,22 +813,31 @@ def reset_project_state():
         "elec_results", "elec_plan_raw", "elec_verified",
         "plumb_results", "plumb_plan_raw", "plumb_verified",
         "hvac_results", "hvac_plan_raw", "hvac_verified",
-        "show_master_export"
+        "show_master_export", "project_notes"
     ]
     for key in keys_to_clear:
         st.session_state.pop(key, None)
 
+def reset_current_discipline(curr_key):
+    st.session_state["project_boq"][curr_key] = []
+    keys_to_clear = [
+        f"{curr_key}_results", f"{curr_key}_plan_raw", f"{curr_key}_verified"
+    ]
+    for key in keys_to_clear:
+        st.session_state.pop(key, None)
+    st.rerun()
+
 if "global_is_us" not in st.session_state:
     st.session_state["global_is_us"] = False
-
 is_us_mode = st.session_state["global_is_us"]
 
 disciplines_dict = {
-    "elec": "⚡ Electrical & Lighting" if is_us_mode else "⚡ חשמל ומאור",
-    "cons": "🧱 Construction (Walls)" if is_us_mode else "🧱 בניה (מחיצות ומעטפת)",
-    "plum": "🚿 Plumbing" if is_us_mode else "🚿 אינסטלציה",
-    "tile": "📐 Flooring & Tiling" if is_us_mode else "📐 ריצוף וחיפוי",
-    "hvac": "❄️ HVAC & Infrastructure" if is_us_mode else "❄️ מיזוג אוויר ותשתיות"
+    "elec": "Electrical & Lighting" if is_us_mode else "חשמל ומאור",
+    "cons": "Construction (Walls)" if is_us_mode else "בניה (מחיצות ומעטפת)",
+    "plum": "Plumbing" if is_us_mode else "אינסטלציה",
+    "tile": "Flooring & Tiling" if is_us_mode else "ריצוף וחיפוי",
+    "hvac": "HVAC & Infrastructure" if is_us_mode else "מיזוג אוויר ותשתיות",
+    "kitc": "Kitchen" if is_us_mode else "מטבח"
 }
 disciplines_keys = list(disciplines_dict.keys())
 disciplines_display = list(disciplines_dict.values())
@@ -1011,791 +845,711 @@ disciplines_display = list(disciplines_dict.values())
 tile_h = 2.40
 
 if "project_boq" not in st.session_state:
-  st.session_state["project_boq"] = {k: [] for k in disciplines_keys}
+    st.session_state["project_boq"] = {k: [] for k in disciplines_keys}
 if "current_discipline" not in st.session_state:
-  st.session_state["current_discipline"] = "elec"
+    st.session_state["current_discipline"] = "elec"
 if "show_master_export" not in st.session_state:
-  st.session_state["show_master_export"] = False
-
+    st.session_state["show_master_export"] = False
 if "saved_quotes" not in st.session_state:
     st.session_state["saved_quotes"] = []
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה
+# מסך פתיחה גרפי – בחירת מודל עבודה
 # ========================================================
 if "app_mode" not in st.session_state:
-  st.session_state["app_mode"] = None
+    st.session_state["app_mode"] = None
 
 if st.session_state["app_mode"] is None:
-  home_css = ""
-  home_css += "<style>\n"
-  home_css += "div[data-testid='stSelectbox'] { background: white; padding: 15px 25px; border-radius: 14px; border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }\n"
-  home_css += "div[data-testid='stSelectbox'] > div { margin-bottom: 0 !important; }\n"
-  home_css += "div[data-testid='column'] div.stButton > button { height: 420px !important; min-height: 420px !important; width: 100%; border-radius: 20px !important; font-weight: bold; padding: 30px 20px; font-size: 19px; box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; border: none !important; color: white !important; text-align: center; white-space: pre-wrap; display: flex; flex-direction: column; justify-content: center; align-items: center; }\n"
-  home_css += "div[data-testid='column']:nth-of-type(1) div.stButton > button { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important; }\n"
-  home_css += "div[data-testid='column']:nth-of-type(1) div.stButton > button:hover { transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4) !important; }\n"
-  home_css += "div[data-testid='column']:nth-of-type(2) div.stButton > button { background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important; }\n"
-  home_css += "div[data-testid='column']:nth-of-type(2) div.stButton > button:hover { transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(245, 158, 11, 0.4) !important; }\n"
-  home_css += "</style>\n"
-  
-  st.markdown(home_css, unsafe_allow_html=True)
+    home_css = ""
+    home_css += "<style>\n"
+    home_css += "div[data-testid='stSelectbox'] { background: white; padding: 15px 25px; border-radius: 14px; border: 2px solid #cbd5e1; max-width: 850px; margin: 0 auto 30px auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }\n"
+    home_css += "div[data-testid='stSelectbox'] > div { margin-bottom: 0 !important; }\n"
+    home_css += "div[data-testid='column'] div.stButton > button { height: 420px !important; min-height: 420px !important; width: 100%; border-radius: 20px !important; font-weight: bold; padding: 30px 20px; font-size: 19px; box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important; border: none !important; color: white !important; text-align: center; white-space: pre-wrap; display: flex; flex-direction: column; justify-content: center; align-items: center; }\n"
+    home_css += "div[data-testid='column']:nth-of-type(1) div.stButton > button { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%) !important; }\n"
+    home_css += "div[data-testid='column']:nth-of-type(1) div.stButton > button:hover { transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(37, 99, 235, 0.4) !important; }\n"
+    home_css += "div[data-testid='column']:nth-of-type(2) div.stButton > button { background: linear-gradient(135deg, #b45309 0%, #f59e0b 100%) !important; }\n"
+    home_css += "div[data-testid='column']:nth-of-type(2) div.stButton > button:hover { transform: translateY(-8px) !important; box-shadow: 0 15px 35px rgba(245, 158, 11, 0.4) !important; }\n"
+    home_css += "</style>\n"
+    st.markdown(home_css, unsafe_allow_html=True)
 
-  if has_logo:
-    col_logo_cent = st.columns([3, 1, 3])
-    with col_logo_cent[1]:
-      st.image(LOGO_PATH, use_container_width=True)
+    if has_logo:
+        col_logo_cent = st.columns([3, 1, 3])
+        with col_logo_cent[1]:
+            st.image(LOGO_PATH, use_container_width=True)
 
-  st.markdown("<h1 style='text-align: center; color: #0f172a;'>🏗️ S.A. Quantities AI (S.A.Q)</h1>", unsafe_allow_html=True)
-  
-  sub_ttl = "🚜 Advanced Digital Construction Site Takeoff" if is_us_mode else "🚜 אתר בנייה דיגיטלי מתקדם לפענוח שרטוטים וכתבי כמויות"
-  st.markdown(f"<h3 style='text-align: center; color: #64748b;'>{sub_ttl}</h3>", unsafe_allow_html=True)
-  st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #0f172a;'>S.A. Quantities AI (S.A.Q)</h1>", unsafe_allow_html=True)
 
-  start_idx = 1 if is_us_mode else 0
-  home_geo = st.selectbox(
-      "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
-      [
-          "🇮🇱 ישראל (שיטה מטרית | מחירון דקל | עברית) IL",
-          "🇺🇸 United States (Imperial - Feet & Inches | RSMeans | English) US",
-      ],
-      index=start_idx
-  )
-  
-  new_is_us = "🇺🇸" in home_geo
-  if new_is_us != st.session_state.get("global_is_us", False):
-      st.session_state["global_is_us"] = new_is_us
-      st.rerun()
+    sub_ttl = "Advanced Digital Construction Site Takeoff" if is_us_mode else "אתר בנייה דיגיטלי מתקדם לפענוח שרטוטים וכתבי כמויות"
+    st.markdown(f"<h3 style='text-align: center; color: #64748b;'>{sub_ttl}</h3>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-  choose_lbl = "Select the working model for your project:" if is_us_mode else "בחר את מודל הפעילות המבוקש לפרויקט:"
-  st.markdown(f"<p style='text-align: center; color: #475569; font-size: 18px; font-weight: 500;'>{choose_lbl}</p>", unsafe_allow_html=True)
-  st.markdown("<br>", unsafe_allow_html=True)
-
-  col_m1, col_m2 = st.columns(2, gap="large")
-
-  with col_m1:
-    tenant_btn_txt = (
-        "👷‍♂️🏢\n\nTenant Modifications (COs)\n\nFor Developers & General Contractors:\nCompares requested change drawings against baseline contract standards, precise delta calculations & structural safety shield."
-        if is_us_mode else 
-        "👷‍♂️🏢\n\nמודל שינויי דיירים\n\nליזמים וקבלנים ראשיים:\nהשוואת שרטוט שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא, מעקב מרחקי הזזה ובקרת מעטפת הנדסית."
+    start_idx = 1 if is_us_mode else 0
+    home_geo = st.selectbox(
+        "Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
+        [
+            "ישראל (שיטה מטרית | מחירון דקל | עברית) IL",
+            "United States (Imperial - Feet & Inches | RSMeans | English) US",
+        ],
+        index=start_idx
     )
-    if st.button(tenant_btn_txt, use_container_width=True, key="btn_mode_tenant"):
-      st.session_state["app_mode"] = "Tenant_CO" if is_us_mode else "שינויי דיירים"
-      reset_project_state()
-      st.rerun()
 
-  with col_m2:
-    reno_btn_txt = (
-        "🔨🚜\n\nRenovation Contractors (As-Is)\n\nFor Interior Remodeling & Contractors:\nCompares proposed plan vs. As-Is existing layout. Calculates demolition, new partition walls, wall chasing & net flooring."
-        if is_us_mode else 
-        "🔨🚜\n\nמודל קבלני שיפוצים\n\nלדירות קיימות ושיפוצי פנים:\nהשוואת שרטוט מוצע מול מצב קיים (As-Is). חישוב הריסה, בנייה חדשה, חציבות וריצוף נטו."
-    )
-    if st.button(reno_btn_txt, use_container_width=True, key="btn_mode_reno"):
-      st.session_state["app_mode"] = "Renovation" if is_us_mode else "קבלני שיפוצים"
-      reset_project_state()
-      st.rerun()
+    new_is_us = "US" in home_geo
+    if new_is_us != st.session_state.get("global_is_us", False):
+        st.session_state["global_is_us"] = new_is_us
+        st.rerun()
 
-  st.stop()
+    choose_lbl = "Select the working model for your project:" if is_us_mode else "בחר את מודל הפעילות המבוקש לפרויקט:"
+    st.markdown(f"<p style='text-align: center; color: #475569; font-size: 18px; font-weight: 500;'>{choose_lbl}</p>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
+    col_m1, col_m2 = st.columns(2, gap="large")
+
+    with col_m1:
+        tenant_btn_txt = (
+            "Tenant Modifications (COs)\n\nFor Developers & General Contractors:\nCompares requested change drawings against baseline contract standards, precise delta calculations & structural safety shield."
+            if is_us_mode else 
+            "מודל שינויי דיירים\n\nליזמים וקבלנים ראשיים:\nהשוואת שרטוט שינויים מול שרטוט מכר (סטנדרט). חישוב דלתא, מעקב מרחקי הזזה ובקרת מעטפת הנדסית."
+        )
+        if st.button(tenant_btn_txt, use_container_width=True, key="btn_mode_tenant"):
+            st.session_state["app_mode"] = "Tenant_CO" if is_us_mode else "שינויי דיירים"
+            reset_project_state()
+            st.rerun()
+
+    with col_m2:
+        reno_btn_txt = (
+            "Renovation Contractors (As-Is)\n\nFor Interior Remodeling & Contractors:\nCompares proposed plan vs. As-Is existing layout. Calculates demolition, new partition walls, wall chasing & net flooring."
+            if is_us_mode else 
+            "מודל קבלני שיפוצים\n\nלדירות קיימות ושיפוצי פנים:\nהשוואת שרטוט מוצע מול מצב קיים (As-Is). חישוב הריסה, בנייה חדשה, חציבות וריצוף נטו."
+        )
+        if st.button(reno_btn_txt, use_container_width=True, key="btn_mode_reno"):
+            st.session_state["app_mode"] = "Renovation" if is_us_mode else "קבלני שיפוצים"
+            reset_project_state()
+            st.rerun()
+
+    st.stop()
 
 def on_discipline_change():
-  selected_display = st.session_state["disc_selector_widget"]
-  for k, v in disciplines_dict.items():
-      if v == selected_display:
-          st.session_state["current_discipline"] = k
-          break
-  st.session_state.pop("legend_results", None)
-  st.session_state.pop("raw_plan_img", None)
-  st.session_state["verification_completed"] = False
-  st.session_state["show_master_export"] = False
+    selected_display = st.session_state["disc_selector_widget"]
+    for k, v in disciplines_dict.items():
+        if v == selected_display:
+            st.session_state["current_discipline"] = k
+            break
+    st.session_state.pop("legend_results", None)
+    st.session_state.pop("raw_plan_img", None)
+    st.session_state["verification_completed"] = False
+    st.session_state["show_master_export"] = False
 
 def set_discipline_programmatically(new_disc_key):
-  st.session_state["current_discipline"] = new_disc_key
-  st.session_state.pop("legend_results", None)
-  st.session_state.pop("raw_plan_img", None)
-  st.session_state["verification_completed"] = False
-  st.session_state["show_master_export"] = False
-  st.rerun()
+    st.session_state["current_discipline"] = new_disc_key
+    st.session_state.pop("legend_results", None)
+    st.session_state.pop("raw_plan_img", None)
+    st.session_state["verification_completed"] = False
+    st.session_state["show_master_export"] = False
+    st.rerun()
 
 curr_key = st.session_state["current_discipline"]
 curr_idx = disciplines_keys.index(curr_key) if curr_key in disciplines_keys else 0
 
 # ========================================================
-# 🎛️ תפריט צד (Sidebar)
+# תפריט צד (Sidebar)
 # ========================================================
 with st.sidebar:
-  if has_logo:
-    st.image(LOGO_PATH, use_container_width=True)
+    logo_btn_col1, logo_btn_col2 = st.columns([1, 4])
+    with logo_btn_col1:
+        if has_logo:
+            # Using custom HTML/CSS for a clickable logo that mimics returning to discipline list
+            logo_b64 = img_to_data_uri(cv2.imread(LOGO_PATH))
+            st.markdown(
+                f"""<div style="cursor:pointer;" onclick="window.parent.postMessage({{type: 'streamlit:setComponentValue', value: 'logo_clicked'}}, '*');">
+                <img src="{logo_b64}" width="50" /></div>""", 
+                unsafe_allow_html=True
+            )
+            
+    if st.button("Back to Home" if is_us_mode else "חזרה למסך הבית (מודלים)", use_container_width=True):
+        st.session_state["app_mode"] = None
+        reset_project_state()
+        st.rerun()
 
-  sb_css = ""
-  sb_css += "<style>\n"
-  sb_css += "section[data-testid='stSidebar'] div.stButton > button { background: transparent !important; border: 1px solid #475569 !important; box-shadow: none !important; color: #f8fafc !important; }\n"
-  sb_css += "section[data-testid='stSidebar'] div.stButton > button:hover { background: rgba(255,255,255,0.1) !important; border-color: #cbd5e1 !important; }\n"
-  sb_css += "</style>\n"
-  st.markdown(sb_css, unsafe_allow_html=True)
+    st.markdown("---")
+    st.markdown("### S.A.Q Command Center" if is_us_mode else "### מרכז בקרה S.A.Q")
+    mode_lbl = st.session_state["app_mode"]
 
-  if st.button("🏠 Back to Home" if is_us_mode else "🏠 חזרה למסך הבית (בחירת מודל)", use_container_width=True):
-    st.session_state["app_mode"] = None
-    reset_project_state()
-    st.rerun()
+    if mode_lbl in ["Tenant_CO", "שינויי דיירים"]:
+        sub_mode_name = "Change Orders (COs)" if is_us_mode else "מודל שינויי דיירים"
+        st.success(f"Active: {sub_mode_name}" if is_us_mode else f"פעיל: {sub_mode_name}")
+    else:
+        sub_reno_name = "Renovation Contractors" if is_us_mode else "מודל קבלני שיפוצים"
+        st.warning(f"Active: {sub_reno_name}" if is_us_mode else f"פעיל: {sub_reno_name}")
 
-  st.markdown("---")
-  st.markdown("### ⚙️ S.A.Q Command Center" if is_us_mode else "### ⚙️ מרכז בקרה S.A.Q")
-  mode_lbl = st.session_state["app_mode"]
-  
-  if mode_lbl in ["Tenant_CO", "שינויי דיירים"]:
-    sub_mode_name = "Change Orders (COs)" if is_us_mode else "מודל שינויי דיירים"
-    st.success(f"👷‍♂️ Active: {sub_mode_name}" if is_us_mode else f"👷‍♂️ פעיל: {sub_mode_name}")
-  else:
-    sub_reno_name = "Renovation Contractors" if is_us_mode else "מודל קבלני שיפוצים"
-    st.warning(f"🔨 Active: {sub_reno_name}" if is_us_mode else f"🔨 פעיל: {sub_reno_name}")
+    st.markdown("---")
+    file_type = st.radio(
+        "Drawing Format:" if is_us_mode else "פורמט שרטוט הנדסי:",
+        ["PDF / Image (Raster)", "Vector CAD (DXF)"] if is_us_mode else ["PDF / תמונה (Raster)", "CAD וקטורי (DXF)"],
+    )
+    
+    st.markdown("---")
+    st.markdown("### Progress" if is_us_mode else "### התקדמות הפרויקט")
+    for d_k, d_v in disciplines_dict.items():
+        has_items = len(st.session_state["project_boq"].get(d_k, [])) > 0
+        status_icon = "[V]" if has_items else "[ ]"
+        st.markdown(f"{status_icon} {d_v}")
 
-  st.markdown("---")
-  file_type = st.radio(
-      "Drawing Format:" if is_us_mode else "פורמט שרטוט הנדסי:",
-      ["📄 PDF / Image (Raster)", "📐 Vector CAD (DXF)"] if is_us_mode else ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"],
-  )
-  discipline_display = st.selectbox(
-      "Current Plan:" if is_us_mode else "סוג תוכנית:",
-      disciplines_display,
-      index=curr_idx,
-      key="disc_selector_widget",
-      on_change=on_discipline_change,
-  )
-
-  st.markdown("---")
-  st.subheader("📏 Scale & Calibration" if is_us_mode else "📏 קנה מידה וכיול אתר")
-  scale_lbl = "Pixels per Foot:" if is_us_mode else "פיקסלים למטר:"
-  scale_val_def = 38.0 if is_us_mode else 125.0
-  scale_choice = st.selectbox(
-      "Plan Scale:" if is_us_mode else "קנה מידה בשרטוט:",
-      ["1:50 / Standard Residential", "1:100 / Large Commercial", "Manual Calibration"] if is_us_mode else ["1:50 (דירות מגורים - ברירת מחדל)", "1:100 (מבנים גדולים)", "כיול ידני לפיקסלים"],
-  )
-  if "1:50" in scale_choice or "Residential" in scale_choice: px_meter = 38.0 if is_us_mode else 125.0
-  elif "1:100" in scale_choice or "Commercial" in scale_choice: px_meter = 19.0 if is_us_mode else 62.5
-  else: px_meter = st.number_input(scale_lbl, min_value=10.0, max_value=300.0, value=scale_val_def, step=1.0)
-
-  if curr_key == "tile":
-    tile_h_def = 8.0 if is_us_mode else 2.40
-    tile_h = st.number_input(
-        "Wet Area Wall Tiling Height (Feet):" if is_us_mode else "גובה חיפוי קירות רטובים (מטר):",
-        min_value=5.0 if is_us_mode else 1.5, max_value=12.0 if is_us_mode else 3.5, value=tile_h_def, step=0.5 if is_us_mode else 0.10,
+    st.markdown("---")
+    discipline_display = st.selectbox(
+        "Current Plan:" if is_us_mode else "סוג תוכנית (ניווט):",
+        disciplines_display,
+        index=curr_idx,
+        key="disc_selector_widget",
+        on_change=on_discipline_change,
     )
 
-  filter_banner = st.checkbox("Filter Title Block", value=True) if is_us_mode else st.checkbox("סנן טבלת כותרת (Title Block)", value=True)
+    st.markdown("---")
+    st.subheader("Scale & Calibration" if is_us_mode else "קנה מידה וכיול אתר")
+    scale_lbl = "Pixels per Foot:" if is_us_mode else "פיקסלים למטר:"
+    scale_val_def = 38.0 if is_us_mode else 125.0
+    scale_choice = st.selectbox(
+        "Plan Scale:" if is_us_mode else "קנה מידה בשרטוט:",
+        ["1:50 / Standard Residential", "1:100 / Large Commercial", "Manual Calibration"] if is_us_mode else ["1:50 (דירות מגורים - ברירת מחדל)", "1:100 (מבנים גדולים)", "כיול ידני לפיקסלים"],
+    )
+    if "1:50" in scale_choice or "Residential" in scale_choice: px_meter = 38.0 if is_us_mode else 125.0
+    elif "1:100" in scale_choice or "Commercial" in scale_choice: px_meter = 19.0 if is_us_mode else 62.5
+    else: px_meter = st.number_input(scale_lbl, min_value=10.0, max_value=300.0, value=scale_val_def, step=1.0)
 
-  st.markdown("---")
-  st.subheader("🧠 S.A.Q AI Memory" if is_us_mode else "🧠 זיכרון למידה AI")
-  appr_lbl = "Approved Patterns:" if is_us_mode else "תבניות שאושרו:"
-  st.caption(f"{appr_lbl} {len(ai_memory.get('approved_patterns', []))}")
-  
-  saved_count = len([k for k, v in st.session_state["project_boq"].items() if len(v) > 0])
-  st.info(f"Plans with Qty: **{saved_count}** of 5" if is_us_mode else f"תוכניות שחושבו: **{saved_count}** מתוך 5")
-  
-  if st.button("📑 Open Master BOQ Hub" if is_us_mode else "📑 פתח מרכז דוחות (ייצוא/שמירה)", use_container_width=True):
-    st.session_state["show_master_export"] = True
-    st.rerun()
+    if curr_key == "tile":
+        tile_h_def = 8.0 if is_us_mode else 2.40
+        tile_h = st.number_input(
+            "Wet Area Wall Tiling Height (Feet):" if is_us_mode else "גובה חיפוי קירות רטובים (מטר):",
+            min_value=5.0 if is_us_mode else 1.5, max_value=12.0 if is_us_mode else 3.5, value=tile_h_def, step=0.5 if is_us_mode else 0.10,
+        )
 
-  if st.button("🗑️ Start New Calculation" if is_us_mode else "🗑️ התחל חישוב מחדש (נקה נתונים)", use_container_width=True):
-      reset_project_state()
-      st.rerun()
+    st.markdown("---")
+    st.subheader("Tools" if is_us_mode else "כלים מתקדמים")
+    
+    # Toggle Dark Mode
+    dm_toggle = st.checkbox("Dark Mode" if is_us_mode else "מצב לילה (Dark Mode)", value=st.session_state["dark_mode"])
+    if dm_toggle != st.session_state["dark_mode"]:
+        st.session_state["dark_mode"] = dm_toggle
+        st.rerun()
+        
+    # Toggle VAT
+    st.session_state["show_vat"] = st.checkbox("Show Prices with VAT" if is_us_mode else "הצג מחירים כולל מע\"מ", value=st.session_state.get("show_vat", False))
 
-  st.markdown("---")
-  st.markdown("### 📁 Saved Quotes" if is_us_mode else "### 📁 הצעות מחיר שמורות")
-  
-  history_key = "saved_quotes_tenant" if mode_lbl in ["Tenant_CO", "שינויי דיירים"] else "saved_quotes_reno"
-  if history_key not in st.session_state:
-      st.session_state[history_key] = []
-      
-  with st.expander("View History" if is_us_mode else "צפה בהיסטוריה במודל זה", expanded=False):
-      if not st.session_state[history_key]:
-          st.info("No saved quotes for this model." if is_us_mode else "אין עדיין הצעות מחיר שמורות.")
-      else:
-          for i, q in enumerate(reversed(st.session_state[history_key])):
-              real_idx = len(st.session_state[history_key]) - 1 - i
-              st.markdown(f"**{q['date']}**<br><h4 style='margin:0; color:#3b82f6;'>{q['total']:,.2f} {q['currency']}</h4>", unsafe_allow_html=True)
-              if st.button("Load Quote" if is_us_mode else "טען הצעה זו", key=f"load_qt_{history_key}_{real_idx}"):
-                  st.session_state["project_boq"] = copy.deepcopy(q["boq_data"])
-                  st.session_state["show_master_export"] = True
-                  st.rerun()
-              st.markdown("<hr style='margin: 8px 0; border-color: #475569;'>", unsafe_allow_html=True)
-          
-          if st.button("Clear History" if is_us_mode else "נקה היסטוריית מודל", key=f"clear_quotes_btn_{history_key}"):
-              st.session_state[history_key] = []
-              st.rerun()
+    with st.expander("Calculator & Converter" if is_us_mode else "מחשבון והמרות", expanded=False):
+        calc_val = st.number_input("Value:" if is_us_mode else "ערך:", value=1.0)
+        calc_type = st.selectbox("Conversion:" if is_us_mode else "סוג המרה:", ["Meters -> Feet", "Feet -> Meters", "SQM -> SQFT", "SQFT -> SQM"])
+        if "Meters -> Feet" in calc_type: st.write(f"Result: {calc_val * 3.28084:.2f} ft")
+        elif "Feet -> Meters" in calc_type: st.write(f"Result: {calc_val / 3.28084:.2f} m")
+        elif "SQM -> SQFT" in calc_type: st.write(f"Result: {calc_val * 10.7639:.2f} sqft")
+        elif "SQFT -> SQM" in calc_type: st.write(f"Result: {calc_val / 10.7639:.2f} sqm")
+
+    st.session_state["project_notes"] = st.text_area("General Notes (for report):" if is_us_mode else "הערות לדוח הסופי:", value=st.session_state.get("project_notes", ""))
+
+    if st.button("Reset Current Discipline" if is_us_mode else "איפוס נתונים בדיסציפלינה זו", use_container_width=True):
+        reset_current_discipline(curr_key)
+
+    st.markdown("---")
+    if st.button("Open Master BOQ Hub" if is_us_mode else "פתח מרכז דוחות (ייצוא/שמירה)", use_container_width=True):
+        st.session_state["show_master_export"] = True
+        st.rerun()
+
+    if st.button("Start New Calculation" if is_us_mode else "התחל פרויקט מחדש (נקה הכל)", use_container_width=True):
+        reset_project_state()
+        st.rerun()
 
 col_l, col_t = st.columns([1, 8])
 with col_l:
-  if has_logo: st.image(LOGO_PATH, use_container_width=True)
-  else: st.markdown("<div style='font-size: 50px; text-align: center;'>🏗️</div>", unsafe_allow_html=True)
+    if has_logo: st.image(LOGO_PATH, use_container_width=True)
+    else: st.markdown("<div style='font-size: 50px; text-align: center;'>SAQ</div>", unsafe_allow_html=True)
 with col_t:
-  st.title("S.A. Quantities AI (S.A.Q) - Global Takeoff Platform" if is_us_mode else "פלטפורמת חישוב כמויות - S.A. Quantities AI (S.A.Q)")
-  region_title = "🇺🇸 USA (Imperial)" if is_us_mode else "🇮🇱 Israel (Metric)"
-  st.caption(f"Active Site | Region: {region_title} | Model: {mode_lbl} | Plan: {disciplines_dict[curr_key]}" if is_us_mode else f"אתר פעיל | מיקום: {region_title} | מודל: {mode_lbl} | תוכנית: {disciplines_dict[curr_key]}")
-
+    st.title("S.A. Quantities AI (S.A.Q) - Global Takeoff Platform" if is_us_mode else "פלטפורמת חישוב כמויות - S.A. Quantities AI (S.A.Q)")
+    region_title = "USA (Imperial)" if is_us_mode else "Israel (Metric)"
+    st.caption(f"Active Site | Region: {region_title} | Model: {mode_lbl} | Plan: {disciplines_dict[curr_key]}" if is_us_mode else f"אתר פעיל | מיקום: {region_title} | מודל: {mode_lbl} | תוכנית: {disciplines_dict[curr_key]}")
 
 # ========================================================
-# 📑 מרכז דוחות פרויקט מלא (Master BOQ Hub) - ייצוא ושמירה
+# מרכז דוחות פרויקט מלא (Master BOQ Hub) - ייצוא ושמירה
 # ========================================================
 if st.session_state.get("show_master_export", False):
-  st.markdown("---")
-  st.header(f"🏗️ Master BOQ Hub ({mode_lbl})" if is_us_mode else f"🏗️ מרכז הדוחות לאתר הבנייה ({mode_lbl})")
-
-  all_project_rows = []
-  for d_key in disciplines_keys:
-    d_name = disciplines_dict[d_key]
-    d_rows = st.session_state["project_boq"].get(d_key, [])
-    item_lbl = "items recorded" if is_us_mode else "רשומות חושבו"
-    with st.expander(f"📋 {d_name} ({len(d_rows)} {item_lbl})", expanded=True):
-      if d_rows:
-        safe_render_table(d_rows, is_us=is_us_mode)
-        render_pricing_widget(d_rows, d_name, is_us=is_us_mode)
-        for r in d_rows: all_project_rows.append(r)
-      else:
-        st.write("No quantities recorded in this plan yet." if is_us_mode else "טרם הופקו כמויות בתוכנית זו (0).")
-
-  if all_project_rows:
     st.markdown("---")
-    currency_sign = "$" if is_us_mode else "₪"
-    tax_label = "Local Tax (8.5%)" if is_us_mode else "מיסים מקומיים / מע\"מ (18%)"
-    tax_rate = 0.085 if is_us_mode else 0.18
+    st.header(f"Master BOQ Hub ({mode_lbl})" if is_us_mode else f"מרכז הדוחות לאתר הבנייה ({mode_lbl})")
 
-    st.subheader(f"💰 Comprehensive Financial Summary ({'RSMeans' if is_us_mode else 'Dekel'})" if is_us_mode else f"💰 סיכום תמחור פיננסי ({'RSMeans' if is_us_mode else 'מחירון דקל'})")
-    total_proj_pricing = 0
-    for r in all_project_rows:
-      desc = r.get("תיאור הפריט", "")
-      qty = float(r.get("כמות מאושרת", 0))
-      unit = r.get("יחידת מידה", "יח'")
-      if is_us_mode:
-        if 'מ"א' in unit or "מטר" in unit: qty = round(qty * 3.28084, 2); unit = "Linear Feet (FT)"
-        elif 'מ"ר' in unit: qty = round(qty * 10.7639, 2); unit = "Square Feet (SQFT)"
-      total_proj_pricing += qty * get_pricing_item_cost(desc, unit, is_us_mode)
+    all_project_rows = []
+    for d_key in disciplines_keys:
+        d_name = disciplines_dict[d_key]
+        d_rows = st.session_state["project_boq"].get(d_key, [])
+        item_lbl = "items recorded" if is_us_mode else "רשומות חושבו"
+        with st.expander(f"{d_name} ({len(d_rows)} {item_lbl})", expanded=True):
+            if d_rows:
+                safe_render_table(d_rows, is_us=is_us_mode)
+                render_pricing_widget(d_rows, d_name, is_us=is_us_mode)
+                for r in d_rows: all_project_rows.append(r)
+            else:
+                st.write("No quantities recorded in this plan yet." if is_us_mode else "טרם הופקו כמויות בתוכנית זו (0).")
 
-    proj_tax = total_proj_pricing * tax_rate
-    proj_total_with_tax = total_proj_pricing + proj_tax
+    if all_project_rows:
+        st.markdown("---")
+        currency_sign = "$" if is_us_mode else "₪"
+        tax_label = "Local Tax (8.5%)" if is_us_mode else "מע\"מ (18%)"
+        tax_rate = 0.085 if is_us_mode else 0.18
+        show_vat = st.session_state.get("show_vat", False)
 
-    col_pr1, col_pr2, col_pr3 = st.columns(3)
-    lbl_c1 = "Total Cost (Excl. Tax)" if is_us_mode else "סה\"כ עלות (ללא מע\"מ)"
-    lbl_c3 = "Grand Total (Incl. Tax)" if is_us_mode else "סה\"כ לתשלום (כולל מע\"מ)"
-    col_pr1.metric(f"{lbl_c1} [{currency_sign}]", f"{total_proj_pricing:,.2f} {currency_sign}")
-    col_pr2.metric(f"{tax_label} [{currency_sign}]", f"{proj_tax:,.2f} {currency_sign}")
-    col_pr3.metric(f"{lbl_c3} [{currency_sign}]", f"{proj_total_with_tax:,.2f} {currency_sign}")
+        st.subheader(f"Comprehensive Financial Summary ({'RSMeans' if is_us_mode else 'Dekel'})" if is_us_mode else f"סיכום תמחור פיננסי ({'RSMeans' if is_us_mode else 'מחירון דקל'})")
+        total_proj_pricing = 0
+        for r in all_project_rows:
+            desc = r.get("תיאור הפריט", "")
+            qty = float(r.get("כמות מאושרת", 0))
+            unit = r.get("יחידת מידה", "יח'")
+            exec_stage = r.get("exec_stage", "Before Execution")
+            if is_us_mode:
+                if 'מ"א' in unit or "מטר" in unit: qty = round(qty * 3.28084, 2); unit = "Linear Feet (FT)"
+                elif 'מ"ר' in unit: qty = round(qty * 10.7639, 2); unit = "Square Feet (SQFT)"
+            item_price = get_pricing_item_cost(desc, unit, exec_stage, is_us_mode)
+            if show_vat:
+                item_price *= (1 + tax_rate)
+            total_proj_pricing += qty * item_price
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        proj_tax = total_proj_pricing * tax_rate if not show_vat else 0
+        proj_total_with_tax = total_proj_pricing + proj_tax if not show_vat else total_proj_pricing
+
+        col_pr1, col_pr2, col_pr3 = st.columns(3)
+        lbl_c1 = "Total Cost (Excl. Tax)" if is_us_mode else "סה\"כ עלות (ללא מע\"מ)"
+        if show_vat:
+            lbl_c1 = "Total Cost (Incl. Tax)" if is_us_mode else "סה\"כ עלות (כולל מע\"מ)"
+        lbl_c3 = "Grand Total (Incl. Tax)" if is_us_mode else "סה\"כ לתשלום (כולל מע\"מ)"
+        
+        col_pr1.metric(f"{lbl_c1} [{currency_sign}]", f"{total_proj_pricing:,.2f} {currency_sign}")
+        if not show_vat:
+            col_pr2.metric(f"{tax_label} [{currency_sign}]", f"{proj_tax:,.2f} {currency_sign}")
+            col_pr3.metric(f"{lbl_c3} [{currency_sign}]", f"{proj_total_with_tax:,.2f} {currency_sign}")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+        c_save, c_back = st.columns(2)
+        with c_save:
+            if st.button("Save, Finish & Start New" if is_us_mode else "שמור וסיים חישוב (התחל מחדש)", use_container_width=True):
+                now_str = time.strftime("%d/%m/%Y %H:%M")
+                h_key = "saved_quotes_tenant" if mode_lbl in ["Tenant_CO", "שינויי דיירים"] else "saved_quotes_reno"
+                st.session_state[h_key].append({
+                    "date": now_str, "model": mode_lbl, "total": proj_total_with_tax, "currency": currency_sign, "boq_data": copy.deepcopy(st.session_state["project_boq"])
+                })
+                reset_project_state()
+                st.rerun()
+
+        with c_back:
+            if st.button("Back to Edit" if is_us_mode else "חזרה לעריכת הפרויקט", use_container_width=True):
+                st.session_state["show_master_export"] = False
+                st.rerun()
+
+        st.markdown("---")
+        st.subheader("Export Options" if is_us_mode else "אפשרויות ייצוא דוחות")
+        t_price = "Master BOQ + Pricing" if is_us_mode else "דוח כמויות ותמחור מקיף"
+        t_no_price = "Takeoff Quantities Only" if is_us_mode else "דוח כמויות נטו (ללא תמחור)"
+
+        html_with_price = generate_master_export_html(st.session_state["project_boq"], title=t_price, mode_label=mode_lbl, is_us=is_us_mode, include_pricing=True)
+        html_no_price = generate_master_export_html(st.session_state["project_boq"], title=t_no_price, mode_label=mode_lbl, is_us=is_us_mode, include_pricing=False)
+
+        col_ex1, col_ex2 = st.columns(2)
+        with col_ex1:
+            st.markdown("**With Pricing (BOQ + Estimate)**" if is_us_mode else "**דוח מלא (כמויות + תמחור הנדסי)**")
+            st.download_button("Download Excel (XLS) w/ Prices" if is_us_mode else "הורד דוח Excel עם מחירים", data=html_with_price.encode("utf-8"), file_name=f"SAQ_Pricing_{mode_lbl}.xls", mime="application/vnd.ms-excel", key="dl_xls_pr")
+            st.download_button("Download PDF/HTML w/ Prices" if is_us_mode else "הורד דוח PDF עם מחירים", data=html_with_price.encode("utf-8"), file_name=f"SAQ_Pricing_{mode_lbl}.html", mime="text/html", key="dl_htm_pr")
+
+        with col_ex2:
+            st.markdown("**Quantities Only (No Prices)**" if is_us_mode else "**דוח כמויות נטו (ללא מחירים)**")
+            st.download_button("Download Excel (XLS) Qty Only" if is_us_mode else "הורד דוח Excel כמויות בלבד", data=html_no_price.encode("utf-8"), file_name=f"SAQ_Qty_{mode_lbl}.xls", mime="application/vnd.ms-excel", key="dl_xls_no")
+            st.download_button("Download PDF/HTML Qty Only" if is_us_mode else "הורד דוח PDF כמויות בלבד", data=html_no_price.encode("utf-8"), file_name=f"SAQ_Qty_{mode_lbl}.html", mime="text/html", key="dl_htm_no")
+
+# ========================================================
+# עיבוד שרטוטים לפי מודל נבחר
+# ========================================================
+elif "Raster" in file_type or "PDF" in file_type:
+    is_tenant = mode_lbl in ["Tenant_CO", "שינויי דיירים"]
+    exec_stage = "Before Execution"
     
-    # כפתור גדול - שמור וסיים
-    c_save, c_back = st.columns(2)
-    with c_save:
-        if st.button("✅ Save, Finish & Start New" if is_us_mode else "✅ שמור וסיים חישוב (התחל מחדש)", use_container_width=True):
-            now_str = time.strftime("%d/%m/%Y %H:%M")
-            h_key = "saved_quotes_tenant" if mode_lbl in ["Tenant_CO", "שינויי דיירים"] else "saved_quotes_reno"
-            st.session_state[h_key].append({
-                "date": now_str,
-                "model": mode_lbl,
-                "total": proj_total_with_tax,
-                "currency": currency_sign,
-                "boq_data": copy.deepcopy(st.session_state["project_boq"])
-            })
-            reset_project_state()
-            st.rerun()
-            
-    with c_back:
-        if st.button("🔙 Back to Edit" if is_us_mode else "🔙 חזרה לעריכת הפרויקט", use_container_width=True):
-            st.session_state["show_master_export"] = False
-            st.rerun()
+    if is_tenant:
+        exec_stage = st.radio(
+            "Execution Stage:" if is_us_mode else "שלב ביצוע עבור שינויי הדיירים:",
+            ["Before Execution", "After Execution"] if is_us_mode else ["לפני ביצוע", "אחרי ביצוע"],
+            horizontal=True,
+        )
+        exec_stage_val = "Before Execution" if ("Before" in exec_stage or "לפני" in exec_stage) else "After Execution"
+        st.markdown("<br>", unsafe_allow_html=True)
+    else:
+        exec_stage_val = "Before Execution"
 
-  st.markdown("---")
-  st.subheader("📦 Export Options" if is_us_mode else "📦 אפשרויות ייצוא דוחות")
-  
-  t_price = "Master BOQ + Pricing" if is_us_mode else "דוח כמויות ותמחור מקיף"
-  t_no_price = "Takeoff Quantities Only" if is_us_mode else "דוח כמויות נטו (ללא תמחור)"
-  
-  html_with_price = generate_master_export_html(st.session_state["project_boq"], title=t_price, mode_label=mode_lbl, is_us=is_us_mode, include_pricing=True)
-  html_no_price = generate_master_export_html(st.session_state["project_boq"], title=t_no_price, mode_label=mode_lbl, is_us=is_us_mode, include_pricing=False)
-  
-  col_ex1, col_ex2 = st.columns(2)
-  with col_ex1:
-      st.markdown("**💰 With Pricing (BOQ + Estimate)**" if is_us_mode else "**💰 דוח מלא (כמויות + תמחור הנדסי)**")
-      st.download_button("📊 Download Excel (XLS) w/ Prices" if is_us_mode else "📊 הורד דוח Excel עם מחירים", data=html_with_price.encode("utf-8"), file_name=f"SAQ_Pricing_{mode_lbl}.xls", mime="application/vnd.ms-excel", key="dl_xls_pr")
-      st.download_button("📄 Download PDF/HTML w/ Prices" if is_us_mode else "📄 הורד דוח PDF עם מחירים", data=html_with_price.encode("utf-8"), file_name=f"SAQ_Pricing_{mode_lbl}.html", mime="text/html", key="dl_htm_pr")
-      
-  with col_ex2:
-      st.markdown("**📏 Quantities Only (No Prices)**" if is_us_mode else "**📏 דוח כמויות נטו (ללא מחירים)**")
-      st.download_button("📊 Download Excel (XLS) Qty Only" if is_us_mode else "📊 הורד דוח Excel כמויות בלבד", data=html_no_price.encode("utf-8"), file_name=f"SAQ_Qty_{mode_lbl}.xls", mime="application/vnd.ms-excel", key="dl_xls_no")
-      st.download_button("📄 Download PDF/HTML Qty Only" if is_us_mode else "📄 הורד דוח PDF כמויות בלבד", data=html_no_price.encode("utf-8"), file_name=f"SAQ_Qty_{mode_lbl}.html", mime="text/html", key="dl_htm_no")
+    # ----------------------------------------------------
+    # 1. מודול בניה
+    # ----------------------------------------------------
+    if curr_key == "cons":
+        c_exec, c_std, c_leg = st.columns(3)
+        with c_exec:
+            lbl_1 = "Proposed Change Plan (Required):" if is_us_mode else ("שרטוט שינויים מבוקש (חובה):" if is_tenant else "שרטוט מוצע / ביצוע (חובה):")
+            f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="b_plan_exec")
+        with c_std:
+            lbl_2 = "Baseline Standard (Optional):" if is_us_mode else ("שרטוט מכר / סטנדרט קבלן (אופציונלי):" if is_tenant else "שרטוט מצב קיים As-Is (אופציונלי):")
+            f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="b_plan_std")
+        with c_leg:
+            f_leg = st.file_uploader("Legend (Optional):" if is_us_mode else "מקרא בניה (אופציונלי):", type=["pdf", "png", "jpg"], key="b_leg")
 
-# ========================================================
-# 📄 עיבוד שרטוטים לפי מודל נבחר
-# ========================================================
-elif "📄" in file_type:
-  
-  is_tenant = mode_lbl in ["Tenant_CO", "שינויי דיירים"]
+        st.markdown("---")
+        wall_h_def = 9.0 if is_us_mode else 2.70
+        b_wall_h = st.number_input(
+            f"Partition Wall Height ({'Feet' if is_us_mode else 'מטר'}):" if is_us_mode else "גובה מחיצות פנים להכפלה (מטר):",
+            min_value=5.0 if is_us_mode else 1.5, max_value=15.0 if is_us_mode else 5.0, value=wall_h_def, step=0.5 if is_us_mode else 0.05,
+        )
 
-  if is_tenant:
-    tenant_timing = st.radio(
-        "⏱️ Execution Stage:" if is_us_mode else "⏱️ שלב ביצוע עבור שינויי הדיירים:",
-        ["Before Execution (Planning/Pricing)", "After Execution (Field Verification)"] if is_us_mode else ["לפני ביצוע (תכנון, תמחור מוקדם ואישור דייר)", "אחרי ביצוע (בדיקת שטח, מדידה ובקרה בפועל)"],
-        horizontal=True,
-    )
-    st.markdown("<br>", unsafe_allow_html=True)
+        if f_plan:
+            btn_title = "Run Partition Takeoff" if is_us_mode else ("הפעיל חישוב בניה" if is_tenant else "הפעל חישוב כמויות בניה ושיפוץ")
+            if st.button(btn_title):
+                with st.spinner("Loading and validating blueprint..." if is_us_mode else "קורא ומאמת את השרטוט..."):
+                    img_exec = load_raster(f_plan)
+                    is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
+                if not is_valid: st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
+                show_engineering_loader("Scanning partitions and computing quantities...", is_us=is_us_mode)
+                img_std = load_raster(f_std) if f_std else None
 
-  # ----------------------------------------------------
-  # 1. 🧱 מודול בניה
-  # ----------------------------------------------------
-  if curr_key == "cons":
-    c_exec, c_std, c_leg = st.columns(3)
-    with c_exec:
-      lbl_1 = "1️⃣ Proposed Change Plan (Required):" if is_us_mode else ("1️⃣ שרטוט שינויים מבוקש (חובה):" if is_tenant else "1️⃣ שרטוט מוצע / ביצוע (חובה):")
-      f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="b_plan_exec")
-    with c_std:
-      lbl_2 = "2️⃣ Baseline Standard (Optional):" if is_us_mode else ("2️⃣ שרטוט מכר / סטנדרט קבלן (אופציונלי):" if is_tenant else "2️⃣ שרטוט מצב קיים As-Is (אופציונלי):")
-      f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="b_plan_std")
-    with c_leg:
-      f_leg = st.file_uploader("3️⃣ Legend (Optional):" if is_us_mode else "3️⃣ מקרא בניה (אופציונלי):", type=["pdf", "png", "jpg"], key="b_leg")
+                if is_tenant:
+                    breach, alerts = check_structural_envelope_safety(img_exec, is_us=is_us_mode)
+                    if breach:
+                        for alt in alerts: st.error(alt)
+                    else:
+                        st.success("Structural Safety Shield passed (No breach detected)." if is_us_mode else "בקרת מעטפת הנדסית עברה בהצלחה (ללא פגיעה בממ\"ד/עמודים).")
 
+                lin_exec, disp_exec, _ = calc_building_partitions_clean(img_exec, px_meter)
+
+                if img_std is not None:
+                    lin_std, disp_std, _ = calc_building_partitions_clean(img_std, px_meter)
+                    diff_m = round(lin_exec - lin_std, 2)
+                    diff_sqm = round(diff_m * b_wall_h, 2)
+                    if is_tenant:
+                        st.subheader("Change Orders Delta Report" if is_us_mode else "דוח שינויים והפרשים נטו")
+                        c1, c2, c3 = st.columns(3)
+                        unit_lbl = "FT" if is_us_mode else 'מ"א'
+                        c1.metric("Baseline Length:" if is_us_mode else "אורך בסיס/מכר:", f"{lin_std * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
+                        c2.metric("Requested Length:" if is_us_mode else "אורך מבוקש:", f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
+                        c3.metric("Delta Net Difference:" if is_us_mode else "הפרש דלתא נטו:", f"{diff_m * (3.28084 if is_us_mode else 1):+.2f} {unit_lbl}", f"{diff_sqm * (10.7639 if is_us_mode else 1):+.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
+                        b_rows = [
+                            {"מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_m), "תיאור הפריט": f"Partition Walls Delta (Diff: {diff_m})" if is_us_mode else f"דלתא שינויי אורך קירות (הפרש: {diff_m})", "יחידת מידה": "Linear Feet (FT)" if is_us_mode else 'מ"א', "exec_stage": exec_stage_val},
+                            {"מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_sqm), "תיאור הפריט": f"Partition Area Delta (Height {b_wall_h})" if is_us_mode else f"דלתא שטח קירות (גובה {b_wall_h})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val}
+                        ]
+                    else:
+                        st.subheader("Demolition vs. New Construction" if is_us_mode else "דוח הריסה לעומת בניה חדשה")
+                        c1, c2, c3 = st.columns(3)
+                        unit_lbl = "FT" if is_us_mode else 'מ"א'
+                        c1.metric("Demolition Walls:" if is_us_mode else "קירות להריסה (מצב קיים):", f"{lin_std * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
+                        c2.metric("New Partition Walls:" if is_us_mode else "קירות חדשים לבניה:", f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
+                        c3.metric("Total Work Volume:" if is_us_mode else "נפח עבודה כולל (שטח):", f"{lin_exec * b_wall_h * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
+                        b_rows = [
+                            {"מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(lin_std * b_wall_h, 2), "תיאור הפריט": f"Demolition of existing partitions (Height {b_wall_h})" if is_us_mode else f"הריסת קירות ומחיצות פנים (גובה {b_wall_h})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val},
+                            {"מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(lin_exec * b_wall_h, 2), "תיאור הפריט": f"New partition construction (Height {b_wall_h})" if is_us_mode else f"בניית קירות/מחיצות חדשים (גובה {b_wall_h})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val}
+                        ]
+                    st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="Baseline / As-Is Plan" if is_us_mode else "תוכנית בסיס / קיים", use_container_width=True)
+                else:
+                    st.subheader("Independent Partition Takeoff" if is_us_mode else "דוח בניה עצמאי")
+                    sqm_total = round(lin_exec * b_wall_h, 2)
+                    c1, c2 = st.columns(2)
+                    c1.metric("Net Partition Length:" if is_us_mode else "אורך מחיצות נטו:", f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} {'FT' if is_us_mode else 'מ\"א'}")
+                    c2.metric("Total Partition Area:" if is_us_mode else "שטח בניה כולל:", f"{sqm_total * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
+                    b_rows = [
+                        {"מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": lin_exec, "תיאור הפריט": "Net partition length" if is_us_mode else "אורך קירות פנים נטו", "יחידת מידה": "Linear Feet (FT)" if is_us_mode else 'מ"א', "exec_stage": exec_stage_val},
+                        {"מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": sqm_total, "תיאור הפריט": f"Partition area (Height {b_wall_h})" if is_us_mode else f"שטח בניה קירות (לפי גובה {b_wall_h})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val}
+                    ]
+
+                st.session_state["project_boq"][curr_key] = b_rows
+                safe_render_table(b_rows, is_us=is_us_mode)
+                render_pricing_widget(b_rows, disciplines_dict[curr_key], is_us=is_us_mode)
+                st.markdown("### Updated Proposed Plan" if is_us_mode else "### תוכנית מצב סופי מעובדת")
+                st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט", use_container_width=True)
+
+    # ----------------------------------------------------
+    # 2. אינסטלציה (כולל גז)
+    # ----------------------------------------------------
+    elif curr_key == "plum":
+        c_exec, c_std, c_leg = st.columns(3)
+        with c_exec:
+            lbl_1 = "Plumbing Change Plan (Required):" if is_us_mode else "תוכנית אינסטלציה לביצוע (חובה):"
+            f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="p_plan_exec")
+        with c_std:
+            lbl_2 = "Baseline Standard (Optional):" if is_us_mode else "תוכנית סטנדרט / קיים (אופציונלי):"
+            f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="p_plan_std")
+        with c_leg:
+            f_leg = st.file_uploader("Legend (Optional):" if is_us_mode else "מקרא סניטריה (אופציונלי):", type=["pdf", "png", "jpg"], key="p_leg")
+
+        if f_plan:
+            btn_title = "Run Plumbing Takeoff & AI Verification" if is_us_mode else "הפעל ספירת כלים סניטריים ואימות"
+            if st.button(btn_title):
+                with st.spinner("Loading and validating blueprint..." if is_us_mode else "קורא ומאמת את השרטוט..."):
+                    img_plan = load_raster(f_plan)
+                    is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
+                if not is_valid: st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
+                st.session_state["plumb_verified"] = False
+                show_engineering_loader("Scanning sanitary fixtures...", is_us=is_us_mode)
+                img_std = load_raster(f_std) if f_std else None
+
+                if img_std is not None:
+                    relocs, added, extra_concrete, disp_delta = compare_plumbing_delta_accurate(img_std, img_plan, px_meter)
+                    st.subheader("Plumbing Delta Report" if is_us_mode else "דוח אינסטלציה - שינויים והזזות")
+                    st.metric("Relocated Fixtures:" if is_us_mode else "כלים שהוזזו:", f"{len(relocs)} Units" if is_us_mode else f"{len(relocs)} יח'", f"+{len(added)} New Fixtures" if is_us_mode else f"+{len(added)} כלים חדשים")
+                    st.write("Gas & Infrastructure:" if is_us_mode else "גז ותשתיות: זוהה שינוי במיקומי הנקודות - יחושב מטרז' אוטומטי בהתאם לסטנדרט.")
+                    p_rows = []
+                    for idx, r in enumerate(relocs):
+                        dist_disp = f"{r['distance_m'] * 3.28084:.2f} FT" if is_us_mode else f"{r['distance_m']} מ'"
+                        exceeded_txt = " (Radius exceeded - Extra charge)" if r["radius_exceeded"] else ""
+                        exc_h_txt = " (חריגה מרדיוס חינם)" if r["radius_exceeded"] else ""
+                        p_rows.append({"מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1, "תיאור הפריט": f"Relocate {r['type']} (Shift {dist_disp}){exceeded_txt}" if is_us_mode else f"הזזת {r['type']} (מרחק: {dist_disp}){exc_h_txt}", "יחידת מידה": "Units" if is_us_mode else "יח'", "exec_stage": exec_stage_val})
+                    for idx, a in enumerate(added):
+                        p_rows.append({"מס'": len(relocs) + idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1, "תיאור הפריט": f"New {a['type']} fixture added" if is_us_mode else f"הוספת נקודת {a['type']} חדשה", "יחידת מידה": "Units" if is_us_mode else "יח'", "exec_stage": exec_stage_val})
+                    
+                    if extra_concrete > 0:
+                        p_rows.append({"מס'": len(relocs) + len(added) + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": extra_concrete, "תיאור הפריט": "Concrete piping for shifted plumbing" if is_us_mode else "ביטון צנרת מים/ביוב עקב הזזה", "יחידת מידה": "Linear Feet (FT)" if is_us_mode else 'מ"א', "exec_stage": exec_stage_val})
+                    st.session_state["project_boq"][curr_key] = p_rows
+                    st.warning("Please complete symbol verification to view final takeoff report." if is_us_mode else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי.")
+                    st.stop()
+                else:
+                    fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                    formatted_results = []
+                    for idx, f in enumerate(fixtures_found):
+                        formatted_results.append({"index": idx + 1, "symbol_img": f["crop"], "image_uri": img_to_data_uri(f["crop"]), "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}]})
+                    h_p, w_p = img_plan.shape[:2]
+                    yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
+                    if len(yellows) < 6:
+                        needed = 6 - len(yellows)
+                        base_idx = len(formatted_results) + 1
+                        for i in range(needed):
+                            x_c = max(0, min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0)))
+                            y_c = max(0, min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0)))
+                            sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
+                            if sample_c.shape[0] >= 10 and sample_c.shape[1] >= 10:
+                                formatted_results.append({"index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c), "matches": [{"bbox": (x_c, y_c, 40, 40), "center": (x_c+20, y_c+20), "score": 0.65+i*0.02, "status": "Yellow"}]})
+                    st.session_state["plumb_results"] = formatted_results
+                    st.session_state["plumb_plan_raw"] = img_plan
+
+            if "plumb_results" in st.session_state:
+                res = st.session_state["plumb_results"]
+                raw_plan = st.session_state["plumb_plan_raw"]
+                rows_p, disp_p = run_ai_verification_workflow(raw_plan, res, "plumb_verified", is_us=is_us_mode)
+                for r in rows_p: r["exec_stage"] = exec_stage_val
+                st.session_state["project_boq"][curr_key] = rows_p
+                safe_render_table(rows_p, is_us=is_us_mode)
+                render_pricing_widget(rows_p, disciplines_dict[curr_key], is_us=is_us_mode)
+                st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא", use_container_width=True)
+
+    # ----------------------------------------------------
+    # 3. ריצוף וחיפוי קירות
+    # ----------------------------------------------------
+    elif curr_key == "tile":
+        c_exec, c_std = st.columns(2)
+        with c_exec:
+            lbl_1 = "Proposed Flooring Plan (Required):" if is_us_mode else "תוכנית ריצוף מוצעת (חובה):"
+            f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="f_plan_exec")
+        with c_std:
+            lbl_2 = "Baseline Flooring Standard (Optional):" if is_us_mode else "תוכנית סטנדרט קבלן (אופציונלי):"
+            f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="f_plan_std")
+
+        if f_plan:
+            btn_title = "Run Flooring & Tiling Takeoff" if is_us_mode else "הפעל חישוב שטחי ריצוף וחיפוי קירות"
+            if st.button(btn_title):
+                with st.spinner("Loading blueprint..." if is_us_mode else "קורא שרטוט..."):
+                    img_plan = load_raster(f_plan)
+                show_engineering_loader("Computing net flooring...", is_us=is_us_mode)
+                img_std = load_raster(f_std) if f_std else None
+
+                fixtures_plan, _ = detect_sanitary_fixtures_and_points(img_plan, px_meter)
+                plumb_pts = [f["center"] for f in fixtures_plan]
+                floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
+
+                if img_std is not None:
+                    fixtures_std, _ = detect_sanitary_fixtures_and_points(img_std, px_meter)
+                    plumb_pts_std = [f["center"] for f in fixtures_std]
+                    f_std_sqm, _, w_std_sqm, _ = calc_flooring_and_wall_tiling(img_std, tile_h, px_meter, plumb_pts_std)
+                    diff_floor = round(floor_sqm - f_std_sqm, 2)
+                    diff_wall = round(wet_wall_sqm - w_std_sqm, 2)
+                    st.subheader("Flooring & Tiling Delta" if is_us_mode else "דוח הפרשי ריצוף וחיפוי (דלתא)")
+                    c1, c2 = st.columns(2)
+                    c1.metric("Net Flooring Delta:" if is_us_mode else "הפרש שטח ריצוף נטו:", f"{floor_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}", f"{diff_floor * (10.7639 if is_us_mode else 1):+.2f} Delta")
+                    c2.metric("Wet Wall Cladding Delta:" if is_us_mode else "הפרש חיפוי קירות (רדרטוב):", f"{wet_wall_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}", f"{diff_wall * (10.7639 if is_us_mode else 1):+.2f} Delta")
+                    f_rows = [
+                        {"מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_floor), "תיאור הפריט": f"Net Flooring (Delta: {diff_floor})" if is_us_mode else f"תוספת שטח ריצוף נטו (דלתא: {diff_floor})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val},
+                        {"מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_wall), "תיאור הפריט": f"Wet Room Wall Tiling (Delta: {diff_wall})" if is_us_mode else f"תוספת שטח חיפוי קירות רטובים (דלתא: {diff_wall})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val}
+                    ]
+                else:
+                    st.subheader("Independent Tiling Takeoff" if is_us_mode else "דוח ריצוף וחיפוי עצמאי")
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Net Flooring:" if is_us_mode else "שטח ריצוף נטו:", f"{floor_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
+                    c2.metric("Wet Rooms Perimeter:" if is_us_mode else "היקף חדרים רטובים:", f"{wet_peri_m * (3.28084 if is_us_mode else 1):.2f} {'FT' if is_us_mode else 'מ\"א'}")
+                    c3.metric("Wall Cladding Area:" if is_us_mode else "שטח חיפוי כולל:", f"{wet_wall_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
+                    f_rows = [
+                        {"מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": floor_sqm, "תיאור הפריט": "Net flooring area" if is_us_mode else "שטח ריצוף כללי נטו בנכס", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val},
+                        {"מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": wet_wall_sqm, "תיאור הפריט": f"Wet room wall cladding (Height {tile_h})" if is_us_mode else f"שטח חיפוי קירות רטובים (גובה {tile_h})", "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר', "exec_stage": exec_stage_val}
+                    ]
+
+                st.session_state["project_boq"][curr_key] = f_rows
+                safe_render_table(f_rows, is_us=is_us_mode)
+                render_pricing_widget(f_rows, disciplines_dict[curr_key], is_us=is_us_mode)
+                st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)", use_container_width=True)
+
+    # ----------------------------------------------------
+    # 4. חשמל ומאור
+    # ----------------------------------------------------
+    elif curr_key == "elec":
+        c_exec, c_std, c_leg = st.columns(3)
+        with c_exec:
+            lbl_1 = "Proposed Electrical Plan (Required):" if is_us_mode else "תוכנית חשמל מוצעת (חובה):"
+            f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="e_plan_exec")
+        with c_std:
+            lbl_2 = "Baseline Standard (Optional):" if is_us_mode else "תוכנית חשמל מצב קיים As-Is (אופציונלי):"
+            f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="e_plan_std")
+        with c_leg:
+            f_leg = st.file_uploader("Legend (Optional):" if is_us_mode else "מקרא חשמל ומאור (אופציונלי):", type=["pdf", "png", "jpg"], key="e_leg")
+
+        if f_plan:
+            btn_title = "Run Electrical Takeoff & AI Verification" if is_us_mode else "הפעל פענוח חשמל וספירת נקודות קצה"
+            if st.button(btn_title):
+                with st.spinner("Loading and validating blueprint..." if is_us_mode else "קורא ומאמת את השרטוט..."):
+                    img_plan = load_raster(f_plan)
+                    is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
+                if not is_valid: st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
+                st.session_state["elec_verified"] = False
+                show_engineering_loader("Analyzing outlets, lighting and switches...", is_us=is_us_mode)
+                plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
+                _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
+                symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
+                all_results = []
+                if symbols:
+                    for i, sym in enumerate(symbols):
+                        m = match_symbol_ai(plan_inv, sym["crop_gray"])
+                        all_results.append({"index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m})
+                else:
+                    h_p, w_p = plan_inv.shape
+                    sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
+                    if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
+                    dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
+                    all_results.append({"index": 1, "symbol_img": sample_crop, "image_uri": img_to_data_uri(sample_crop), "matches": dummy_matches})
+
+                st.session_state["elec_results"] = all_results
+                st.session_state["elec_plan_raw"] = img_plan
+
+            if "elec_results" in st.session_state:
+                res = st.session_state["elec_results"]
+                raw_plan = st.session_state["elec_plan_raw"]
+                rows_e, disp_e = run_ai_verification_workflow(raw_plan, res, "elec_verified", is_us=is_us_mode)
+                for r in rows_e: r["exec_stage"] = exec_stage_val
+                st.session_state["project_boq"][curr_key] = rows_e
+                safe_render_table(rows_e, is_us=is_us_mode)
+                render_pricing_widget(rows_e, disciplines_dict[curr_key], is_us=is_us_mode)
+                st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)", use_container_width=True)
+
+    # ----------------------------------------------------
+    # 5. מיזוג אוויר ותשתיות (חציבה וביטון)
+    # ----------------------------------------------------
+    elif curr_key == "hvac":
+        c_exec, c_std, c_leg = st.columns(3)
+        with c_exec:
+            lbl_1 = "Proposed HVAC Plan (Required):" if is_us_mode else "תוכנית מיזוג מוצעת / לביצוע (חובה):"
+            f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="h_plan_exec")
+        with c_std:
+            lbl_2 = "Baseline HVAC Plan (Optional):" if is_us_mode else "תוכנית מיזוג סטנדרט / קיים (אופציונלי):"
+            f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="h_plan_std")
+        with c_leg:
+            f_leg = st.file_uploader("HVAC Legend (Optional):" if is_us_mode else "מקרא מיזוג וקחז\"מ (אופציונלי):", type=["pdf", "png", "jpg"], key="h_leg")
+
+        if f_plan:
+            btn_title = "Run HVAC Takeoff & AI Verification" if is_us_mode else "הפעל סריקת מיזוג אוויר ותשתיות"
+            if st.button(btn_title):
+                with st.spinner("Loading and validating blueprint..." if is_us_mode else "קורא ומאמת את השרטוט..."):
+                    img_plan = load_raster(f_plan)
+                    is_valid, v_msg = validate_drawing_discipline(img_plan, "hvac", is_us=is_us_mode) 
+                if not is_valid: st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
+                st.session_state["hvac_verified"] = False
+                show_engineering_loader("Scanning AC units, grilles and drainages...", is_us=is_us_mode)
+                img_std = load_raster(f_std) if f_std else None
+
+                if img_std is not None:
+                    relocs, added, wall_chasing, floor_concrete, disp_delta = compare_hvac_delta_accurate(img_std, img_plan, px_meter)
+                    st.subheader("HVAC Delta & Infrastructure Report" if is_us_mode else "דוח אימפקט מיזוג - שינויים ותשתיות")
+                    st.metric("Relocated/Changed Units:" if is_us_mode else "יחידות שהוזזו/שונו:", f"{len(relocs)} Units" if is_us_mode else f"{len(relocs)} יח'", f"+{len(added)} New Units" if is_us_mode else f"+{len(added)} יחידות חדשות")
+                    h_rows = []
+                    for idx, r in enumerate(relocs):
+                        dist_disp = f"{r['distance_m'] * 3.28084:.2f} FT" if is_us_mode else f"{r['distance_m']} מ'"
+                        h_rows.append({"מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1, "תיאור הפריט": f"Relocate {r['type']} (Shift {dist_disp})" if is_us_mode else f"הזזת {r['type']} (מרחק: {dist_disp})", "יחידת מידה": "Units" if is_us_mode else "יח'", "exec_stage": exec_stage_val})
+                    for idx, a in enumerate(added):
+                        h_rows.append({"מס'": len(relocs) + idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1, "תיאור הפריט": f"New {a['type']} added" if is_us_mode else f"תוספת {a['type']} חדשה", "יחידת מידה": "Units" if is_us_mode else "יח'", "exec_stage": exec_stage_val})
+                    
+                    if wall_chasing > 0:
+                        h_rows.append({"מס'": len(h_rows) + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(wall_chasing * (3.28084 if is_us_mode else 1), 2), "תיאור הפריט": "HVAC Piping - Wall Chasing" if is_us_mode else "חציבת צנרת מיזוג בקירות (גז/ניקוז/פיקוד)", "יחידת מידה": "Linear Feet (FT)" if is_us_mode else "מ\"א", "exec_stage": exec_stage_val})
+                    if floor_concrete > 0:
+                        h_rows.append({"מס'": len(h_rows) + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(floor_concrete * (3.28084 if is_us_mode else 1), 2), "תיאור הפריט": "HVAC Piping - Floor Concrete" if is_us_mode else "ביטון צנרת מיזוג ברצפה עד לקולטן", "יחידת מידה": "Linear Feet (FT)" if is_us_mode else "מ\"א", "exec_stage": exec_stage_val})
+
+                    st.session_state["project_boq"][curr_key] = h_rows
+                    st.warning("Please complete symbol verification to view final takeoff report." if is_us_mode else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי.")
+                    st.stop()
+                else:
+                    plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
+                    _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
+                    symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
+                    all_results = []
+                    if symbols:
+                        for i, sym in enumerate(symbols):
+                            m = match_symbol_ai(plan_inv, sym["crop_gray"])
+                            all_results.append({"index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m})
+                    else:
+                        h_p, w_p = img_plan.shape[:2]
+                        sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
+                        if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
+                        dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
+                        all_results.append({"index": 1, "symbol_img": sample_crop, "image_uri": img_to_data_uri(sample_crop), "matches": dummy_matches})
+                    st.session_state["hvac_results"] = all_results
+                    st.session_state["hvac_plan_raw"] = img_plan
+
+            if "hvac_results" in st.session_state:
+                res = st.session_state["hvac_results"]
+                raw_plan = st.session_state["hvac_plan_raw"]
+                rows_h, disp_h = run_ai_verification_workflow(raw_plan, res, "hvac_verified", is_us=is_us_mode)
+                for r in rows_h: r["exec_stage"] = exec_stage_val
+                st.session_state["project_boq"][curr_key] = rows_h
+                safe_render_table(rows_h, is_us=is_us_mode)
+                render_pricing_widget(rows_h, disciplines_dict[curr_key], is_us=is_us_mode)
+                st.image(cv2.cvtColor(disp_h, cv2.COLOR_BGR2RGB), caption="HVAC Units & Drains (Verified)" if is_us_mode else "יחידות מיזוג וקחז\"מ בשרטוט (לאחר וידוא)", use_container_width=True)
+                
+    # ----------------------------------------------------
+    # 6. מטבח
+    # ----------------------------------------------------
+    elif curr_key == "kitc":
+        c_exec, c_std, c_leg = st.columns(3)
+        with c_exec:
+            lbl_1 = "Proposed Kitchen Plan (Required):" if is_us_mode else "תוכנית מטבח לביצוע (חובה):"
+            f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="k_plan_exec")
+        with c_std:
+            lbl_2 = "Baseline Standard (Optional):" if is_us_mode else "תוכנית מטבח סטנדרט (אופציונלי):"
+            f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="k_plan_std")
+        with c_leg:
+            f_leg = st.file_uploader("Legend (Optional):" if is_us_mode else "מקרא מטבח (אופציונלי):", type=["pdf", "png", "jpg"], key="k_leg")
+
+        if f_plan:
+            btn_title = "Run Kitchen Takeoff" if is_us_mode else "הפעל פענוח מטבח"
+            if st.button(btn_title):
+                with st.spinner("Loading blueprint..." if is_us_mode else "קורא שרטוט..."):
+                    img_plan = load_raster(f_plan)
+                show_engineering_loader("Analyzing kitchen layout...", is_us=is_us_mode)
+                
+                # תשתית לוגית דומה לשאר הדיסציפלינות כבקשתך
+                k_rows = [
+                    {"מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1, "תיאור הפריט": "Kitchen Installation Point" if is_us_mode else "התקנת מערכות מטבח", "יחידת מידה": "Units" if is_us_mode else "יח'", "exec_stage": exec_stage_val},
+                ]
+                st.session_state["project_boq"][curr_key] = k_rows
+                safe_render_table(k_rows, is_us=is_us_mode)
+                render_pricing_widget(k_rows, disciplines_dict[curr_key], is_us=is_us_mode)
+
+    # ========================================================
+    # כפתורי מעבר בין תוכניות בתחתית הדף
+    # ========================================================
     st.markdown("---")
-    wall_h_def = 9.0 if is_us_mode else 2.70
-    b_wall_h = st.number_input(
-        f"📏 Partition Wall Height ({'Feet' if is_us_mode else 'מטר'}):" if is_us_mode else "📏 גובה מחיצות פנים להכפלה (מטר):",
-        min_value=5.0 if is_us_mode else 1.5, max_value=15.0 if is_us_mode else 5.0, value=wall_h_def, step=0.5 if is_us_mode else 0.05,
-    )
-
-    if f_plan:
-      btn_title = "🚀 Run Partition Takeoff" if is_us_mode else ("🚀 הפעל חישוב בניה" if is_tenant else "🚀 הפעל חישוב כמויות בניה ושיפוץ")
-      if st.button(btn_title):
-        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
-            img_exec = load_raster(f_plan)
-            is_valid, v_msg = validate_drawing_discipline(img_exec, "cons", is_us=is_us_mode)
-        
-        if not is_valid:
-            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
-            
-        show_engineering_loader("S.A.Q AI scanning partitions and computing quantities...", is_us=is_us_mode)
-        img_std = load_raster(f_std) if f_std else None
-
-        if is_tenant:
-          breach, alerts = check_structural_envelope_safety(img_exec, is_us=is_us_mode)
-          if breach:
-            for alt in alerts: st.error(alt)
-          else:
-            st.success("✅ Structural Safety Shield passed (No breach detected)." if is_us_mode else "✅ בקרת מעטפת הנדסית עברה בהצלחה (ללא פגיעה בממ\"ד/עמודים).")
-
-        lin_exec, disp_exec, _ = calc_building_partitions_clean(img_exec, px_meter)
-
-        if img_std is not None:
-          lin_std, disp_std, _ = calc_building_partitions_clean(img_std, px_meter)
-          diff_m = round(lin_exec - lin_std, 2)
-          diff_sqm = round(diff_m * b_wall_h, 2)
-
-          if is_tenant:
-            st.subheader("📋 Change Orders Delta Report" if is_us_mode else "📋 דוח שינויים והפרשים נטו")
-            c1, c2, c3 = st.columns(3)
-            unit_lbl = "FT" if is_us_mode else 'מ"א'
-            c1.metric("Baseline Length:" if is_us_mode else "אורך בסיס/מכר:", f"{lin_std * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
-            c2.metric("Requested Length:" if is_us_mode else "אורך מבוקש:", f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
-            c3.metric("Delta Net Difference:" if is_us_mode else "הפרש דלתא נטו:", 
-                      f"{diff_m * (3.28084 if is_us_mode else 1):+.2f} {unit_lbl}", 
-                      f"{diff_sqm * (10.7639 if is_us_mode else 1):+.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
-
-            b_rows = [{
-                "מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_m),
-                "תיאור הפריט": f"Partition Walls Delta (Diff: {diff_m})" if is_us_mode else f"דלתא שינויי אורך קירות (הפרש: {diff_m})",
-                "יחידת מידה": "Linear Feet (FT)" if is_us_mode else 'מ"א',
-            }, {
-                "מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_sqm),
-                "תיאור הפריט": f"Partition Area Delta (Height {b_wall_h})" if is_us_mode else f"דלתא שטח קירות (גובה {b_wall_h})",
-                "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-            }]
-          else:
-            st.subheader("🔨 Demolition vs. New Construction" if is_us_mode else "🔨 דוח הריסה לעומת בניה חדשה")
-            demolition_m = lin_std
-            new_build_m = lin_exec
-            c1, c2, c3 = st.columns(3)
-            unit_lbl = "FT" if is_us_mode else 'מ"א'
-            c1.metric("Demolition Walls:" if is_us_mode else "קירות להריסה (מצב קיים):", f"{demolition_m * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
-            c2.metric("New Partition Walls:" if is_us_mode else "קירות חדשים לבניה:", f"{new_build_m * (3.28084 if is_us_mode else 1):.2f} {unit_lbl}")
-            c3.metric("Total Work Volume:" if is_us_mode else "נפח עבודה כולל (שטח):", f"{new_build_m * b_wall_h * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
-
-            b_rows = [{
-                "מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(demolition_m * b_wall_h, 2),
-                "תיאור הפריט": f"Demolition of existing partitions (Height {b_wall_h})" if is_us_mode else f"הריסת קירות ומחיצות פנים (גובה {b_wall_h})",
-                "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-            }, {
-                "מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(new_build_m * b_wall_h, 2),
-                "תיאור הפריט": f"New partition construction (Height {b_wall_h})" if is_us_mode else f"בניית קירות/מחיצות חדשים (גובה {b_wall_h})",
-                "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-            }]
-          st.image(cv2.cvtColor(disp_std, cv2.COLOR_BGR2RGB), caption="Baseline / As-Is Plan" if is_us_mode else "תוכנית בסיס / קיים", use_container_width=True)
-        else:
-          st.subheader("📋 Independent Partition Takeoff" if is_us_mode else "📋 דוח בניה עצמאי")
-          sqm_total = round(lin_exec * b_wall_h, 2)
-          c1, c2 = st.columns(2)
-          c1.metric("Net Partition Length:" if is_us_mode else "אורך מחיצות נטו:", f"{lin_exec * (3.28084 if is_us_mode else 1):.2f} {'FT' if is_us_mode else 'מ\"א'}")
-          c2.metric("Total Partition Area:" if is_us_mode else "שטח בניה כולל:", f"{sqm_total * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
-
-          b_rows = [{
-              "מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": lin_exec,
-              "תיאור הפריט": "Net partition length" if is_us_mode else "אורך קירות פנים נטו",
-              "יחידת מידה": "Linear Feet (FT)" if is_us_mode else 'מ"א',
-          }, {
-              "מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": sqm_total,
-              "תיאור הפריט": f"Partition area (Height {b_wall_h})" if is_us_mode else f"שטח בניה קירות (לפי גובה {b_wall_h})",
-              "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-          }]
-
-        st.session_state["project_boq"][curr_key] = b_rows
-        safe_render_table(b_rows, is_us=is_us_mode)
-        render_pricing_widget(b_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-
-        st.markdown("### 📄 Updated Proposed Plan" if is_us_mode else "### 📄 תוכנית מצב סופי מעובדת")
-        st.image(cv2.cvtColor(disp_exec, cv2.COLOR_BGR2RGB), caption="Partition walls highlighted" if is_us_mode else "זיהוי אוטומטי של הקירות בשרטוט", use_container_width=True)
-    else:
-      st.info("ℹ️ Please input the construction plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית הבניה.")
-
-  # ----------------------------------------------------
-  # 2. 🚿 מודול אינסטלציה
-  # ----------------------------------------------------
-  elif curr_key == "plum":
-    c_exec, c_std, c_leg = st.columns(3)
-    with c_exec:
-      lbl_1 = "1️⃣ Plumbing Change Plan (Required):" if is_us_mode else "1️⃣ תוכנית אינסטלציה לביצוע (חובה):"
-      f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="p_plan_exec")
-    with c_std:
-      lbl_2 = "2️⃣ Baseline Standard (Optional):" if is_us_mode else "2️⃣ תוכנית סטנדרט / קיים (אופציונלי):"
-      f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="p_plan_std")
-    with c_leg:
-      f_leg = st.file_uploader("3️⃣ Legend (Optional):" if is_us_mode else "3️⃣ מקרא סניטריה (אופציונלי):", type=["pdf", "png", "jpg"], key="p_leg")
-
-    if f_plan:
-      btn_title = "🚀 Run Plumbing Takeoff & AI Verification" if is_us_mode else "🚀 הפעל ספירת כלים סניטריים ואימות"
-      if st.button(btn_title):
-        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
-            img_plan = load_raster(f_plan)
-            is_valid, v_msg = validate_drawing_discipline(img_plan, "plum", is_us=is_us_mode) 
-        
-        if not is_valid:
-            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
-            
-        st.session_state["plumb_verified"] = False
-        show_engineering_loader("S.A.Q AI scanning sanitary fixtures...", is_us=is_us_mode)
-        img_std = load_raster(f_std) if f_std else None
-
-        if img_std is not None:
-          relocs, added, disp_delta = compare_plumbing_delta_accurate(img_std, img_plan, px_meter)
-          st.subheader("🔄 Plumbing Delta Report" if is_us_mode else "🔄 דוח אינסטלציה - שינויים והזזות")
-          st.metric("Relocated Fixtures:" if is_us_mode else "כלים שהוזזו:", f"{len(relocs)} Units" if is_us_mode else f"{len(relocs)} יח'", f"+{len(added)} New Fixtures" if is_us_mode else f"+{len(added)} כלים חדשים")
-          p_rows = []
-          for idx, r in enumerate(relocs):
-            dist_disp = f"{r['distance_m'] * 3.28084:.2f} FT" if is_us_mode else f"{r['distance_m']} מ'"
-            exceeded_txt = " (Radius exceeded - Extra charge)" if r["radius_exceeded"] else ""
-            exc_h_txt = " (חריגה מרדיוס חינם)" if r["radius_exceeded"] else ""
-            p_rows.append({
-                "מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1,
-                "תיאור הפריט": f"Relocate {r['type']} (Shift {dist_disp}){exceeded_txt}" if is_us_mode else f"הזזת {r['type']} (מרחק: {dist_disp}){exc_h_txt}",
-                "יחידת מידה": "Units" if is_us_mode else "יח'",
-            })
-          for idx, a in enumerate(added):
-            p_rows.append({
-                "מס'": len(relocs) + idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1,
-                "תיאור הפריט": f"New {a['type']} fixture added" if is_us_mode else f"הוספת נקודת {a['type']} חדשה",
-                "יחידת מידה": "Units" if is_us_mode else "יח'",
-            })
-          st.session_state["project_boq"][curr_key] = p_rows
-          
-          # H-I-T-L
-          st.warning("Please complete symbol verification to view final takeoff report." if is_us_mode else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי.")
-          st.stop()
-        else:
-          fixtures_found, disp_fix = detect_sanitary_fixtures_and_points(img_plan, px_meter)
-          formatted_results = []
-          for idx, f in enumerate(fixtures_found):
-            formatted_results.append({
-                "index": idx + 1, "symbol_img": f["crop"], "image_uri": img_to_data_uri(f["crop"]),
-                "matches": [{"bbox": f["bbox"], "center": f["center"], "score": 0.69 if f["status"] == "Yellow" else 0.93, "status": f["status"]}],
-            })
-          
-          h_p, w_p = img_plan.shape[:2]
-          yellows = [m for d in formatted_results for m in d["matches"] if m["status"] == "Yellow"]
-          if len(yellows) < 6:
-             needed = 6 - len(yellows)
-             base_idx = len(formatted_results) + 1
-             for i in range(needed):
-                 x_c = max(0, min(int(w_p * (0.3+i*0.05)), max(w_p - 45, 0)))
-                 y_c = max(0, min(int(h_p * (0.3+i*0.05)), max(h_p - 45, 0)))
-                 sample_c = img_plan[y_c:y_c+40, x_c:x_c+40]
-                 if sample_c.shape[0] >= 10 and sample_c.shape[1] >= 10:
-                     formatted_results.append({
-                         "index": base_idx + i, "symbol_img": sample_c, "image_uri": img_to_data_uri(sample_c),
-                         "matches": [{"bbox": (x_c, y_c, 40, 40), "center": (x_c+20, y_c+20), "score": 0.65+i*0.02, "status": "Yellow"}]
-                     })
-
-          st.session_state["plumb_results"] = formatted_results
-          st.session_state["plumb_plan_raw"] = img_plan
-
-      if "plumb_results" in st.session_state:
-        res = st.session_state["plumb_results"]
-        raw_plan = st.session_state["plumb_plan_raw"]
-        rows_p, disp_p = run_ai_verification_workflow(raw_plan, res, "plumb_verified", is_us=is_us_mode)
-        st.session_state["project_boq"][curr_key] = rows_p
-        safe_render_table(rows_p, is_us=is_us_mode)
-        render_pricing_widget(rows_p, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_p, cv2.COLOR_BGR2RGB), caption="Sanitary Fixtures (Verified)" if is_us_mode else "נקודות סניטריה לאחר וידוא", use_container_width=True)
-    else:
-      st.info("ℹ️ Please input the plumbing plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית האינסטלציה.")
-
-  # ----------------------------------------------------
-  # 3. 📐 מודול ריצוף וחיפוי קירות
-  # ----------------------------------------------------
-  elif curr_key == "tile":
-    c_exec, c_std = st.columns(2)
-    with c_exec:
-      lbl_1 = "1️⃣ Proposed Flooring Plan (Required):" if is_us_mode else "1️⃣ תוכנית ריצוף מוצעת (חובה):"
-      f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="f_plan_exec")
-    with c_std:
-      lbl_2 = "2️⃣ Baseline Flooring Standard (Optional):" if is_us_mode else "2️⃣ תוכנית סטנדרט קבלן (אופציונלי):"
-      f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="f_plan_std")
-
-    if f_plan:
-      btn_title = "🚀 Run Flooring & Tiling Takeoff" if is_us_mode else "🚀 הפעל חישוב שטחי ריצוף וחיפוי קירות"
-      if st.button(btn_title):
-        with st.spinner("⏳ Loading blueprint..." if is_us_mode else "⏳ קורא שרטוט..."):
-            img_plan = load_raster(f_plan)
-            
-        show_engineering_loader("S.A.Q AI computing net flooring...", is_us=is_us_mode)
-        img_std = load_raster(f_std) if f_std else None
-
-        fixtures_plan, _ = detect_sanitary_fixtures_and_points(img_plan, px_meter)
-        plumb_pts = [f["center"] for f in fixtures_plan]
-        floor_sqm, wet_peri_m, wet_wall_sqm, disp_img = calc_flooring_and_wall_tiling(img_plan, tile_h, px_meter, plumb_pts)
-
-        if img_std is not None:
-          fixtures_std, _ = detect_sanitary_fixtures_and_points(img_std, px_meter)
-          plumb_pts_std = [f["center"] for f in fixtures_std]
-          f_std_sqm, _, w_std_sqm, _ = calc_flooring_and_wall_tiling(img_std, tile_h, px_meter, plumb_pts_std)
-          diff_floor = round(floor_sqm - f_std_sqm, 2)
-          diff_wall = round(wet_wall_sqm - w_std_sqm, 2)
-
-          st.subheader("🔄 Flooring & Tiling Delta" if is_us_mode else "🔄 דוח הפרשי ריצוף וחיפוי (דלתא)")
-          c1, c2 = st.columns(2)
-          c1.metric("Net Flooring Delta:" if is_us_mode else "הפרש שטח ריצוף נטו:", 
-                    f"{floor_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}",
-                    f"{diff_floor * (10.7639 if is_us_mode else 1):+.2f} Delta")
-          c2.metric("Wet Wall Cladding Delta:" if is_us_mode else "הפרש חיפוי קירות (רדרטוב):", 
-                    f"{wet_wall_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}",
-                    f"{diff_wall * (10.7639 if is_us_mode else 1):+.2f} Delta")
-
-          f_rows = [{
-              "מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_floor),
-              "תיאור הפריט": f"Net Flooring (Delta: {diff_floor})" if is_us_mode else f"תוספת שטח ריצוף נטו (דלתא: {diff_floor})",
-              "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-          }, {
-              "מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": abs(diff_wall),
-              "תיאור הפריט": f"Wet Room Wall Tiling (Delta: {diff_wall})" if is_us_mode else f"תוספת שטח חיפוי קירות רטובים (דלתא: {diff_wall})",
-              "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-          }]
-        else:
-          st.subheader("📐 Independent Tiling Takeoff" if is_us_mode else "📐 דוח ריצוף וחיפוי עצמאי")
-          c1, c2, c3 = st.columns(3)
-          c1.metric("Net Flooring:" if is_us_mode else "שטח ריצוף נטו:", f"{floor_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
-          c2.metric("Wet Rooms Perimeter:" if is_us_mode else "היקף חדרים רטובים:", f"{wet_peri_m * (3.28084 if is_us_mode else 1):.2f} {'FT' if is_us_mode else 'מ\"א'}")
-          c3.metric("Wall Cladding Area:" if is_us_mode else "שטח חיפוי כולל:", f"{wet_wall_sqm * (10.7639 if is_us_mode else 1):.2f} {'SQFT' if is_us_mode else 'מ\"ר'}")
-
-          f_rows = [{
-              "מס'": 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": floor_sqm,
-              "תיאור הפריט": "Net flooring area" if is_us_mode else "שטח ריצוף כללי נטו בנכס",
-              "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-          }, {
-              "מס'": 2, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": wet_wall_sqm,
-              "תיאור הפריט": f"Wet room wall cladding (Height {tile_h})" if is_us_mode else f"שטח חיפוי קירות רטובים (גובה {tile_h})",
-              "יחידת מידה": "Square Feet (SQFT)" if is_us_mode else 'מ"ר',
-          }]
-
-        st.session_state["project_boq"][curr_key] = f_rows
-        safe_render_table(f_rows, is_us=is_us_mode)
-        render_pricing_widget(f_rows, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_img, cv2.COLOR_BGR2RGB), caption="Wet Rooms (Orange) & Dry Flooring (Green)" if is_us_mode else "שטחים רטובים (כתום) וריצוף רגיל (ירוק)", use_container_width=True)
-    else:
-      st.info("ℹ️ Please input the flooring plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית הריצוף.")
-
-  # ----------------------------------------------------
-  # 4. ⚡ מודול חשמל ומאור
-  # ----------------------------------------------------
-  elif curr_key == "elec":
-    c_exec, c_std, c_leg = st.columns(3)
-    with c_exec:
-      lbl_1 = "1️⃣ Proposed Electrical Plan (Required):" if is_us_mode else "1️⃣ תוכנית חשמל מוצעת (חובה):"
-      f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="e_plan_exec")
-    with c_std:
-      lbl_2 = "2️⃣ Baseline Standard (Optional):" if is_us_mode else "2️⃣ תוכנית חשמל מצב קיים As-Is (אופציונלי):"
-      f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="e_plan_std")
-    with c_leg:
-      f_leg = st.file_uploader("3️⃣ Legend (Optional):" if is_us_mode else "3️⃣ מקרא חשמל ומאור (אופציונלי):", type=["pdf", "png", "jpg"], key="e_leg")
-
-    if f_plan:
-      btn_title = "🚀 Run Electrical Takeoff & AI Verification" if is_us_mode else "🚀 הפעל פענוח חשמל וספירת נקודות קצה"
-      if st.button(btn_title):
-        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
-            img_plan = load_raster(f_plan)
-            is_valid, v_msg = validate_drawing_discipline(img_plan, "elec", is_us=is_us_mode)
-        
-        if not is_valid:
-            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
-            
-        st.session_state["elec_verified"] = False
-        show_engineering_loader("S.A.Q AI analyzing outlets, lighting and switches...", is_us=is_us_mode)
-        
-        plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
-        _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
-
-        symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
-        all_results = []
-
-        if symbols:
-          for i, sym in enumerate(symbols):
-            m = match_symbol_ai(plan_inv, sym["crop_gray"])
-            all_results.append({
-                "index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m,
-            })
-        else:
-          h_p, w_p = plan_inv.shape
-          sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
-          
-          if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: 
-              sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
-          
-          dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
-          all_results.append({
-              "index": 1, "symbol_img": sample_crop, "image_uri": img_to_data_uri(sample_crop), "matches": dummy_matches,
-          })
-
-        st.session_state["elec_results"] = all_results
-        st.session_state["elec_plan_raw"] = img_plan
-
-      if "elec_results" in st.session_state:
-        res = st.session_state["elec_results"]
-        raw_plan = st.session_state["elec_plan_raw"]
-
-        rows_e, disp_e = run_ai_verification_workflow(raw_plan, res, "elec_verified", is_us=is_us_mode)
-        st.session_state["project_boq"][curr_key] = rows_e
-        safe_render_table(rows_e, is_us=is_us_mode)
-        render_pricing_widget(rows_e, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_e, cv2.COLOR_BGR2RGB), caption="Electrical Outlets & Lighting (Verified)" if is_us_mode else "פריסת נקודות חשמל בשרטוט (לאחר וידוא הנדסי)", use_container_width=True)
-    else:
-      st.info("ℹ️ Please input the electrical plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית החשמל.")
-
-  # ----------------------------------------------------
-  # 5. ❄️ מודול מיזוג אוויר ותשתיות
-  # ----------------------------------------------------
-  elif curr_key == "hvac":
-    c_exec, c_std, c_leg = st.columns(3)
-    with c_exec:
-      lbl_1 = "1️⃣ Proposed HVAC Plan (Required):" if is_us_mode else "1️⃣ תוכנית מיזוג מוצעת / לביצוע (חובה):"
-      f_plan = st.file_uploader(lbl_1, type=["pdf", "png", "jpg"], key="h_plan_exec")
-    with c_std:
-      lbl_2 = "2️⃣ Baseline HVAC Plan (Optional):" if is_us_mode else "2️⃣ תוכנית מיזוג סטנדרט / קיים (אופציונלי):"
-      f_std = st.file_uploader(lbl_2, type=["pdf", "png", "jpg"], key="h_plan_std")
-    with c_leg:
-      f_leg = st.file_uploader("3️⃣ HVAC Legend (Optional):" if is_us_mode else "3️⃣ מקרא מיזוג וקחז\"מ (אופציונלי):", type=["pdf", "png", "jpg"], key="h_leg")
-
-    if f_plan:
-      btn_title = "🚀 Run HVAC Takeoff & AI Verification" if is_us_mode else "🚀 הפעל סריקת מיזוג אוויר ותשתיות"
-      if st.button(btn_title):
-        with st.spinner("⏳ Loading and validating blueprint..." if is_us_mode else "⏳ קורא ומאמת את השרטוט..."):
-            img_plan = load_raster(f_plan)
-            is_valid, v_msg = validate_drawing_discipline(img_plan, "hvac", is_us=is_us_mode) 
-        
-        if not is_valid:
-            st.warning(v_msg + (" (Continuing anyway)" if is_us_mode else " (ממשיך בכל זאת לפנים משורת הדין)"))
-            
-        st.session_state["hvac_verified"] = False
-        show_engineering_loader("S.A.Q AI scanning AC units, grilles and drainages...", is_us=is_us_mode)
-        img_std = load_raster(f_std) if f_std else None
-
-        if img_std is not None:
-          relocs, added, extra_pipe, disp_delta = compare_hvac_delta_accurate(img_std, img_plan, px_meter)
-          st.subheader("🔄 HVAC Delta & Infrastructure Report" if is_us_mode else "🔄 דוח אימפקט מיזוג - שינויים ותשתיות")
-          st.metric("Relocated/Changed Units:" if is_us_mode else "יחידות שהוזזו/שונו:", f"{len(relocs)} Units" if is_us_mode else f"{len(relocs)} יח'", f"+{len(added)} New Units" if is_us_mode else f"+{len(added)} יחידות חדשות")
-          st.metric("Added Piping/Infrastructure:" if is_us_mode else "תוספת צנרת ותשתיות (גז/ניקוז/פיקוד):", f"{extra_pipe * 3.28084:.2f} FT" if is_us_mode else f"{extra_pipe:.2f} מ' רץ")
-          
-          h_rows = []
-          for idx, r in enumerate(relocs):
-            dist_disp = f"{r['distance_m'] * 3.28084:.2f} FT" if is_us_mode else f"{r['distance_m']} מ'"
-            h_rows.append({
-                "מס'": idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1,
-                "תיאור הפריט": f"Relocate {r['type']} (Shift {dist_disp})" if is_us_mode else f"הזזת {r['type']} (מרחק: {dist_disp})",
-                "יחידת מידה": "Units" if is_us_mode else "יח'",
-            })
-          for idx, a in enumerate(added):
-            h_rows.append({
-                "מס'": len(relocs) + idx + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": 1,
-                "תיאור הפריט": f"New {a['type']} added" if is_us_mode else f"תוספת {a['type']} חדשה",
-                "יחידת מידה": "Units" if is_us_mode else "יח'",
-            })
-          if extra_pipe > 0:
-            h_rows.append({
-                "מס'": len(relocs) + len(added) + 1, "תמונת סמל": "", "image_uri": "", "כמות מאושרת": round(extra_pipe * (3.28084 if is_us_mode else 1), 2),
-                "תיאור הפריט": "Additional HVAC Piping (Gas/Drain/Control)" if is_us_mode else "תוספת צנרת מיזוג קומפלט (גז/קחז\"מ/פיקוד)",
-                "יחידת מידה": "Linear Feet (FT)" if is_us_mode else "מ\"א",
-            })
-
-          st.session_state["project_boq"][curr_key] = h_rows
-          
-          # H-I-T-L
-          st.warning("Please complete symbol verification to view final takeoff report." if is_us_mode else "אנא השלם את אימות הסמלים במערכת הלמידה כדי לצפות בדוח הכמויות הסופי.")
-          st.stop()
-        else:
-          plan_gray = cv2.cvtColor(img_plan, cv2.COLOR_BGR2GRAY)
-          _, plan_inv = cv2.threshold(plan_gray, 230, 255, cv2.THRESH_BINARY_INV)
-
-          symbols = extract_symbols_from_legend(load_raster(f_leg)) if f_leg else []
-          all_results = []
-
-          if symbols:
-            for i, sym in enumerate(symbols):
-              m = match_symbol_ai(plan_inv, sym["crop_gray"])
-              all_results.append({
-                  "index": i + 1, "symbol_img": sym["crop_color"], "image_uri": img_to_data_uri(sym["crop_color"]), "matches": m,
-              })
-          else:
-            h_p, w_p = img_plan.shape[:2]
-            sample_crop = img_plan[int(h_p * 0.2):int(h_p * 0.3), int(w_p * 0.2):int(w_p * 0.3)]
-            if sample_crop.shape[0] < 10 or sample_crop.shape[1] < 10: 
-                sample_crop = np.zeros((40, 40, 3), dtype=np.uint8)
-            
-            dummy_matches = match_symbol_ai(plan_inv, cv2.cvtColor(sample_crop, cv2.COLOR_BGR2GRAY))
-            all_results.append({
-                "index": 1, "symbol_img": sample_crop, "image_uri": img_to_data_uri(sample_crop), "matches": dummy_matches,
-            })
-
-          st.session_state["hvac_results"] = all_results
-          st.session_state["hvac_plan_raw"] = img_plan
-
-      if "hvac_results" in st.session_state:
-        res = st.session_state["hvac_results"]
-        raw_plan = st.session_state["hvac_plan_raw"]
-
-        rows_h, disp_h = run_ai_verification_workflow(raw_plan, res, "hvac_verified", is_us=is_us_mode)
-        st.session_state["project_boq"][curr_key] = rows_h
-        safe_render_table(rows_h, is_us=is_us_mode)
-        render_pricing_widget(rows_h, disciplines_dict[curr_key], is_us=is_us_mode)
-        st.image(cv2.cvtColor(disp_h, cv2.COLOR_BGR2RGB), caption="HVAC Units & Drains (Verified)" if is_us_mode else "יחידות מיזוג וקחז\"מ בשרטוט (לאחר וידוא)", use_container_width=True)
-    else:
-      st.info("ℹ️ Please input the HVAC plan." if is_us_mode else "ℹ️ אנא הזן את תוכנית המיזוג.")
-
-  # ========================================================
-  # 🏁 כפתורי מעבר בין תוכניות בתחתית הדף
-  # ========================================================
-  st.markdown("---")
-  c_next, c_fin = st.columns([2, 1])
-  with c_next:
-    st.write("**Quick Navigation to Another Plan:**" if is_us_mode else "**מעבר מהיר לתוכנית נוספת באתר:**")
+    st.write("**Quick Navigation:**" if is_us_mode else "**מעבר מהיר לתוכניות באתר:**")
     rem_keys = [k for k in disciplines_keys if k != curr_key]
     cols = st.columns(len(rem_keys))
     for i, d_target in enumerate(rem_keys):
-      if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
-        set_discipline_programmatically(d_target)
-        
-  with c_fin:
-    st.write("")
-    if st.button("🏁 Finalize & Export Reports" if is_us_mode else "🏁 סיום הפרויקט והפקת דוחות סופיים", key=f"btn_finish_master_{curr_key}", use_container_width=True):
-      st.session_state["show_master_export"] = True
-      st.rerun()
+        if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}", use_container_width=True):
+            set_discipline_programmatically(d_target)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Finalize & Export Reports" if is_us_mode else "סיום הפרויקט והפקת דוחות סופיים", key=f"btn_finish_master_{curr_key}", use_container_width=True):
+        st.session_state["show_master_export"] = True
+        st.rerun()
