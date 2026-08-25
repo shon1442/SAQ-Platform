@@ -235,13 +235,13 @@ def validate_drawing_discipline(img, expected_disc, is_us=False):
             plumbing_fixtures += 1
 
     if expected_disc == "elec" and circular_symbols < 3:
-        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols. Did you upload a blank architecture plan?" 
-               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור. הפעולה נחסמה למניעת טעויות.")
+        msg = ("⚠️ Engineering Alert: Drawing lacks electrical symbols." 
+               if is_us else "⚠️ זיהוי אוטומטי: השרטוט נראה כמו תוכנית אדריכלות ריקה. לא נמצאו סמלי חשמל ומאור.")
         return False, msg
         
-    elif expected_disc == "cons" and lines < 3:
+    elif expected_disc == "cons" and lines < 5:
         msg = ("⚠️ Engineering Alert: Drawing lacks continuous walls/partitions." 
-               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו קירות או מחיצות ברורים בשרטוט. האם העלית תוכנית שגויה?")
+               if is_us else "⚠️ זיהוי אוטומטי: לא נמצאו מספיק קירות או מחיצות ברורים בשרטוט.")
         return False, msg
         
     elif expected_disc == "plum" and plumbing_fixtures < 1 and circular_symbols < 2:
@@ -272,123 +272,52 @@ def show_engineering_loader(text="S.A. Quantities AI is processing data...", is_
   progress_bar.empty()
   status_box.success("✅ Takeoff completed successfully!" if is_us else "✅ פענוח האתר הסתיים בהצלחה!")
 
-
 # ========================================================
-# 🚀 אנימציית פתיחה CSS (Pure GPU Render)
+# 🚀 אנימציית פתיחה CSS (מחשבים את העתיד)
 # ========================================================
 if "splash_shown" not in st.session_state:
   st.session_state["splash_shown"] = True
-  st.markdown(
-      """
-    <style>
-    .fullscreen-splash {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%);
-        z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center;
-        overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif;
-        animation: hideSplash 4.2s forwards ease-in-out;
-    }
+  
+  splash_css = ""
+  splash_css += "<style>\n"
+  splash_css += ".fullscreen-splash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 50%, #e0c3fc 100%); z-index: 999999; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; animation: hideSplash 4.2s forwards ease-in-out; }\n"
+  splash_css += "@keyframes hideSplash { 0% { opacity: 1; visibility: visible; } 85% { opacity: 1; visibility: visible; } 99% { opacity: 0; visibility: visible; } 100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; } }\n"
+  splash_css += ".morning-sun { position: absolute; top: 15%; right: 20%; width: 120px; height: 120px; background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%); border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9; }\n"
+  splash_css += ".sea-layer { position: absolute; bottom: 0; width: 100%; height: 30vh; background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%); box-shadow: 0 -5px 25px rgba(0,0,0,0.2); }\n"
+  splash_css += ".skyline { position: absolute; bottom: 30vh; width: 100%; height: 25vh; background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px), linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%); }\n"
+  splash_css += ".splash-tower { position: absolute; bottom: 10vh; width: 160px; height: 55vh; background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%); box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555; }\n"
+  splash_css += ".crane-system { position: absolute; top: 0; height: 100vh; width: 100vw; display: flex; justify-content: center; }\n"
+  splash_css += ".crane-cable { width: 3px; height: 0; background: #333; animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative; }\n"
+  splash_css += ".glass-floor { position: absolute; bottom: -30px; left: -82px; width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5); }\n"
+  splash_css += "@keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }\n"
+  splash_css += ".dust { position: absolute; background: rgba(255, 255, 255, 0.9); border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1); animation: float 2.5s infinite ease-in-out alternate; }\n"
+  splash_css += "@keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }\n"
+  splash_css += ".splash-text-main { position: absolute; bottom: 14%; font-size: 52px; font-weight: 400; color: #ffffff; letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4); opacity: 0; animation: textFade 1s 1s forwards ease-in-out; }\n"
+  splash_css += "@keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }\n"
+  splash_css += ".css-progress-container { position: absolute; bottom: 8%; width: 40%; height: 6px; background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden; opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out; }\n"
+  splash_css += ".css-progress-fill { height: 100%; width: 0%; background: #facc15; animation: fillBar 3s 1.2s linear forwards; }\n"
+  splash_css += "@keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }\n"
+  splash_css += "</style>\n"
 
-    @keyframes hideSplash {
-        0% { opacity: 1; visibility: visible; }
-        85% { opacity: 1; visibility: visible; }
-        99% { opacity: 0; visibility: visible; }
-        100% { opacity: 0; visibility: hidden; pointer-events: none; z-index: -10; display: none; }
-    }
-
-    .morning-sun {
-        position: absolute; top: 15%; right: 20%;
-        width: 120px; height: 120px;
-        background: radial-gradient(circle, #fffdf2 0%, #ffeaa7 40%, rgba(255,234,167,0) 80%);
-        border-radius: 50%; box-shadow: 0 0 60px rgba(255, 223, 112, 0.8); opacity: 0.9;
-    }
-
-    .sea-layer {
-        position: absolute; bottom: 0; width: 100%; height: 30vh;
-        background: linear-gradient(to bottom, rgba(0, 105, 148, 0.7) 0%, rgba(0, 50, 90, 0.9) 100%);
-        box-shadow: 0 -5px 25px rgba(0,0,0,0.2);
-    }
-    
-    .skyline {
-        position: absolute; bottom: 30vh; width: 100%; height: 25vh;
-        background: repeating-linear-gradient(90deg, transparent 0px, transparent 30px, rgba(45, 60, 80, 0.6) 30px, rgba(45, 60, 80, 0.6) 60px),
-                    linear-gradient(to top, rgba(45, 60, 80, 0.9) 0%, transparent 100%);
-    }
-
-    .splash-tower {
-        position: absolute; bottom: 10vh; width: 160px; height: 55vh;
-        background: linear-gradient(to right, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5); border-top: 2px solid #555;
-    }
-
-    .crane-system {
-        position: absolute; top: 0; height: 100vh; width: 100vw;
-        display: flex; justify-content: center;
-    }
-    
-    .crane-cable {
-        width: 3px; height: 0; background: #333;
-        animation: lowerCable 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; position: relative;
-    }
-    
-    .glass-floor {
-        position: absolute; bottom: -30px; left: -82px;
-        width: 167px; height: 30px; background: rgba(255, 255, 255, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.9);
-        box-shadow: 0 0 25px rgba(255, 255, 255, 0.6), inset 0 0 15px rgba(255,255,255,0.5);
-    }
-    
-    @keyframes lowerCable { 0% { height: 5vh; } 100% { height: 35vh; } }
-
-    .dust {
-        position: absolute; background: rgba(255, 255, 255, 0.9);
-        border-radius: 50%; width: 3px; height: 3px; box-shadow: 0 0 6px rgba(255, 255, 255, 1);
-        animation: float 2.5s infinite ease-in-out alternate;
-    }
-    @keyframes float { 0% { transform: translateY(0) scale(1); opacity: 0.9; } 100% { transform: translateY(-40px) scale(1.5); opacity: 0; } }
-
-    .splash-text-main {
-        position: absolute; bottom: 14%;
-        font-size: 52px; font-weight: 400; color: #ffffff;
-        letter-spacing: 6px; text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        opacity: 0; animation: textFade 1s 1s forwards ease-in-out;
-    }
-    @keyframes textFade { 0% { opacity: 0; transform: translateY(15px); } 100% { opacity: 1; transform: translateY(0); } }
-
-    .css-progress-container {
-        position: absolute; bottom: 8%; width: 40%; height: 6px;
-        background: rgba(255,255,255,0.3); border-radius: 4px; overflow: hidden;
-        opacity: 0; animation: textFade 1s 1.2s forwards ease-in-out;
-    }
-    .css-progress-fill {
-        height: 100%; width: 0%; background: #facc15;
-        animation: fillBar 3s 1.2s linear forwards;
-    }
-    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
-    </style>
-
-    <div class="fullscreen-splash" translate="no">
-        <div class="morning-sun"></div>
-        <div class="skyline"></div>
-        <div class="sea-layer"></div>
-        <div class="splash-tower"></div>
-        <div class="crane-system">
-            <div class="crane-cable">
-                <div class="glass-floor"></div>
-                <div class="dust" style="bottom: -35px; left: -90px; animation-delay: 0.2s;"></div>
-                <div class="dust" style="bottom: -25px; left: 90px; animation-delay: 0.5s;"></div>
-                <div class="dust" style="bottom: -45px; left: -30px; animation-delay: 0.8s;"></div>
-                <div class="dust" style="bottom: -20px; left: 40px; animation-delay: 1.2s;"></div>
-            </div>
-        </div>
-        <div class="splash-text-main">מחשבים את העתיד</div>
-        <div class="css-progress-container">
-            <div class="css-progress-fill"></div>
-        </div>
-    </div>
-    """,
-      unsafe_allow_html=True,
-  )
+  splash_html = "<div class='fullscreen-splash' translate='no'>\n"
+  splash_html += "<div class='morning-sun'></div>\n"
+  splash_html += "<div class='skyline'></div>\n"
+  splash_html += "<div class='sea-layer'></div>\n"
+  splash_html += "<div class='splash-tower'></div>\n"
+  splash_html += "<div class='crane-system'>\n"
+  splash_html += "<div class='crane-cable'>\n"
+  splash_html += "<div class='glass-floor'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -35px; left: -90px; animation-delay: 0.2s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -25px; left: 90px; animation-delay: 0.5s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -45px; left: -30px; animation-delay: 0.8s;'></div>\n"
+  splash_html += "<div class='dust' style='bottom: -20px; left: 40px; animation-delay: 1.2s;'></div>\n"
+  splash_html += "</div>\n"
+  splash_html += "</div>\n"
+  splash_html += "<div class='splash-text-main'>מחשבים את העתיד</div>\n"
+  splash_html += "<div class='css-progress-container'><div class='css-progress-fill'></div></div>\n"
+  splash_html += "</div>\n"
+  
+  st.markdown(splash_css + splash_html, unsafe_allow_html=True)
 
   time.sleep(4)
   st.session_state["app_initialized"] = True
@@ -527,7 +456,6 @@ def get_morphological_skeleton(binary_img):
 def calc_building_partitions_clean(plan_img, px_per_meter=125.0):
   interior_mask, envelope = extract_interior_walls_clean(plan_img, px_per_meter)
   
-  # תיקון מתקדם כדי שחדרים ייסגרו יפה לפני הספירה
   k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
   closed_walls = cv2.morphologyEx(interior_mask, cv2.MORPH_CLOSE, k_close, iterations=2)
   
@@ -823,57 +751,6 @@ def run_ai_verification_workflow(raw_plan, results_list, session_key_verified, i
       })
   return rows, disp_plan
 
-# ========================================================
-# תיקון מתקדם - מודול ריצוף המבוסס על סגירת חדרים
-# ========================================================
-def calc_flooring_and_wall_tiling(plan_img, tiling_height=2.40, px_per_meter=125.0, plumbing_centers=[]):
-  gray = cv2.cvtColor(plan_img, cv2.COLOR_BGR2GRAY)
-  
-  # כדי למצוא חדרים (אזורים סגורים), קודם נבודד את הקירות בצבע לבן
-  _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY_INV)
-  
-  # ביצוע פעולת "מורפולוגיה" שסוגרת פתחים ודלתות כדי שחדרים יהיו סגורים מכל כיוון
-  kernel_close = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
-  closed_walls = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel_close, iterations=2)
-  
-  # היפוך הצבע: עכשיו החדרים הפכו לכתמים לבנים והקירות לשחור
-  rooms_img = cv2.bitwise_not(closed_walls)
-  
-  contours, _ = cv2.findContours(rooms_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-  
-  total_flooring_sqm = 0.0
-  wet_rooms_perimeter_m = 0.0
-  disp_img = plan_img.copy()
-  
-  for c in contours:
-    area_px = cv2.contourArea(c)
-    # סינון גדלי חדרים הגיוניים בלבד
-    min_room_px = (1.0 * px_per_meter) * (1.0 * px_per_meter)
-    max_room_px = (20.0 * px_per_meter) * (20.0 * px_per_meter)
-    
-    if min_room_px <= area_px <= max_room_px:
-      sqm = area_px / (px_per_meter**2)
-      total_flooring_sqm += sqm
-      
-      # זיהוי חדר רטוב אם יש בו קואורדינטה של כלי סניטרי
-      is_wet_room = False
-      for pc in plumbing_centers:
-          if cv2.pointPolygonTest(c, (float(pc[0]), float(pc[1])), False) >= 0:
-              is_wet_room = True
-              break
-              
-      peri_m = cv2.arcLength(c, True) / px_per_meter
-      
-      if is_wet_room:
-        wet_rooms_perimeter_m += peri_m
-        cv2.drawContours(disp_img, [c], -1, (0, 165, 255), 3) # כתום
-      else:
-        cv2.drawContours(disp_img, [c], -1, (0, 200, 0), 2) # ירוק
-        
-  wet_wall_tiling_sqm = wet_rooms_perimeter_m * tiling_height
-  return (round(total_flooring_sqm, 2), round(wet_rooms_perimeter_m, 2), round(wet_wall_tiling_sqm, 2), disp_img)
-
-# ייצוא דוחות דינמי - אפשרות לבחור האם לכלול מחירים או כמויות נטו
 def generate_master_export_html(project_boq, title="דוח כתב כמויות מאוחד לפרויקט", mode_label="שינויי דיירים", is_us=False, include_pricing=True):
   logo_uri = img_to_data_uri(cv2.imread(LOGO_PATH)) if has_logo else ""
   logo_html = f'<img src="{logo_uri}" style="max-height: 50px;"/>' if logo_uri else '<div class="logo-txt">S.A.Q Takeoff AI</div>'
@@ -990,8 +867,6 @@ def generate_master_export_html(project_boq, title="דוח כתב כמויות �
   html += "</body></html>"
   return html
 
-
-# פונקציית איפוס הפרדה בין המודלים (Isolation)
 def reset_project_state():
     st.session_state["project_boq"] = {k: [] for k in disciplines_keys}
     keys_to_clear = [
@@ -1001,7 +876,6 @@ def reset_project_state():
     ]
     for key in keys_to_clear:
         st.session_state.pop(key, None)
-
 
 if "global_is_us" not in st.session_state:
     st.session_state["global_is_us"] = False
@@ -1025,6 +899,9 @@ if "current_discipline" not in st.session_state:
   st.session_state["current_discipline"] = "elec"
 if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
+
+if "saved_quotes" not in st.session_state:
+    st.session_state["saved_quotes"] = []
 
 # ========================================================
 # 🎨 מסך פתיחה גרפי – בחירת מודל עבודה
@@ -1086,7 +963,7 @@ if st.session_state["app_mode"] is None:
     )
     if st.button(tenant_btn_txt, use_container_width=True, key="btn_mode_tenant"):
       st.session_state["app_mode"] = "Tenant_CO" if is_us_mode else "שינויי דיירים"
-      reset_project_state() # נכנס נקי
+      reset_project_state()
       st.rerun()
 
   with col_m2:
@@ -1097,7 +974,7 @@ if st.session_state["app_mode"] is None:
     )
     if st.button(reno_btn_txt, use_container_width=True, key="btn_mode_reno"):
       st.session_state["app_mode"] = "Renovation" if is_us_mode else "קבלני שיפוצים"
-      reset_project_state() # נכנס נקי
+      reset_project_state()
       st.rerun()
 
   st.stop()
@@ -1161,7 +1038,7 @@ with st.sidebar:
       ["📄 PDF / Image (Raster)", "📐 Vector CAD (DXF)"] if is_us_mode else ["📄 PDF / תמונה (Raster)", "📐 CAD וקטורי (DXF)"],
   )
   discipline_display = st.selectbox(
-      "Primary Discipline:" if is_us_mode else "דיסציפלינה ראשית:",
+      "Current Plan:" if is_us_mode else "סוג תוכנית:",
       disciplines_display,
       index=curr_idx,
       key="disc_selector_widget",
@@ -1195,15 +1072,17 @@ with st.sidebar:
   st.caption(f"{appr_lbl} {len(ai_memory.get('approved_patterns', []))}")
   
   saved_count = len([k for k, v in st.session_state["project_boq"].items() if len(v) > 0])
-  st.info(f"Disciplines with Qty: **{saved_count}** of 4" if is_us_mode else f"דיסציפלינות שחושבו: **{saved_count}** מתוך 4")
+  st.info(f"Plans with Qty: **{saved_count}** of 4" if is_us_mode else f"תוכניות שחושבו: **{saved_count}** מתוך 4")
   
   if st.button("📑 Open Master BOQ Hub" if is_us_mode else "📑 פתח מרכז דוחות (ייצוא/שמירה)", use_container_width=True):
     st.session_state["show_master_export"] = True
     st.rerun()
 
-  # ==================================
-  # היסטוריית הצעות מחיר לפי מודל (Isolated History)
-  # ==================================
+  # כפתור מחיקת נתונים בסיידבר
+  if st.button("🗑️ Start New Calculation" if is_us_mode else "🗑️ התחל חישוב מחדש (נקה נתונים)", use_container_width=True):
+      reset_project_state()
+      st.rerun()
+
   st.markdown("---")
   st.markdown("### 📁 Saved Quotes" if is_us_mode else "### 📁 הצעות מחיר שמורות")
   
@@ -1235,7 +1114,7 @@ with col_l:
 with col_t:
   st.title("S.A. Quantities AI (S.A.Q) - Global Takeoff Platform" if is_us_mode else "פלטפורמת חישוב כמויות - S.A. Quantities AI (S.A.Q)")
   region_title = "🇺🇸 USA (Imperial)" if is_us_mode else "🇮🇱 Israel (Metric)"
-  st.caption(f"Active Site | Region: {region_title} | Model: {mode_lbl} | Discipline: {disciplines_dict[curr_key]}")
+  st.caption(f"Active Site | Region: {region_title} | Model: {mode_lbl} | Plan: {disciplines_dict[curr_key]}" if is_us_mode else f"אתר פעיל | מיקום: {region_title} | מודל: {mode_lbl} | תוכנית: {disciplines_dict[curr_key]}")
 
 
 # ========================================================
@@ -1256,7 +1135,7 @@ if st.session_state.get("show_master_export", False):
         render_pricing_widget(d_rows, d_name, is_us=is_us_mode)
         for r in d_rows: all_project_rows.append(r)
       else:
-        st.write("No quantities recorded in this discipline yet." if is_us_mode else "טרם הופקו כמויות בדיסציפלינה זו (0).")
+        st.write("No quantities recorded in this plan yet." if is_us_mode else "טרם הופקו כמויות בתוכנית זו (0).")
 
   if all_project_rows:
     st.markdown("---")
@@ -1285,11 +1164,12 @@ if st.session_state.get("show_master_export", False):
     col_pr2.metric(f"{tax_label} [{currency_sign}]", f"{proj_tax:,.2f} {currency_sign}")
     col_pr3.metric(f"{lbl_c3} [{currency_sign}]", f"{proj_total_with_tax:,.2f} {currency_sign}")
 
-    # --- כפתור שמירת הצעה להיסטוריה ---
     st.markdown("<br>", unsafe_allow_html=True)
-    c_save, _ = st.columns([1, 2])
+    
+    # כפתור גדול - שמור וסיים
+    c_save, c_back = st.columns(2)
     with c_save:
-        if st.button("💾 Save Quote to History" if is_us_mode else "💾 שמור הצעת מחיר זו בארכיון", use_container_width=True):
+        if st.button("✅ Save, Finish & Start New" if is_us_mode else "✅ שמור וסיים חישוב (התחלה מחדש)", use_container_width=True):
             now_str = time.strftime("%d/%m/%Y %H:%M")
             h_key = "saved_quotes_tenant" if mode_lbl in ["Tenant_CO", "שינויי דיירים"] else "saved_quotes_reno"
             st.session_state[h_key].append({
@@ -1299,9 +1179,14 @@ if st.session_state.get("show_master_export", False):
                 "currency": currency_sign,
                 "boq_data": copy.deepcopy(st.session_state["project_boq"])
             })
-            st.success("Quote saved! View it in the sidebar." if is_us_mode else "ההצעה נשמרה! ניתן לראות אותה בסרגל הכלים בצד שמאל.")
+            reset_project_state()
+            st.rerun()
+            
+    with c_back:
+        if st.button("🔙 Back to Edit" if is_us_mode else "🔙 חזרה לעריכת הפרויקט", use_container_width=True):
+            st.session_state["show_master_export"] = False
+            st.rerun()
 
-  # --- אפשרויות ייצוא ---
   st.markdown("---")
   st.subheader("📦 Export Options" if is_us_mode else "📦 אפשרויות ייצוא דוחות")
   
@@ -1318,10 +1203,6 @@ if st.session_state.get("show_master_export", False):
       st.markdown("**📏 Quantities Only (No Prices)**" if is_us_mode else "**📏 דוח כמויות נטו (ללא מחירים)**")
       st.download_button("📊 Download Excel (XLS) Qty Only" if is_us_mode else "📊 הורד דוח Excel כמויות בלבד", data=html_no_price.encode("utf-8"), file_name=f"SAQ_Qty_{mode_lbl}.xls", mime="application/vnd.ms-excel", key="dl_xls_no")
       st.download_button("📄 Download PDF/HTML Qty Only" if is_us_mode else "📄 הורד דוח PDF כמויות בלבד", data=html_no_price.encode("utf-8"), file_name=f"SAQ_Qty_{mode_lbl}.html", mime="text/html", key="dl_htm_no")
-
-  if st.button("🔙 Back to Takeoff Workspace" if is_us_mode else "🔙 חזרה לעריכת הפרויקט"):
-    st.session_state["show_master_export"] = False
-    st.rerun()
 
 # ========================================================
 # 📄 עיבוד שרטוטים לפי מודל נבחר
@@ -1691,18 +1572,12 @@ elif "📄" in file_type:
       st.info("ℹ️ Please upload at least the electrical plan." if is_us_mode else "ℹ️ אנא העלה לפחות את תוכנית החשמל לחישוב.")
 
   # ========================================================
-  # 🏁 כפתורי סיום פרויקט ומעבר דיסציפלינה
+  # 🏁 כפתורי מעבר בין תוכניות בתחתית הדף
   # ========================================================
   st.markdown("---")
-  c_fin, c_next = st.columns(2)
-  with c_fin:
-    if st.button("🏁 Complete Project & Export Final Reports" if is_us_mode else "🏁 סיום הפרויקט והפקת דוחות סופיים", key=f"btn_finish_master_{curr_key}"):
-      st.session_state["show_master_export"] = True
-      st.rerun()
-  with c_next:
-    st.write("**Quick Navigation to Another Discipline:**" if is_us_mode else "**מעבר מהיר לדיסציפלינה נוספת באתר:**")
-    rem_keys = [k for k in disciplines_keys if k != curr_key]
-    cols = st.columns(len(rem_keys))
-    for i, d_target in enumerate(rem_keys):
-      if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
-        set_discipline_programmatically(d_target)
+  st.write("**Quick Navigation to Another Plan:**" if is_us_mode else "**מעבר מהיר לתוכנית נוספת באתר:**")
+  rem_keys = [k for k in disciplines_keys if k != curr_key]
+  cols = st.columns(len(rem_keys))
+  for i, d_target in enumerate(rem_keys):
+    if cols[i].button(disciplines_dict[d_target], key=f"btn_nav_{d_target}"):
+      set_discipline_programmatically(d_target)
