@@ -183,7 +183,7 @@ def show_engineering_loader(
 
 
 # ========================================================
-# 🚀 אנימציית פתיחה עתידנית וריאליסטית: מנוף מסתובב ושלד בניין (3 שניות)
+# 🚀 אנימציית פתיחה ריאליסטית: מגדל בניין קם ושורט מנוף (3 שניות)
 # ========================================================
 if "app_initialized" not in st.session_state:
   st.session_state["app_initialized"] = False
@@ -198,7 +198,7 @@ if not st.session_state["app_initialized"]:
         left: 0;
         width: 100vw;
         height: 100vh;
-        background: linear-gradient(135deg, #050b14 0%, #0f172a 50%, #1e1b4b 100%);
+        background: radial-gradient(circle, #020617 0%, #0f172a 60%, #1e1b4b 100%);
         z-index: 999999;
         display: flex;
         flex-direction: column;
@@ -207,52 +207,55 @@ if not st.session_state["app_initialized"]:
         color: white;
         font-family: 'Segoe UI', Arial, sans-serif;
     }
-    .realistic-site {
+    .blueprint-grid {
         position: relative;
-        width: 340px;
-        height: 240px;
-        border-bottom: 5px solid #38bdf8;
+        width: 320px;
+        height: 250px;
+        border-bottom: 4px solid #38bdf8;
+        background-image: linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px);
+        background-size: 20px 20px;
         margin-bottom: 25px;
         display: flex;
         justify-content: center;
         align-items: flex-end;
     }
-    @keyframes realisticCrane {
-        0% { transform: rotate(-18deg) scaleX(1); }
-        50% { transform: rotate(22deg) scaleX(1); }
-        100% { transform: rotate(-18deg) scaleX(1); }
+    @keyframes realCraneMove {
+        0% { transform: rotate(-20deg); }
+        50% { transform: rotate(25deg); }
+        100% { transform: rotate(-20deg); }
     }
-    @keyframes structuralRise {
+    @keyframes towerRise {
         0% { height: 10px; opacity: 0.1; }
-        100% { height: 200px; opacity: 1; }
+        100% { height: 210px; opacity: 1; }
     }
-    .splash-real-crane {
+    .real-crane {
         position: absolute;
-        top: -5px;
-        right: 10px;
+        top: 0;
+        right: 15px;
         font-size: 75px;
         transform-origin: bottom center;
-        animation: realisticCrane 0.9s infinite ease-in-out;
-        filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.9));
+        animation: realCraneMove 0.8s infinite ease-in-out;
+        filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.9));
     }
-    .splash-real-structure {
-        width: 110px;
-        background: linear-gradient(to top, #1e293b, #3b82f6, #93c5fd);
+    .real-tower {
+        width: 100px;
+        background: linear-gradient(to top, #1e3a8a, #3b82f6, #60a5fa);
         border-radius: 6px 6px 0 0;
-        animation: structuralRise 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
-        box-shadow: 0 0 45px rgba(59, 130, 246, 0.8);
-        border: 2px solid #bfdbfe;
+        animation: towerRise 2.8s forwards cubic-bezier(0.1, 1, 0.1, 1);
+        box-shadow: 0 0 50px rgba(59, 130, 246, 0.8);
+        border: 2px solid #93c5fd;
         display: flex;
         flex-direction: column;
         justify-content: space-around;
         align-items: center;
-        padding: 6px 0;
+        padding: 8px 0;
     }
-    .glass-pane {
-        width: 90px;
-        height: 12px;
+    .floor-window {
+        width: 75px;
+        height: 10px;
         background-color: #fef08a;
-        box-shadow: 0 0 12px #fde047;
+        box-shadow: 0 0 10px #facc15;
         border-radius: 2px;
     }
     .splash-title {
@@ -271,16 +274,16 @@ if not st.session_state["app_initialized"]:
     }
     </style>
     <div class="fullscreen-splash">
-        <div class="realistic-site">
-            <div class="splash-real-crane">🏗️</div>
-            <div class="splash-real-structure">
-                <div class="glass-pane"></div>
-                <div class="glass-pane"></div>
-                <div class="glass-pane"></div>
-                <div class="glass-pane"></div>
-                <div class="glass-pane"></div>
-                <div class="glass-pane"></div>
-                <div class="glass-pane"></div>
+        <div class="blueprint-grid">
+            <div class="real-crane">🏗️</div>
+            <div class="real-tower">
+                <div class="floor-window"></div>
+                <div class="floor-window"></div>
+                <div class="floor-window"></div>
+                <div class="floor-window"></div>
+                <div class="floor-window"></div>
+                <div class="floor-window"></div>
+                <div class="floor-window"></div>
             </div>
         </div>
         <div class="splash-title">S.A. Quantities AI (S.A.Q)</div>
@@ -388,7 +391,7 @@ def render_pricing_widget(boq_rows, discipline_name, is_us=False):
         f" {currency_sign}** (Excluding local taxes & overhead)"
         if is_us
         else f"🏆 **עלות כוללת מוערכת לפריטים אלו:"
-        f" {total_est_price:,.2f} ₪** (לפני מעונות והוצאות כלליות)"
+        f" {total_est_price:,.2f} ₪** (לפני מע\"ם והוצאות כלליות)"
     )
 
 
@@ -1005,7 +1008,7 @@ if "show_master_export" not in st.session_state:
   st.session_state["show_master_export"] = False
 
 # ========================================================
-# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (בורר שפה מובנה במלבן העליון)
+# 🎨 מסך פתיחה גרפי – בחירת מודל עבודה (עם בורר שפה מובנה במלבן העליון)
 # ========================================================
 if "app_mode" not in st.session_state:
   st.session_state["app_mode"] = None
@@ -1069,7 +1072,7 @@ if st.session_state["app_mode"] is None:
   )
   st.markdown("<br>", unsafe_allow_html=True)
 
-  # מלבן עליון המרכז את בחירת המיקום והשפה הגלובלית
+  # מלבן עליון מרכזי המרכז את בחירת המיקום והשפה הגלובלית (ללא קווים מיותרים)
   st.markdown("<div class='top-header-box'>", unsafe_allow_html=True)
   home_geo = st.selectbox(
       "🌍 Choose Region & Language / בחירת אזור גיאוגרפי ושפה:",
